@@ -111,7 +111,7 @@ export default function AccountsPage() {
                   <p className="font-medium">{inv.customer_name || "Invoice"}</p>
                   <p className="text-xs text-muted-foreground">{inv.status}</p>
                 </div>
-                <span className="font-medium text-sonar">AED {inv.total_amount || 0}</span>
+                <span className="font-medium text-sonar">AED {inv.total || 0}</span>
               </div>
             ))}
           </div>

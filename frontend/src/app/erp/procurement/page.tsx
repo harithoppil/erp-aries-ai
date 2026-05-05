@@ -60,8 +60,8 @@ export default function ProcurementPage() {
             {suppliers.map((s) => (
               <div key={s.id} className="flex items-center justify-between px-4 py-3">
                 <div>
-                  <p className="font-medium">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">{s.country || "Unknown"} · {s.supplier_type || "General"}</p>
+                  <p className="font-medium">{s.supplier_name}</p>
+                  <p className="text-xs text-muted-foreground">{s.category || "General"} · {s.supplier_code}</p>
                 </div>
                 <span className="text-xs text-muted-foreground">{s.email || "—"}</span>
               </div>

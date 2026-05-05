@@ -72,6 +72,7 @@ class SalesInvoice(Base):
 
     paid_amount: Mapped[float] = mapped_column(Float, default=0.0)
     outstanding_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    document_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("uploaded_documents.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -490,6 +491,7 @@ class Supplier(Base):
     address: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(String(100))  # ndt_equipment, rope_access, marine_services
     rating: Mapped[float | None] = mapped_column(Float)
+    document_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("uploaded_documents.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

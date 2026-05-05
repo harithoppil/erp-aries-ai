@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useResponsive } from "@/hooks/use-responsive";
+import { usePageContext } from "@/hooks/usePageContext";
 
 /* ═══════════════════════════════════════════════════════════
  * Dashboard — Bridge Command Center
@@ -136,6 +137,12 @@ export default function Dashboard() {
     pendingReview: enquiries?.filter((e) => ["human_review", "policy_review"].includes(e.status)).length ?? 0,
     completed: enquiries?.filter((e) => e.status === "completed").length ?? 0,
   }), [enquiries]);
+
+  // Feed page context to AI chat panel
+  const contextSummary = enquiries
+    ? `Dashboard: ${stats.total} total enquiries, ${stats.active} active, ${stats.pendingReview} pending review, ${stats.completed} completed. Recent: ${enquiries.slice(0, 3).map((e) => `${e.client_name} (${e.status})`).join(", ")}`
+    : "Dashboard: Loading data...";
+  usePageContext(contextSummary);
 
   return (
     <div className="space-y-6">

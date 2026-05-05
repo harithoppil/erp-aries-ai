@@ -1,4 +1,5 @@
 from backend.app.models.enquiry import AuditLog, Document, Enquiry, EnquiryStatus
+from backend.app.models.document import UploadedDocument, DocType, ProcessingStatus
 from backend.app.models.erp import (
     Account, AccountType, SalesInvoice, SalesInvoiceStatus, InvoiceItem,
     PaymentEntry, TaxCategory,
@@ -19,6 +20,7 @@ from backend.app.models.ai import (
 
 __all__ = [
     "AuditLog", "Document", "Enquiry", "EnquiryStatus",
+    "UploadedDocument", "DocType", "ProcessingStatus",
     "Account", "AccountType", "SalesInvoice", "SalesInvoiceStatus", "InvoiceItem",
     "PaymentEntry", "TaxCategory",
     "Asset", "AssetStatus", "MaintenanceRecord",

@@ -78,19 +78,19 @@
   --card-foreground: oklch(0.18 0.02 250);
   --popover: oklch(0.995 0.001 250);
   --popover-foreground: oklch(0.18 0.02 250);
-  --primary: oklch(0.55 0.15 195);         /* Sonar teal */
+  --primary: oklch(0.65 0.16 220);         /* Aries cyan #0ea5e9 */
   --primary-foreground: oklch(0.98 0.005 250);
   --secondary: oklch(0.94 0.02 250);
   --secondary-foreground: oklch(0.25 0.02 250);
   --muted: oklch(0.94 0.01 250);
   --muted-foreground: oklch(0.50 0.02 250);
-  --accent: oklch(0.92 0.04 195);
-  --accent-foreground: oklch(0.22 0.05 195);
+  --accent: oklch(0.92 0.04 220);
+  --accent-foreground: oklch(0.22 0.05 220);
   --destructive: oklch(0.58 0.22 25);      /* Coral red — distress signal */
   --border: oklch(0.88 0.02 250);
   --input: oklch(0.88 0.02 250);
-  --ring: oklch(0.55 0.15 195);
-  --chart-1: oklch(0.55 0.15 195);         /* Teal */
+  --ring: oklch(0.65 0.16 220);
+  --chart-1: oklch(0.65 0.16 220);         /* Cyan */
   --chart-2: oklch(0.60 0.18 48);          /* Amber */
   --chart-3: oklch(0.45 0.12 250);         /* Navy */
   --chart-4: oklch(0.65 0.10 150);         /* Seafoam */
@@ -98,14 +98,14 @@
   --radius: 0.5rem;
   --sidebar: oklch(0.96 0.005 250);
   --sidebar-foreground: oklch(0.18 0.02 250);
-  --sidebar-primary: oklch(0.55 0.15 195);
+  --sidebar-primary: oklch(0.65 0.16 220);
   --sidebar-primary-foreground: oklch(0.98 0.005 250);
-  --sidebar-accent: oklch(0.92 0.04 195);
-  --sidebar-accent-foreground: oklch(0.22 0.05 195);
+  --sidebar-accent: oklch(0.92 0.04 220);
+  --sidebar-accent-foreground: oklch(0.22 0.05 220);
   --sidebar-border: oklch(0.88 0.02 250);
-  --sidebar-ring: oklch(0.55 0.15 195);
+  --sidebar-ring: oklch(0.65 0.16 220);
   /* Nautical accents */
-  --sonar: oklch(0.55 0.15 195);
+  --sonar: oklch(0.65 0.16 220);
   --sonar-foreground: oklch(0.98 0.005 250);
   --amber: oklch(0.70 0.17 55);
   --amber-foreground: oklch(0.15 0.05 55);
@@ -121,33 +121,33 @@
   --card-foreground: oklch(0.93 0.01 250);
   --popover: oklch(0.17 0.03 250);
   --popover-foreground: oklch(0.93 0.01 250);
-  --primary: oklch(0.65 0.16 195);         /* Bright sonar teal */
+  --primary: oklch(0.72 0.16 220);         /* Bright Aries cyan */
   --primary-foreground: oklch(0.12 0.02 250);
   --secondary: oklch(0.22 0.03 250);
   --secondary-foreground: oklch(0.90 0.01 250);
   --muted: oklch(0.22 0.03 250);
   --muted-foreground: oklch(0.65 0.02 250);
-  --accent: oklch(0.25 0.06 195);
-  --accent-foreground: oklch(0.85 0.10 195);
+  --accent: oklch(0.25 0.06 220);
+  --accent-foreground: oklch(0.85 0.10 220);
   --destructive: oklch(0.70 0.20 25);      /* Bright coral */
   --border: oklch(0.28 0.03 250);
   --input: oklch(0.28 0.03 250);
-  --ring: oklch(0.65 0.16 195);
-  --chart-1: oklch(0.65 0.16 195);         /* Bright teal */
+  --ring: oklch(0.72 0.16 220);
+  --chart-1: oklch(0.72 0.16 220);         /* Bright cyan */
   --chart-2: oklch(0.75 0.17 55);          /* Amber glow */
   --chart-3: oklch(0.50 0.08 250);         /* Muted navy */
   --chart-4: oklch(0.55 0.10 150);         /* Muted seafoam */
   --chart-5: oklch(0.60 0.12 30);          /* Warm rust */
   --sidebar: oklch(0.15 0.03 250);          /* Deepest panel */
   --sidebar-foreground: oklch(0.90 0.01 250);
-  --sidebar-primary: oklch(0.65 0.16 195);
+  --sidebar-primary: oklch(0.72 0.16 220);
   --sidebar-primary-foreground: oklch(0.12 0.02 250);
-  --sidebar-accent: oklch(0.25 0.06 195);
-  --sidebar-accent-foreground: oklch(0.85 0.10 195);
+  --sidebar-accent: oklch(0.25 0.06 220);
+  --sidebar-accent-foreground: oklch(0.85 0.10 220);
   --sidebar-border: oklch(0.28 0.03 250);
-  --sidebar-ring: oklch(0.65 0.16 195);
+  --sidebar-ring: oklch(0.72 0.16 220);
   /* Nautical accents */
-  --sonar: oklch(0.65 0.16 195);
+  --sonar: oklch(0.72 0.16 220);
   --sonar-foreground: oklch(0.12 0.02 250);
   --amber: oklch(0.75 0.17 55);
   --amber-foreground: oklch(0.12 0.05 55);

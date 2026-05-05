@@ -6,7 +6,7 @@ import { useState } from "react";
 import {
   FileText, Home, Bot, BookOpen, Package,
   Anchor, ChevronLeft, Menu, Moon, Sun,
-  DollarSign, Wrench, FolderKanban, Users, ShoppingCart,
+  DollarSign, Wrench, FolderKanban, Users, ShoppingCart, Upload,
 } from "lucide-react";
 import { useDarkMode } from "@/hooks/use-responsive";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -25,6 +25,7 @@ const MORE_ITEMS = [
   { href: "/erp/projects", label: "Projects", icon: FolderKanban },
   { href: "/erp/hr", label: "HR", icon: Users },
   { href: "/erp/procurement", label: "Procurement", icon: ShoppingCart },
+  { href: "/documents", label: "Documents", icon: Upload },
 ];
 
 export function MobileTopBar() {
@@ -71,16 +72,14 @@ export function MobileTopBar() {
         </button>
 
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-          <SheetTrigger
-            render={
-              <button
-                aria-label="Open navigation menu"
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-            }
-          />
+          <SheetTrigger asChild>
+            <button
+              aria-label="Open navigation menu"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          </SheetTrigger>
           <SheetContent side="right" className="w-64">
             <div className="flex items-center gap-2 border-b border-border pb-4">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">

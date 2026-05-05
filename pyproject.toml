@@ -21,7 +21,7 @@ dependencies = [
     "google-cloud-storage>=2.18.0",
 
     # Document ingestion
-    "markitdown[all]>=0.1.0",
+    "markitdown>=0.1.0",
 
     # Search / Retrieval
     "google-cloud-discoveryengine>=0.13.0",
