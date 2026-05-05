@@ -1,0 +1,184 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useIsMobile } from "@/hooks/use-responsive";
+import { useEnquiry, runPipeline, approveEnquiry, executeEnquiry, uploadDocument, API_BASE } from "@/lib/api";
+import { throttledFetch } from "@/lib/throttledFetch";
+import { EnquiryRead, STATUS_COLORS, DocumentRead } from "@/types/api";
+import { ArrowLeft, Play, CheckCircle, Upload, Zap, FileText, Loader2, Image } from "lucide-react";
+import { toast } from "sonner";
+
+interface ExecutionItem { system: string; success: boolean; message: string }
+
+export default function EnquiryDetailPage() {
+  const isMobile = useIsMobile();
+  const { id } = useParams();
+  const router = useRouter();
+  const { data: enquiry, error, isLoading, mutate } = useEnquiry(id as string);
+  const [pipelineResult, setPipelineResult] = useState<{ [key: string]: unknown } | null>(null);
+  const [executionResult, setExecutionResult] = useState<{ executions: ExecutionItem[] } | null>(null);
+  const [acting, setActing] = useState(false);
+  const [documents, setDocuments] = useState<DocumentRead[]>([]);
+  const [docsLoading, setDocsLoading] = useState(true);
+
+  // Load documents for this enquiry
+  useEffect(() => {
+    if (!id) return;
+    const loadDocs = async () => {
+      try {
+        const res = await throttledFetch(`${API_BASE}/documents/${id}`);
+        if (res.ok) setDocuments(await res.json());
+      } catch (e) { console.error("Failed to load documents:", e); }
+      finally { setDocsLoading(false); }
+    };
+    loadDocs();
+  }, [id, acting]); // re-fetch after upload (acting goes false→true→false)
+
+  const handleRunPipeline = async () => {
+    setActing(true);
+    try {
+      const result = await runPipeline(id as string);
+      setPipelineResult(result as unknown as { [key: string]: unknown });
+      await mutate();
+    } catch (e) { toast.error((e as Error).message); } finally { setActing(false); }
+  };
+
+  const handleApprove = async () => {
+    setActing(true);
+    try { await approveEnquiry(id as string, "Current User"); await mutate(); } finally { setActing(false); }
+  };
+
+  const handleExecute = async () => {
+    setActing(true);
+    try { const r = await executeEnquiry(id as string); setExecutionResult(r as any); await mutate(); } finally { setActing(false); }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setActing(true);
+    try { await uploadDocument(id as string, file); toast.success("Document uploaded and ingested!"); } catch (err) { toast.error("Upload failed: " + (err as Error).message); } finally { setActing(false); }
+  };
+
+  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Loading...</div>;
+  if (error) return <div className="py-12 text-center text-red-500">{error.message}</div>;
+  if (!enquiry) return <div className="py-12 text-center text-muted-foreground">Enquiry not found</div>;
+
+  const canRunPipeline = ["draft", "ingested"].includes(enquiry.status);
+  const canApprove = ["policy_review", "llm_drafted"].includes(enquiry.status);
+  const canExecute = enquiry.status === "approved";
+
+  const isImage = (ct: string) => ct.startsWith("image/");
+
+  return (
+    <div className={isMobile ? "" : "mx-auto max-w-4xl"}>
+      <button onClick={() => router.back()} className="mb-4 flex h-10 w-10 items-center justify-center text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" /> Back
+      </button>
+
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">{enquiry.client_name}</h2>
+          <p className="text-sm text-muted-foreground">{enquiry.enquiry_number || "No enquiry number"} · <span className={STATUS_COLORS[enquiry.status]}>{enquiry.status.replace(/_/g, " ")}</span></p>
+        </div>
+        <div className="flex gap-2">
+          {canRunPipeline && <button onClick={handleRunPipeline} disabled={acting} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"><Play className="h-4 w-4" /> Run AI Pipeline</button>}
+          {canApprove && <button onClick={handleApprove} disabled={acting} className="flex items-center gap-1 rounded-lg bg-sonar px-3 py-2 text-sm text-white hover:bg-sonar/90 disabled:opacity-50"><CheckCircle className="h-4 w-4" /> Approve</button>}
+          {canExecute && <button onClick={handleExecute} disabled={acting} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"><Zap className="h-4 w-4" /> Execute</button>}
+          <label className="flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-2 text-sm hover:bg-accent/50"><Upload className="h-4 w-4" /> Upload Doc<input type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.docx,.xlsx,.pptx,.csv,.jpg,.jpeg,.png,.gif,.webp,.tiff,.bmp" /></label>
+        </div>
+      </div>
+
+      <div className={isMobile ? "space-y-4" : "grid grid-cols-2 gap-6"}>
+        <div className="rounded-xl border bg-card p-5">
+          <h3 className="mb-3 font-semibold">Enquiry Details</h3>
+          <dl className="space-y-2 text-sm">
+            <div><dt className="text-muted-foreground">Industry</dt><dd>{enquiry.industry || "—"}</dd></div>
+            <div><dt className="text-muted-foreground">Channel</dt><dd>{enquiry.channel}</dd></div>
+            <div><dt className="text-muted-foreground">Description</dt><dd className="whitespace-pre-wrap">{enquiry.description}</dd></div>
+            {(enquiry.scope_category || enquiry.complexity) && (<>
+              <div><dt className="text-muted-foreground">Category</dt><dd>{enquiry.scope_category}</dd></div>
+              <div><dt className="text-muted-foreground">Complexity</dt><dd>{enquiry.complexity}</dd></div>
+            </>)}
+          </dl>
+        </div>
+
+        {/* Documents List */}
+        <div className="rounded-xl border bg-card p-5">
+          <h3 className="mb-3 font-semibold">Documents</h3>
+          {docsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Loading documents...
+            </div>
+          ) : documents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No documents uploaded yet</p>
+          ) : (
+            <div className="space-y-2">
+              {documents.map((doc) => (
+                <div key={doc.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                  {isImage(doc.content_type) ? (
+                    <Image className="h-4 w-4 shrink-0 text-amber" />
+                  ) : (
+                    <FileText className="h-4 w-4 shrink-0 text-primary" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium">{doc.filename}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {doc.content_type} · {new Date(doc.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    doc.processing_status === "completed" ? "bg-sonar/15 text-sonar" :
+                    doc.processing_status === "failed" ? "bg-destructive/15 text-destructive" :
+                    "bg-amber/15 text-amber"
+                  }`}>{doc.processing_status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {pipelineResult && (
+          <div className="rounded-xl border bg-card p-5">
+            <h3 className="mb-3 font-semibold">AI Pipeline Output</h3>
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="font-medium text-primary">Status: {String(pipelineResult.status)?.replace(/_/g, " ")}</p>
+                <p className="text-foreground">{String(pipelineResult.message)}</p>
+              </div>
+              {Boolean(pipelineResult.rules_output) && (
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="font-medium">Rules Output</p>
+                  <pre className="mt-1 text-xs">{JSON.stringify(pipelineResult.rules_output, null, 2)}</pre>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {Boolean(pipelineResult?.llm_draft) && (
+          <div className="col-span-2 rounded-xl border bg-card p-5">
+            <h3 className="mb-3 font-semibold">AI Draft Proposal</h3>
+            <div className="prose prose-sm max-w-none whitespace-pre-wrap">{String(pipelineResult?.llm_draft ?? "")}</div>
+          </div>
+        )}
+
+        {executionResult && (
+          <div className="col-span-2 rounded-xl border bg-primary/10 p-5">
+            <h3 className="mb-3 font-semibold text-primary">Execution Results</h3>
+            <div className="space-y-2">
+              {executionResult.executions?.map((r) => (
+                <div key={r.system} className="flex items-center gap-2 text-sm">
+                  <CheckCircle className={`h-4 w-4 ${r.success ? "text-sonar" : "text-destructive"}`} />
+                  <span className="font-medium">{r.system}</span>
+                  <span className="text-foreground">{r.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

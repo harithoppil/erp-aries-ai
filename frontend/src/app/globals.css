@@ -1,0 +1,261 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Nautical accent colors — always available */
+  --color-sonar: var(--sonar);
+  --color-sonar-foreground: var(--sonar-foreground);
+  --color-amber: var(--amber);
+  --color-amber-foreground: var(--amber-foreground);
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════
+ * ARIES ERP — Nautical Industrial Design System
+ * ═══════════════════════════════════════════════════════════
+ *
+ * Inspired by marine navigation bridges, depth-finder instruments,
+ * and sonar displays. Dark mode default — like instrument panels at sea.
+ *
+ * Color language:
+ *   Teal/Cyan  → Sonar, depth, navigation  (primary actions)
+ *   Amber      → Alert, caution, nav light  (warnings, attention)
+ *   Navy       → Deep water, hull steel     (structural elements)
+ */
+
+:root {
+  /* Light mode — coastal dawn */
+  --background: oklch(0.985 0.001 250);
+  --foreground: oklch(0.18 0.02 250);
+  --card: oklch(0.995 0.001 250);
+  --card-foreground: oklch(0.18 0.02 250);
+  --popover: oklch(0.995 0.001 250);
+  --popover-foreground: oklch(0.18 0.02 250);
+  --primary: oklch(0.55 0.15 195);         /* Sonar teal */
+  --primary-foreground: oklch(0.98 0.005 250);
+  --secondary: oklch(0.94 0.02 250);
+  --secondary-foreground: oklch(0.25 0.02 250);
+  --muted: oklch(0.94 0.01 250);
+  --muted-foreground: oklch(0.50 0.02 250);
+  --accent: oklch(0.92 0.04 195);
+  --accent-foreground: oklch(0.22 0.05 195);
+  --destructive: oklch(0.58 0.22 25);      /* Coral red — distress signal */
+  --border: oklch(0.88 0.02 250);
+  --input: oklch(0.88 0.02 250);
+  --ring: oklch(0.55 0.15 195);
+  --chart-1: oklch(0.55 0.15 195);         /* Teal */
+  --chart-2: oklch(0.60 0.18 48);          /* Amber */
+  --chart-3: oklch(0.45 0.12 250);         /* Navy */
+  --chart-4: oklch(0.65 0.10 150);         /* Seafoam */
+  --chart-5: oklch(0.50 0.08 30);          /* Rust */
+  --radius: 0.5rem;
+  --sidebar: oklch(0.96 0.005 250);
+  --sidebar-foreground: oklch(0.18 0.02 250);
+  --sidebar-primary: oklch(0.55 0.15 195);
+  --sidebar-primary-foreground: oklch(0.98 0.005 250);
+  --sidebar-accent: oklch(0.92 0.04 195);
+  --sidebar-accent-foreground: oklch(0.22 0.05 195);
+  --sidebar-border: oklch(0.88 0.02 250);
+  --sidebar-ring: oklch(0.55 0.15 195);
+  /* Nautical accents */
+  --sonar: oklch(0.55 0.15 195);
+  --sonar-foreground: oklch(0.98 0.005 250);
+  --amber: oklch(0.70 0.17 55);
+  --amber-foreground: oklch(0.15 0.05 55);
+  --navy: oklch(0.25 0.05 250);
+  --navy-foreground: oklch(0.95 0.01 250);
+}
+
+.dark {
+  /* Dark mode — bridge at night, instrument panel */
+  --background: oklch(0.13 0.02 250);      /* Deep ocean */
+  --foreground: oklch(0.93 0.01 250);
+  --card: oklch(0.17 0.03 250);             /* Slightly lighter panel */
+  --card-foreground: oklch(0.93 0.01 250);
+  --popover: oklch(0.17 0.03 250);
+  --popover-foreground: oklch(0.93 0.01 250);
+  --primary: oklch(0.65 0.16 195);         /* Bright sonar teal */
+  --primary-foreground: oklch(0.12 0.02 250);
+  --secondary: oklch(0.22 0.03 250);
+  --secondary-foreground: oklch(0.90 0.01 250);
+  --muted: oklch(0.22 0.03 250);
+  --muted-foreground: oklch(0.65 0.02 250);
+  --accent: oklch(0.25 0.06 195);
+  --accent-foreground: oklch(0.85 0.10 195);
+  --destructive: oklch(0.70 0.20 25);      /* Bright coral */
+  --border: oklch(0.28 0.03 250);
+  --input: oklch(0.28 0.03 250);
+  --ring: oklch(0.65 0.16 195);
+  --chart-1: oklch(0.65 0.16 195);         /* Bright teal */
+  --chart-2: oklch(0.75 0.17 55);          /* Amber glow */
+  --chart-3: oklch(0.50 0.08 250);         /* Muted navy */
+  --chart-4: oklch(0.55 0.10 150);         /* Muted seafoam */
+  --chart-5: oklch(0.60 0.12 30);          /* Warm rust */
+  --sidebar: oklch(0.15 0.03 250);          /* Deepest panel */
+  --sidebar-foreground: oklch(0.90 0.01 250);
+  --sidebar-primary: oklch(0.65 0.16 195);
+  --sidebar-primary-foreground: oklch(0.12 0.02 250);
+  --sidebar-accent: oklch(0.25 0.06 195);
+  --sidebar-accent-foreground: oklch(0.85 0.10 195);
+  --sidebar-border: oklch(0.28 0.03 250);
+  --sidebar-ring: oklch(0.65 0.16 195);
+  /* Nautical accents */
+  --sonar: oklch(0.65 0.16 195);
+  --sonar-foreground: oklch(0.12 0.02 250);
+  --amber: oklch(0.75 0.17 55);
+  --amber-foreground: oklch(0.12 0.05 55);
+  --navy: oklch(0.18 0.04 250);
+  --navy-foreground: oklch(0.90 0.01 250);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Custom scrollbar — thin, nautical
+ * ═══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.5 0.02 250 / 40%);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0.02 250 / 60%);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.6 0.04 195 / 30%);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.6 0.04 195 / 50%);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Glass morphism utilities
+ * ═══════════════════════════════════════════════════════════ */
+.glass {
+  background: oklch(0.98 0.005 250 / 80%);
+  backdrop-filter: blur(16px) saturate(1.5);
+  border: 1px solid oklch(0.85 0.02 250 / 50%);
+}
+.dark .glass {
+  background: oklch(0.15 0.03 250 / 70%);
+  border: 1px solid oklch(0.35 0.04 250 / 30%);
+}
+
+.glass-card {
+  background: oklch(0.98 0.005 250 / 60%);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid oklch(0.88 0.02 250 / 50%);
+}
+.dark .glass-card {
+  background: oklch(0.18 0.03 250 / 60%);
+  border: 1px solid oklch(0.32 0.04 250 / 25%);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Sonar pulse animation
+ * ═══════════════════════════════════════════════════════════ */
+@keyframes sonar-pulse {
+  0% { box-shadow: 0 0 0 0 oklch(0.55 0.15 195 / 40%); }
+  70% { box-shadow: 0 0 0 8px oklch(0.55 0.15 195 / 0%); }
+  100% { box-shadow: 0 0 0 0 oklch(0.55 0.15 195 / 0%); }
+}
+/* Dark mode sonar handled via CSS custom properties above */
+.sonar-pulse {
+  animation: sonar-pulse 2s infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Sonar ping (single pulse for notifications)
+ * ═══════════════════════════════════════════════════════════ */
+@keyframes ping-once {
+  0% { transform: scale(1); opacity: 0.8; }
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Depth gauge gradient — for progress bars
+ * ═══════════════════════════════════════════════════════════ */
+.depth-gradient {
+  background: linear-gradient(
+    135deg,
+    oklch(0.65 0.16 195) 0%,
+    oklch(0.50 0.12 210) 50%,
+    oklch(0.25 0.05 250) 100%
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Noise texture overlay — adds depth to backgrounds
+ * ═══════════════════════════════════════════════════════════ */
+.noise-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
