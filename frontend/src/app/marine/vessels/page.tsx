@@ -5,13 +5,6 @@ import { apiFetch } from "@/lib/api";
 import { formatDate, getStatusColor } from "@/lib/utils";
 import { Plus, Search, ChevronLeft, ChevronRight, Eye, Anchor, CalendarDays } from "lucide-react";
 
-const DEMO_VESSELS = [
-  {"id":"1","vessel_name":"ARIES DP-1","vessel_code":"ARS-001","vessel_type":"DP Vessel","imo_number":"9612345","flag":"UAE","status":"Active","current_location":"Zayed Port, Abu Dhabi","last_inspection_date":"2026-01-15","next_inspection_date":"2026-07-15","length_m":85,"max_speed":14},
-  {"id":"2","vessel_name":"ARIES DIVER","vessel_code":"ARS-002","vessel_type":"Dive Support Vessel","imo_number":"9612346","flag":"UAE","status":"Active","current_location":"Upper Zakum Field","last_inspection_date":"2026-02-20","next_inspection_date":"2026-08-20","length_m":62,"max_speed":12},
-  {"id":"3","vessel_name":"ARIES TUG-7","vessel_code":"ARS-007","vessel_type":"Anchor Handling Tug","imo_number":"9612351","flag":"UAE","status":"Maintenance","current_location":"Jebel Ali Dry Dock","last_inspection_date":"2025-12-01","next_inspection_date":"2026-06-01","length_m":45,"max_speed":10},
-  {"id":"4","vessel_name":"ARIES CREW-3","vessel_code":"ARS-003","vessel_type":"Crew Boat","imo_number":"9612347","flag":"UAE","status":"Active","current_location":"Das Island","last_inspection_date":"2026-03-10","next_inspection_date":"2026-09-10","length_m":32,"max_speed":22},
-  {"id":"5","vessel_name":"ARIES BARGE-5","vessel_code":"ARS-005","vessel_type":"Flat Top Barge","imo_number":"9612349","flag":"Marshall Islands","status":"Active","current_location":"Zirku Island","last_inspection_date":"2026-01-28","next_inspection_date":"2026-07-28","length_m":120,"max_speed":0},
-];
 
 export default function VesselsPage() {
   const [items, setItems] = useState<any[]>(DEMO_VESSELS);

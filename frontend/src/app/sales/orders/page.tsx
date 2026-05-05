@@ -24,9 +24,10 @@ export default function SalesOrdersPage() {
       const res = await apiFetch(`/sales/orders?page=${page}&page_size=${pageSize}&company_id=demo${search ? `&search=${search}` : ""}`);
       setItems(res.data || []);
       setTotal(res.total || 0);
-    } catch (e) {
-      // Use demo data
-      setItems([{"id":"1","series":"SO-2026-0025","date":"2026-04-28","status":"Confirmed","grand_total":1250000,"per_delivered":60},{"id":"2","series":"SO-2026-0024","date":"2026-04-22","status":"Draft","grand_total":890000,"per_delivered":0},{"id":"3","series":"SO-2026-0023","date":"2026-04-15","status":"Completed","grand_total":2100000,"per_delivered":100}]);
+    } catch (e: any) {
+      setError(e.message || "Failed to load data");
+      setItems([]);
+      /* old demo: [{"id":"1","series":"SO-2026-0025","date":"2026-04-28","status":"Confirmed","grand_total":1250000,"per_delivered":60},{"id":"2","series":"SO-2026-0024","date":"2026-04-22","status":"Draft","grand_total":890000,"per_delivered":0},{"id":"3","series":"SO-2026-0023","date":"2026-04-15","status":"Completed","grand_total":2100000,"per_delivered":100}]);
       setTotal([{"id":"1","series":"SO-2026-0025","date":"2026-04-28","status":"Confirmed","grand_total":1250000,"per_delivered":60},{"id":"2","series":"SO-2026-0024","date":"2026-04-22","status":"Draft","grand_total":890000,"per_delivered":0},{"id":"3","series":"SO-2026-0023","date":"2026-04-15","status":"Completed","grand_total":2100000,"per_delivered":100}].length);
     }
     setLoading(false);

@@ -24,9 +24,10 @@ export default function SalesInvoicesPage() {
       const res = await apiFetch(`/sales/invoices?page=${page}&page_size=${pageSize}&company_id=demo${search ? `&search=${search}` : ""}`);
       setItems(res.data || []);
       setTotal(res.total || 0);
-    } catch (e) {
-      // Use demo data
-      setItems([{"id":"1","series":"SINV-2026-0045","date":"2026-04-28","due_date":"2026-05-28","status":"Submitted","grand_total":450000,"outstanding_amount":450000},{"id":"2","series":"SINV-2026-0044","date":"2026-04-20","due_date":"2026-05-20","status":"Paid","grand_total":1200000,"outstanding_amount":0},{"id":"3","series":"SINV-2026-0042","date":"2026-03-15","due_date":"2026-04-15","status":"Overdue","grand_total":180000,"outstanding_amount":180000}]);
+    } catch (e: any) {
+      setError(e.message || "Failed to load data");
+      setItems([]);
+      /* old demo: [{"id":"1","series":"SINV-2026-0045","date":"2026-04-28","due_date":"2026-05-28","status":"Submitted","grand_total":450000,"outstanding_amount":450000},{"id":"2","series":"SINV-2026-0044","date":"2026-04-20","due_date":"2026-05-20","status":"Paid","grand_total":1200000,"outstanding_amount":0},{"id":"3","series":"SINV-2026-0042","date":"2026-03-15","due_date":"2026-04-15","status":"Overdue","grand_total":180000,"outstanding_amount":180000}]);
       setTotal([{"id":"1","series":"SINV-2026-0045","date":"2026-04-28","due_date":"2026-05-28","status":"Submitted","grand_total":450000,"outstanding_amount":450000},{"id":"2","series":"SINV-2026-0044","date":"2026-04-20","due_date":"2026-05-20","status":"Paid","grand_total":1200000,"outstanding_amount":0},{"id":"3","series":"SINV-2026-0042","date":"2026-03-15","due_date":"2026-04-15","status":"Overdue","grand_total":180000,"outstanding_amount":180000}].length);
     }
     setLoading(false);

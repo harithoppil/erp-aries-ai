@@ -24,9 +24,10 @@ export default function QuotationsPage() {
       const res = await apiFetch(`/sales/quotations?page=${page}&page_size=${pageSize}&company_id=demo${search ? `&search=${search}` : ""}`);
       setItems(res.data || []);
       setTotal(res.total || 0);
-    } catch (e) {
-      // Use demo data
-      setItems([{"id":"1","series":"QTN-2026-0042","date":"2026-04-28","status":"Draft","grand_total":1250000},{"id":"2","series":"QTN-2026-0041","date":"2026-04-25","status":"Sent","grand_total":890000},{"id":"3","series":"QTN-2026-0040","date":"2026-04-20","status":"Accepted","grand_total":2100000},{"id":"4","series":"QTN-2026-0039","date":"2026-04-15","status":"Rejected","grand_total":450000},{"id":"5","series":"QTN-2026-0038","date":"2026-04-10","status":"Sent","grand_total":1750000}]);
+    } catch (e: any) {
+      setError(e.message || "Failed to load data");
+      setItems([]);
+      /* old demo: [{"id":"1","series":"QTN-2026-0042","date":"2026-04-28","status":"Draft","grand_total":1250000},{"id":"2","series":"QTN-2026-0041","date":"2026-04-25","status":"Sent","grand_total":890000},{"id":"3","series":"QTN-2026-0040","date":"2026-04-20","status":"Accepted","grand_total":2100000},{"id":"4","series":"QTN-2026-0039","date":"2026-04-15","status":"Rejected","grand_total":450000},{"id":"5","series":"QTN-2026-0038","date":"2026-04-10","status":"Sent","grand_total":1750000}]);
       setTotal([{"id":"1","series":"QTN-2026-0042","date":"2026-04-28","status":"Draft","grand_total":1250000},{"id":"2","series":"QTN-2026-0041","date":"2026-04-25","status":"Sent","grand_total":890000},{"id":"3","series":"QTN-2026-0040","date":"2026-04-20","status":"Accepted","grand_total":2100000},{"id":"4","series":"QTN-2026-0039","date":"2026-04-15","status":"Rejected","grand_total":450000},{"id":"5","series":"QTN-2026-0038","date":"2026-04-10","status":"Sent","grand_total":1750000}].length);
     }
     setLoading(false);

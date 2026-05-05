@@ -4,15 +4,6 @@ import { useState } from "react";
 import { formatDate, getStatusColor } from "@/lib/utils";
 import { Plus, Search, UserCircle } from "lucide-react";
 
-const DEMO_EMPLOYEES = [
-  {"id":"1","employee_number":"AME-001","full_name":"Captain Ahmed Al-Rashid","email":"ahmed.rashid@ariesmarine.ae","phone":"+971-50-123-4567","department":"Marine Operations","designation":"Vessel Master","date_of_joining":"2018-03-15","status":"Active","grade":"A"},
-  {"id":"2","employee_number":"AME-042","full_name":"Sarah Williams","email":"sarah.w@ariesmarine.ae","phone":"+971-55-234-5678","department":"Diving","designation":"Lead Dive Supervisor","date_of_joining":"2020-06-01","status":"Active","grade":"A"},
-  {"id":"3","employee_number":"AME-089","full_name":"Mohammed Hassan","email":"m.hassan@ariesmarine.ae","phone":"+971-50-345-6789","department":"Engineering","designation":"Chief Engineer","date_of_joining":"2019-01-10","status":"Active","grade":"B"},
-  {"id":"4","employee_number":"AME-112","full_name":"Priya Sharma","email":"priya.s@ariesmarine.ae","phone":"+971-55-456-7890","department":"Finance","designation":"Finance Manager","date_of_joining":"2021-09-01","status":"Active","grade":"A"},
-  {"id":"5","employee_number":"AME-134","full_name":"James O\'Brien","email":"james.ob@ariesmarine.ae","phone":"+971-50-567-8901","department":"HSE","designation":"HSE Coordinator","date_of_joining":"2022-02-14","status":"On Leave","grade":"B"},
-  {"id":"6","employee_number":"AME-156","full_name":"Fatima Al-Zaabi","email":"fatima.z@ariesmarine.ae","phone":"+971-55-678-9012","department":"Projects","designation":"Project Manager","date_of_joining":"2023-04-01","status":"Active","grade":"A"},
-  {"id":"7","employee_number":"AME-178","full_name":"Raj Patel","email":"raj.p@ariesmarine.ae","phone":"+971-50-789-0123","department":"Procurement","designation":"Procurement Officer","date_of_joining":"2024-01-15","status":"Active","grade":"C"},
-];
 
 export default function EmployeesPage() {
   const [search, setSearch] = useState("");
