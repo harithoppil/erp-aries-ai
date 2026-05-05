@@ -44,8 +44,7 @@ media/
 !media/.gitkeep
 uploads/
 !uploads/.gitkeep
-wiki/
-!wiki/.gitkeep
+
 
 # Node.js / Next.js
 node_modules/
