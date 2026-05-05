@@ -1,29 +1,29 @@
 """HR: Employees, Attendance, Leave, Payroll, Expense Claims."""
 import uuid
 from datetime import date, time
-from sqlalchemy import ForeignKey, String, Text, Date, Time, Numeric
+from sqlalchemy import ForeignKey, String, Text, Date, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.core.database import Base, GUID, Money, TimestampMixin, AuditMixin
 
 class Department(Base, TimestampMixin, AuditMixin):
     __tablename__ = "departments"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
     department_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    parent_id: Mapped[uuid.UUID | None] = mapped_column(GUID, ForeignKey("departments.id"))
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("departments.id"))
     is_group: Mapped[bool] = mapped_column(default=False)
 
 class Designation(Base, TimestampMixin, AuditMixin):
     __tablename__ = "designations"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
     designation_name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
 
 class Employee(Base, TimestampMixin, AuditMixin):
     __tablename__ = "employees"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
     employee_number: Mapped[str] = mapped_column(String(50), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255))
@@ -46,9 +46,9 @@ class Employee(Base, TimestampMixin, AuditMixin):
 
 class Attendance(Base, TimestampMixin, AuditMixin):
     __tablename__ = "attendance"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    employee_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("employees.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    employee_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("employees.id"))
     attendance_date: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="Present")
     leave_type: Mapped[str | None] = mapped_column(String(50))
@@ -60,8 +60,8 @@ class Attendance(Base, TimestampMixin, AuditMixin):
 
 class LeaveType(Base, TimestampMixin, AuditMixin):
     __tablename__ = "leave_types"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
     leave_type_name: Mapped[str] = mapped_column(String(100), nullable=False)
     max_days_allowed: Mapped[float] = mapped_column(default=0.0)
     is_carry_forward: Mapped[bool] = mapped_column(default=False)
@@ -69,10 +69,10 @@ class LeaveType(Base, TimestampMixin, AuditMixin):
 
 class LeaveApplication(Base, TimestampMixin, AuditMixin):
     __tablename__ = "leave_applications"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    employee_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("employees.id"))
-    leave_type_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("leave_types.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    employee_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("employees.id"))
+    leave_type_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("leave_types.id"))
     from_date: Mapped[date] = mapped_column(Date, nullable=False)
     to_date: Mapped[date] = mapped_column(Date, nullable=False)
     total_days: Mapped[float] = mapped_column(default=0.0)
@@ -82,9 +82,9 @@ class LeaveApplication(Base, TimestampMixin, AuditMixin):
 
 class SalarySlip(Base, TimestampMixin, AuditMixin):
     __tablename__ = "salary_slips"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    employee_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("employees.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    employee_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("employees.id"))
     posting_date: Mapped[date] = mapped_column(Date, nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -97,9 +97,9 @@ class SalarySlip(Base, TimestampMixin, AuditMixin):
 
 class ExpenseClaim(Base, TimestampMixin, AuditMixin):
     __tablename__ = "expense_claims"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    employee_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("employees.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    employee_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("employees.id"))
     expense_date: Mapped[date] = mapped_column(Date, nullable=False)
     total_amount: Mapped[float] = mapped_column(Money, default=0.0)
     total_sanctioned_amount: Mapped[float] = mapped_column(Money, default=0.0)

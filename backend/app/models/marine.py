@@ -1,14 +1,14 @@
 """Aries Marine-specific: Vessels, Crew, Dive Ops, Safety, Fuel, Charters."""
 import uuid
 from datetime import date
-from sqlalchemy import ForeignKey, String, Text, Date, Numeric
+from sqlalchemy import ForeignKey, String, Text, Date
 from sqlalchemy.orm import Mapped, mapped_column
 from backend.app.core.database import Base, GUID, Money, TimestampMixin, AuditMixin
 
 class Vessel(Base, TimestampMixin, AuditMixin):
     __tablename__ = "vessels"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
     vessel_name: Mapped[str] = mapped_column(String(255), nullable=False)
     vessel_code: Mapped[str] = mapped_column(String(50), nullable=False)
     vessel_type: Mapped[str | None] = mapped_column(String(100))  # DP Vessel, Dive Support, etc.
@@ -33,8 +33,8 @@ class Vessel(Base, TimestampMixin, AuditMixin):
 
 class VesselCertification(Base, TimestampMixin, AuditMixin):
     __tablename__ = "vessel_certifications"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    vessel_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("vessels.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    vessel_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vessels.id"))
     certification_type: Mapped[str] = mapped_column(String(100), nullable=False)
     certificate_number: Mapped[str] = mapped_column(String(100), nullable=False)
     issuing_authority: Mapped[str | None] = mapped_column(String(255))
@@ -45,10 +45,10 @@ class VesselCertification(Base, TimestampMixin, AuditMixin):
 
 class CrewAssignment(Base, TimestampMixin, AuditMixin):
     __tablename__ = "crew_assignments"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    employee_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("employees.id"))
-    vessel_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("vessels.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    employee_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("employees.id"))
+    vessel_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vessels.id"))
     role_on_vessel: Mapped[str] = mapped_column(String(100), nullable=False)
     rank: Mapped[str | None] = mapped_column(String(50))
     certification_level: Mapped[str | None] = mapped_column(String(100))
@@ -57,10 +57,10 @@ class CrewAssignment(Base, TimestampMixin, AuditMixin):
 
 class DiveOperation(Base, TimestampMixin, AuditMixin):
     __tablename__ = "dive_operations"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    project_id: Mapped[uuid.UUID | None] = mapped_column(GUID, ForeignKey("projects.id"))
-    vessel_id: Mapped[uuid.UUID | None] = mapped_column(GUID, ForeignKey("vessels.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    project_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("projects.id"))
+    vessel_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("vessels.id"))
     dive_supervisor: Mapped[str | None] = mapped_column(String(255))
     dive_date: Mapped[date] = mapped_column(Date, nullable=False)
     location: Mapped[str | None] = mapped_column(String(255))
@@ -77,9 +77,9 @@ class DiveOperation(Base, TimestampMixin, AuditMixin):
 
 class SafetyEquipment(Base, TimestampMixin, AuditMixin):
     __tablename__ = "safety_equipment"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    item_id: Mapped[uuid.UUID | None] = mapped_column(GUID, ForeignKey("items.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    item_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("items.id"))
     equipment_type: Mapped[str] = mapped_column(String(100), nullable=False)
     serial_number: Mapped[str | None] = mapped_column(String(100))
     location: Mapped[str | None] = mapped_column(String(255))
@@ -90,10 +90,10 @@ class SafetyEquipment(Base, TimestampMixin, AuditMixin):
 
 class MaintenanceSchedule(Base, TimestampMixin, AuditMixin):
     __tablename__ = "maintenance_schedules"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    vessel_id: Mapped[uuid.UUID | None] = mapped_column(GUID, ForeignKey("vessels.id"))
-    equipment_id: Mapped[uuid.UUID | None] = mapped_column(GUID, ForeignKey("items.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    vessel_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("vessels.id"))
+    equipment_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("items.id"))
     maintenance_type: Mapped[str] = mapped_column(String(100), nullable=False)
     frequency: Mapped[str | None] = mapped_column(String(50))
     last_maintenance_date: Mapped[date | None] = mapped_column(Date)
@@ -104,9 +104,9 @@ class MaintenanceSchedule(Base, TimestampMixin, AuditMixin):
 
 class FuelLog(Base, TimestampMixin, AuditMixin):
     __tablename__ = "fuel_logs"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    vessel_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("vessels.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    vessel_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vessels.id"))
     log_date: Mapped[date] = mapped_column(Date, nullable=False)
     fuel_type: Mapped[str | None] = mapped_column(String(50))
     quantity_liters: Mapped[float] = mapped_column(default=0.0)
@@ -118,10 +118,10 @@ class FuelLog(Base, TimestampMixin, AuditMixin):
 
 class CharterContract(Base, TimestampMixin, AuditMixin):
     __tablename__ = "charter_contracts"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    vessel_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("vessels.id"))
-    customer_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("customers.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    vessel_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vessels.id"))
+    customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customers.id"))
     contract_number: Mapped[str] = mapped_column(String(100), nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)

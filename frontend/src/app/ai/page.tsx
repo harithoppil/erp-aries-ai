@@ -1,155 +1,460 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Wrench, FileText, Ship, Package, Users, Calculator } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {
+  Send, Bot, User, Sparkles, Copy, Check, Anchor,
+  Volume2, ImageIcon, Loader2, ChevronDown,
+} from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useResponsive } from "@/hooks/use-responsive";
+import { throttledFetch } from "@/lib/throttledFetch";
+import { API_BASE } from "@/lib/api";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
-  type?: "text" | "tool_call" | "thinking" | "form";
-  tool?: string;
+  created_at: string;
+  model?: string;
+  streaming?: boolean;
 }
 
-const SUGGESTED_PROMPTS = [
-  { text: "What is our monthly revenue and profit?", icon: Calculator },
-  { text: "Show me vessel status and fleet utilization", icon: Ship },
-  { text: "Create a PO for dive gear from TechnipFMC", icon: FileText },
-  { text: "Which items are below minimum stock?", icon: Package },
-  { text: "Show me employee attendance today", icon: Users },
-  { text: "Generate a sales quotation for ADNOC Offshore", icon: FileText },
-];
+interface Persona {
+  id: string;
+  username: string;
+  nickname: string;
+  position: string;
+  category: string;
+  model: string;
+  greeting: string | null;
+  about: string | null;
+  allowed_tools: string[] | null;
+  enabled: boolean;
+}
 
-export default function AIPage() {
+/* ═══════════════════════════════════════════════════════════
+ * Persona avatar colors — nautical chart palette
+ * ═══════════════════════════════════════════════════════════ */
+const PERSONA_COLORS: Record<string, string> = {
+  Dex: "bg-sonar/20 text-sonar border-sonar/30",
+  Viz: "bg-amber/20 text-amber border-amber/30",
+  Avery: "bg-navy/30 text-foreground border-navy/30",
+};
+const PERSONA_INITIALS: Record<string, string> = {
+  Dex: "DX",
+  Viz: "VZ",
+  Avery: "AV",
+};
+
+export default function AIChatPage() {
+  const { isMobile } = useResponsive();
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages]);
+  // Load personas on mount
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await throttledFetch(`${API_BASE}/ai/personas`);
+        const data = await res.json();
+        const enabled = data.filter((p: Persona) => p.enabled);
+        setPersonas(enabled);
+        if (enabled.length > 0) {
+          setSelectedPersona(enabled[0].id);
+        }
+      } catch (e) {
+        console.error("Failed to load personas:", e);
+        toast.error("Failed to load AI personas");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
-  async function sendMessage(text: string) {
-    if (!text.trim()) return;
-    const userMsg: Message = { id: Date.now().toString(), role: "user", content: text };
+  // Load greeting when persona changes
+  useEffect(() => {
+    if (!selectedPersona) return;
+    const persona = personas.find((p) => p.id === selectedPersona);
+    if (persona?.greeting) {
+      setMessages([
+        {
+          id: "greeting",
+          role: "assistant",
+          content: persona.greeting,
+          created_at: new Date().toISOString(),
+          model: persona.model,
+        },
+      ]);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedPersona, personas]);
+
+  // Auto-scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || !selectedPersona || sending) return;
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input.trim(),
+      created_at: new Date().toISOString(),
+    };
     setMessages((prev) => [...prev, userMsg]);
-    setInput(""); setLoading(true);
+    setInput("");
+    setSending(true);
 
-    const assistantId = (Date.now() + 1).toString();
-    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", type: "thinking" }]);
+    // Create placeholder for streaming response
+    const assistantId = `stream-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        created_at: new Date().toISOString(),
+        streaming: true,
+      },
+    ]);
 
     try {
-      const eventSource = new EventSource(`http://localhost:8000/api/v1/ai/chat?query=${encodeURIComponent(text)}&company_id=demo`);
-      let accumulated = "";
+      const res = await throttledFetch(`${API_BASE}/ai/chat/${selectedPersona}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsg.content, channel: "web" }),
+      });
 
-      eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === "done") { eventSource.close(); setLoading(false); return; }
-        if (data.type === "thinking") {
-          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: data.content, type: "thinking" } : m));
-        } else if (data.type === "tool_call") {
-          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Using tool: ${data.tool}...`, type: "tool_call", tool: data.tool } : m));
-        } else if (data.type === "result") {
-          accumulated += data.content;
-          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: accumulated, type: "text" } : m));
-        } else if (data.type === "form") {
-          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: data.message, type: "form" } : m));
-        }
-      };
+      if (!res.ok) throw new Error(`Chat request failed: ${res.status}`);
 
-      eventSource.onerror = () => {
-        eventSource.close();
-        setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: "Sorry, I encountered an error. Please try again.", type: "text" } : m));
-        setLoading(false);
-      };
-    } catch (err) {
-      setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: "Connection error. Please check your network.", type: "text" } : m));
-      setLoading(false);
+      const data = await res.json();
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId
+            ? {
+                ...msg,
+                id: data.message_id || assistantId,
+                content: data.content,
+                streaming: false,
+                model: data.model,
+              }
+            : msg
+        )
+      );
+    } catch (e) {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId
+            ? {
+                ...msg,
+                content: `⚠️ Error: ${(e as Error).message}`,
+                role: "system",
+                streaming: false,
+              }
+            : msg
+        )
+      );
+      toast.error("Chat request failed");
+    } finally {
+      setSending(false);
+      inputRef.current?.focus();
     }
+  }, [input, selectedPersona, sending]);
+
+  const handleCopy = useCallback(async (content: string, id: string) => {
+    await navigator.clipboard.writeText(content);
+    setCopiedId(id);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    },
+    [handleSend]
+  );
+
+  const currentPersona = personas.find((p) => p.id === selectedPersona);
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <motion.div
+          className="flex items-center gap-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className="sonar-pulse flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+            <Anchor className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="text-sm font-medium text-muted-foreground">
+            Initializing AI bridge...
+          </span>
+        </motion.div>
+      </div>
+    );
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    sendMessage(input);
-  }
+  const personaColor = currentPersona
+    ? PERSONA_COLORS[currentPersona.nickname] || "bg-primary/20 text-primary border-primary/30"
+    : "";
+  const personaInitials = currentPersona
+    ? PERSONA_INITIALS[currentPersona.nickname] || currentPersona.nickname.slice(0, 2).toUpperCase()
+    : "AI";
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] bg-navy rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
-        <div className="w-8 h-8 bg-gold rounded-lg flex items-center justify-center">
-          <Bot className="w-4 h-4 text-navy" />
-        </div>
-        <div>
-          <h1 className="text-sm font-semibold text-white">Aries AI Assistant</h1>
-          <p className="text-[10px] text-white/50">Powered by Gemini 2.5 Pro + MCP</p>
-        </div>
-        {loading && <Loader2 className="w-4 h-4 text-gold animate-spin ml-auto" />}
-      </div>
-
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gold/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Bot className="w-8 h-8 text-gold" />
+    <div
+      className={
+        isMobile
+          ? "flex h-[calc(100vh-8rem)] flex-col"
+          : "mx-auto flex h-[calc(100vh-4rem)] max-w-4xl flex-col"
+      }
+    >
+      {/* ═══ Persona selector — glass header ═══ */}
+      <div className="glass-card border-b px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="sonar-pulse flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
+              <Sparkles className="h-4 w-4 text-primary" />
             </div>
-            <h2 className="text-lg font-semibold text-white mb-2">How can I help you today?</h2>
-            <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
-              Ask me anything about sales, inventory, vessels, employees, or accounting. I can also create documents for you.
-            </p>
-            <div className="grid grid-cols-2 gap-2 max-w-lg mx-auto">
-              {SUGGESTED_PROMPTS.map((prompt, i) => {
-                const Icon = prompt.icon;
-                return (
-                  <button key={i} onClick={() => sendMessage(prompt.text)}
-                    className="flex items-center gap-2 p-3 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors text-white/80 text-xs">
-                    <Icon className="w-4 h-4 text-gold shrink-0" />
-                    {prompt.text}
-                  </button>
-                );
-              })}
+            <div>
+              <h2 className="text-sm font-bold">AI Chat</h2>
+              <p className="text-[10px] text-muted-foreground">Bridge Communications</p>
             </div>
           </div>
-        )}
-
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
-            {msg.role === "assistant" && (
-              <div className="w-7 h-7 bg-gold/20 rounded-lg flex items-center justify-center shrink-0 mt-1">
-                {msg.type === "tool_call" ? <Wrench className="w-3.5 h-3.5 text-gold" /> : <Bot className="w-3.5 h-3.5 text-gold" />}
-              </div>
-            )}
-            <div className={`max-w-[70%] rounded-xl px-4 py-2.5 text-sm ${
-              msg.role === "user"
-                ? "bg-gold text-white"
-                : msg.type === "thinking"
-                ? "bg-white/5 text-white/60 italic"
-                : "bg-white/10 text-white/90"
-            }`}>
-              {msg.content || (msg.type === "thinking" ? "Thinking..." : "")}
-            </div>
-            {msg.role === "user" && (
-              <div className="w-7 h-7 bg-navy-light rounded-lg flex items-center justify-center shrink-0 mt-1">
-                <User className="w-3.5 h-3.5 text-gold" />
-              </div>
-            )}
-          </div>
-        ))}
+          {currentPersona && (
+            <Badge variant="outline" className={`${personaColor} text-[10px]`}>
+              {currentPersona.nickname} · {currentPersona.model}
+            </Badge>
+          )}
+        </div>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {personas.map((p, i) => {
+            const color = PERSONA_COLORS[p.nickname] || "bg-primary/20 text-primary border-primary/30";
+            const initials = PERSONA_INITIALS[p.nickname] || p.nickname.slice(0, 2).toUpperCase();
+            return (
+              <motion.button
+                key={p.id}
+                onClick={() => setSelectedPersona(p.id)}
+                className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors border ${
+                  selectedPersona === p.id
+                    ? color
+                    : "border-border bg-muted/50 text-muted-foreground hover:bg-accent"
+                }`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+                </Avatar>
+                {p.nickname}
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-white/10 flex gap-3">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about revenue, vessels, employees, inventory..."
-          className="flex-1 px-4 py-2.5 bg-white/10 border border-white/10 rounded-lg text-white placeholder-white/30 text-sm focus:outline-none focus:border-gold"
-        />
-        <button type="submit" disabled={loading || !input.trim()}
-          className="px-4 py-2.5 bg-gold hover:bg-[#B08D2F] text-navy font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2">
-          <Send className="w-4 h-4" />
-        </button>
-      </form>
+      {/* ═══ Messages area ═══ */}
+      <ScrollArea className="flex-1 px-4 py-4">
+        <div className="space-y-4">
+          <AnimatePresence initial={false}>
+            {messages.map((msg, i) => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 12, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {/* Assistant avatar */}
+                {msg.role === "assistant" && (
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarFallback className={`text-[10px] ${personaColor}`}>
+                      {personaInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+
+                {/* Message bubble */}
+                <div className="group relative max-w-[85%]">
+                  <div
+                    className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : msg.role === "system"
+                        ? "bg-destructive/10 text-destructive rounded-bl-md border border-destructive/20"
+                        : "glass-card rounded-bl-md"
+                    }`}
+                  >
+                    {msg.role === "user" ? (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    ) : (
+                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:bg-background/50 prose-pre:border prose-code:text-primary prose-code:before:content-[''] prose-code:after:content-['']">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+
+                    {/* Streaming indicator */}
+                    {msg.streaming && (
+                      <div className="mt-2 flex items-center gap-1">
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1.2, repeat: Infinity }}
+                        />
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
+                        />
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Copy button (assistant only) */}
+                  {msg.role === "assistant" && !msg.streaming && msg.content && (
+                    <button
+                      onClick={() => handleCopy(msg.content, msg.id)}
+                      className="absolute -bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity hover:bg-accent group-hover:opacity-100"
+                    >
+                      {copiedId === msg.id ? (
+                        <Check className="h-3 w-3 text-primary" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* User avatar */}
+                {msg.role === "user" && (
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarFallback className="text-[10px] bg-muted text-muted-foreground">
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {/* Sending indicator */}
+          {sending && messages[messages.length - 1]?.role !== "assistant" && (
+            <motion.div
+              className="flex gap-3"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className={`text-[10px] ${personaColor}`}>
+                  {personaInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="glass-card rounded-2xl rounded-bl-md px-4 py-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Processing...
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+
+      {/* ═══ Input area — glass footer ═══ */}
+      <div className="glass-card border-t px-4 py-3">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
+          }}
+          className="flex gap-2"
+        >
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                currentPersona ? `Ask ${currentPersona.nickname}...` : "Select a persona first"
+              }
+              disabled={!selectedPersona || sending}
+              className="w-full rounded-xl border border-border bg-background/80 px-4 py-2.5 pr-10 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+            />
+            {input && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50">
+                ↵
+              </span>
+            )}
+          </div>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!input.trim() || sending}
+            className="rounded-xl px-4"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+        <div className="mt-1.5 flex items-center justify-between">
+          <p className="text-[10px] text-muted-foreground/50">
+            {currentPersona
+              ? `${currentPersona.nickname} · ${currentPersona.position} · ${currentPersona.model}`
+              : "Select a persona to start"}
+          </p>
+          {currentPersona?.allowed_tools && (
+            <div className="flex gap-1">
+              {currentPersona.allowed_tools.slice(0, 3).map((tool) => (
+                <span
+                  key={tool}
+                  className="rounded bg-muted/50 px-1.5 py-0.5 text-[9px] text-muted-foreground"
+                >
+                  {tool}
+                </span>
+              ))}
+              {currentPersona.allowed_tools.length > 3 && (
+                <span className="text-[9px] text-muted-foreground/50">
+                  +{currentPersona.allowed_tools.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

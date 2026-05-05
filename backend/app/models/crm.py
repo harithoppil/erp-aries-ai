@@ -7,8 +7,8 @@ from backend.app.core.database import Base, GUID, Money, TimestampMixin, AuditMi
 
 class Lead(Base, TimestampMixin, AuditMixin):
     __tablename__ = "leads"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
     lead_name: Mapped[str] = mapped_column(String(255), nullable=False)
     organization: Mapped[str | None] = mapped_column(String(255))
     email: Mapped[str | None] = mapped_column(String(255))
@@ -21,10 +21,10 @@ class Lead(Base, TimestampMixin, AuditMixin):
 
 class Opportunity(Base, TimestampMixin, AuditMixin):
     __tablename__ = "opportunities"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
-    lead_id: Mapped[uuid.UUID | None] = mapped_column(GUID, ForeignKey("leads.id"))
-    customer_id: Mapped[uuid.UUID | None] = mapped_column(GUID, ForeignKey("customers.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("leads.id"))
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("customers.id"))
     opportunity_name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="Open")
     stage: Mapped[str | None] = mapped_column(String(50))
@@ -36,10 +36,10 @@ class Opportunity(Base, TimestampMixin, AuditMixin):
 
 class Communication(Base, TimestampMixin, AuditMixin):
     __tablename__ = "communications"
-    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
-    company_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("companies.id"))
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("companies.id"))
     reference_type: Mapped[str | None] = mapped_column(String(100))
-    reference_id: Mapped[uuid.UUID | None] = mapped_column(GUID)
+    reference_id: Mapped[uuid.UUID | None] = mapped_column(GUID())
     communication_type: Mapped[str] = mapped_column(String(20), default="Note")
     subject: Mapped[str | None] = mapped_column(String(255))
     content: Mapped[str | None] = mapped_column(Text)

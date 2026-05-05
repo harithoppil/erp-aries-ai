@@ -7,7 +7,7 @@ Results are serialized and returned to the AI agent for summarization.
 import logging
 from datetime import date, datetime, timezone
 
-from sqlalchemy import select, func, and_, or_, text
+from sqlalchemy import select, func, and_, or_, text, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -40,6 +40,13 @@ def serialize_row(row) -> dict:
         else:
             result[col.name] = val
     return result
+
+
+def _month_expr(dialect, date_col):
+    """Return a database-agnostic month extraction expression."""
+    if dialect.name == "postgresql":
+        return func.to_char(date_col, "YYYY-MM").label("month")
+    return func.strftime("%Y-%m", date_col).label("month")
 
 
 class MCPToolExecutor:
@@ -515,7 +522,7 @@ class MCPToolExecutor:
 
         elif kpi_type == "sales_trend":
             q = select(
-                func.strftime("%Y-%m", SalesInvoice.date).label("month"),
+                _month_expr(db.bind.dialect, SalesInvoice.date),
                 func.coalesce(func.sum(SalesInvoice.grand_total), 0).label("amount"),
             ).where(
                 SalesInvoice.company_id == company_id,
@@ -538,7 +545,7 @@ class MCPToolExecutor:
 
         try:
             if doc_type == "quotation":
-                from backend.app.models.sales import Quotation, QuotationItem
+                from backend.app.models.sales import QuotationItem
                 q = Quotation(
                     company_id=company_id,
                     customer_id=details.get("customer_id"),
@@ -554,7 +561,7 @@ class MCPToolExecutor:
                 return {"success": True, "doc_type": "quotation", "id": str(q.id), "message": "Quotation created successfully"}
 
             elif doc_type == "purchase_order":
-                from backend.app.models.purchasing import PurchaseOrder, PurchaseOrderItem
+                from backend.app.models.purchasing import PurchaseOrderItem
                 po = PurchaseOrder(
                     company_id=company_id,
                     supplier_id=details.get("supplier_id"),
@@ -570,7 +577,7 @@ class MCPToolExecutor:
                 return {"success": True, "doc_type": "purchase_order", "id": str(po.id), "message": "Purchase Order created successfully"}
 
             elif doc_type == "sales_invoice":
-                from backend.app.models.sales import SalesInvoice, SalesInvoiceItem
+                from backend.app.models.sales import SalesInvoiceItem
                 inv = SalesInvoice(
                     company_id=company_id,
                     customer_id=details.get("customer_id"),
@@ -588,7 +595,7 @@ class MCPToolExecutor:
                 return {"success": True, "doc_type": "sales_invoice", "id": str(inv.id), "message": "Sales Invoice created successfully"}
 
             elif doc_type == "journal_entry":
-                from backend.app.models.accounting import JournalEntry, JournalEntryLine
+                from backend.app.models.accounting import JournalEntryLine
                 je = JournalEntry(
                     company_id=company_id,
                     entry_number=f"JE-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",

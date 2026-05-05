@@ -1,30 +1,33 @@
-"""Database foundation — async SQLAlchemy with PostgreSQL types."""
+"""Database foundation — async SQLAlchemy with Money type and audit mixins."""
 import uuid
+from datetime import datetime, timezone
+
 from sqlalchemy import Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator, CHAR
-from datetime import datetime, timezone
 
-# Use SQLite for dev, PostgreSQL for production
-DATABASE_URL = "sqlite+aiosqlite:///./aries_marine.db"
+from backend.app.core.config import settings
+
+connect_args = {}
+if settings.database_url.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
 
 engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    settings.database_url,
+    echo=settings.database_echo,
+    connect_args=connect_args,
 )
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 class Base(DeclarativeBase):
-    """Base for all ORM models."""
     pass
 
 
 class GUID(TypeDecorator):
-    """Platform-independent UUID. Uses native UUID for PostgreSQL, CHAR(36) for SQLite."""
+    """Platform-independent UUID type. Uses CHAR(36) for SQLite, native UUID for PostgreSQL."""
     impl = CHAR(36)
     cache_ok = True
 
@@ -61,14 +64,13 @@ class Money(TypeDecorator):
         return None if value is None else float(value)
 
 
-# ── Mixins ────────────────────────────────────────────────────
-
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
 
 class AuditMixin:
     created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -79,8 +81,3 @@ class AuditMixin:
 async def get_db() -> AsyncSession:
     async with async_session() as session:
         yield session
-
-
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
