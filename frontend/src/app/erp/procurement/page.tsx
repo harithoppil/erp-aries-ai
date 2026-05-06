@@ -1,74 +1,270 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useIsMobile } from "@/hooks/use-responsive";
+import { useState, useEffect, useMemo } from "react";
 import { API_BASE, unwrapPaginated } from "@/lib/api";
 import { throttledFetch } from "@/lib/throttledFetch";
-import { ShoppingCart } from "lucide-react";
+import {
+  ShoppingCart, Search, Truck, FileText, Plus,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+
+const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
+  draft: { label: "Draft", badge: "bg-gray-100 text-gray-700 border-gray-200" },
+  submitted: { label: "Submitted", badge: "bg-blue-100 text-blue-700 border-blue-200" },
+  received: { label: "Received", badge: "bg-green-100 text-green-700 border-green-200" },
+  cancelled: { label: "Cancelled", badge: "bg-red-100 text-red-700 border-red-200" },
+};
 
 export default function ProcurementPage() {
-  const isMobile = useIsMobile();
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"suppliers" | "orders">("suppliers");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ supplier_name: "", supplier_code: "" });
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [sRes, oRes] = await Promise.all([
-          throttledFetch(`${API_BASE}/erp/suppliers`),
-          throttledFetch(`${API_BASE}/erp/purchase-orders`),
-        ]);
-        if (sRes.ok) setSuppliers(unwrapPaginated(await sRes.json()));
-        if (oRes.ok) setOrders(unwrapPaginated(await oRes.json()));
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
-    };
-    load();
-  }, []);
+  const load = async () => {
+    try {
+      const [sRes, oRes] = await Promise.all([
+        throttledFetch(`${API_BASE}/erp/suppliers`),
+        throttledFetch(`${API_BASE}/erp/purchase-orders`),
+      ]);
+      if (sRes.ok) setSuppliers(unwrapPaginated(await sRes.json()));
+      if (oRes.ok) setOrders(unwrapPaginated(await oRes.json()));
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
 
-  if (loading) return <div className="py-12 text-center text-muted-foreground">Loading procurement...</div>;
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      // Backend uses query params for supplier creation
+      const params = new URLSearchParams({ name: form.supplier_name, code: form.supplier_code });
+      const res = await throttledFetch(`${API_BASE}/erp/suppliers?${params.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        toast.success("Supplier created");
+        setDialogOpen(false);
+        setForm({ supplier_name: "", supplier_code: "" });
+        load();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.detail || "Failed to create supplier");
+      }
+    } catch (e) {
+      toast.error("Network error");
+    } finally { setSaving(false); }
+  };
+
+  const filteredSuppliers = useMemo(() => {
+    if (!search) return suppliers;
+    const q = search.toLowerCase();
+    return suppliers.filter((s) =>
+      (s.supplier_name || "").toLowerCase().includes(q) ||
+      (s.supplier_code || "").toLowerCase().includes(q) ||
+      (s.category || "").toLowerCase().includes(q)
+    );
+  }, [suppliers, search]);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="text-muted-foreground text-sm">Loading procurement...</div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center gap-3">
-        <ShoppingCart className="h-6 w-6 text-sonar" />
-        <h2 className="text-2xl font-bold">Procurement</h2>
-      </div>
-
-      <div className={isMobile ? "grid grid-cols-2 gap-3 mb-6" : "grid grid-cols-3 gap-4 mb-6"}>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Suppliers</p>
-          <p className="text-xl font-bold text-sonar">{suppliers.length}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Purchase Orders</p>
-          <p className="text-xl font-bold text-primary">{orders.length}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Material Requests</p>
-          <p className="text-xl font-bold text-amber">0</p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-card">
-        <div className="border-b px-4 py-3"><h3 className="font-semibold">Suppliers</h3></div>
-        {suppliers.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">No suppliers registered</div>
-        ) : (
-          <div className="divide-y text-sm">
-            {suppliers.map((s) => (
-              <div key={s.id} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <p className="font-medium">{s.supplier_name}</p>
-                  <p className="text-xs text-muted-foreground">{s.category || "General"} · {s.supplier_code}</p>
-                </div>
-                <span className="text-xs text-muted-foreground">{s.email || "—"}</span>
-              </div>
-            ))}
+    <div className="flex flex-col h-[calc(100vh-5.5rem)]">
+      {/* Scrollable content */}
+      <div className="flex-1 min-h-0 overflow-auto pr-2">
+        <div className="space-y-4 pb-4">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-[#0f172a]">Procurement</h2>
+              <p className="text-sm text-[#64748b] mt-1">{suppliers.length} suppliers · {orders.length} purchase orders</p>
+            </div>
+            <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
+              <Plus size={16} /> Add Supplier
+            </Button>
           </div>
-        )}
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
+            <Input
+              placeholder="Search suppliers..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-white border-gray-200"
+            />
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Truck size={16} className="text-[#64748b]" />
+                <span className="text-xs font-medium text-[#64748b] uppercase">Suppliers</span>
+              </div>
+              <p className="text-2xl font-bold text-[#0f172a]">{suppliers.length}</p>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText size={16} className="text-[#0ea5e9]" />
+                <span className="text-xs font-medium text-[#64748b] uppercase">Purchase Orders</span>
+              </div>
+              <p className="text-2xl font-bold text-[#0f172a]">{orders.length}</p>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ShoppingCart size={16} className="text-amber-500" />
+                <span className="text-xs font-medium text-[#64748b] uppercase">Material Requests</span>
+              </div>
+              <p className="text-2xl font-bold text-[#0f172a]">0</p>
+            </div>
+          </div>
+
+          {/* Tab switcher */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab("suppliers")}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                activeTab === "suppliers" ? "bg-[#1e3a5f] text-white" : "bg-gray-100 text-[#64748b] hover:bg-gray-200"
+              }`}
+            >
+              Suppliers
+            </button>
+            <button
+              onClick={() => setActiveTab("orders")}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                activeTab === "orders" ? "bg-[#1e3a5f] text-white" : "bg-gray-100 text-[#64748b] hover:bg-gray-200"
+              }`}
+            >
+              Purchase Orders
+            </button>
+          </div>
+
+          {/* Suppliers Table */}
+          {activeTab === "suppliers" && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              {filteredSuppliers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
+                  <Truck size={48} className="mb-4 opacity-40" />
+                  <p className="text-lg font-medium">No suppliers found</p>
+                  <p className="text-sm">{search ? "Try a different search term" : "Suppliers will appear here"}</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier</th>
+                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Code</th>
+                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Category</th>
+                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Contact</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredSuppliers.map((s) => (
+                        <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-[#0f172a]">{s.supplier_name}</p>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{s.supplier_code}</td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border bg-gray-100 text-gray-700 border-gray-200">
+                              {s.category || "General"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[#64748b]">{s.email || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Purchase Orders Table */}
+          {activeTab === "orders" && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              {orders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
+                  <FileText size={48} className="mb-4 opacity-40" />
+                  <p className="text-lg font-medium">No purchase orders yet</p>
+                  <p className="text-sm">Orders will appear here</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">PO Number</th>
+                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier</th>
+                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Status</th>
+                        <th className="text-right px-4 py-3 text-gray-700 font-semibold">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {orders.map((o) => {
+                        const cfg = STATUS_CONFIG[o.status] || STATUS_CONFIG.draft;
+                        return (
+                          <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{o.po_number || "—"}</td>
+                            <td className="px-4 py-3 text-[#0f172a] font-medium">{o.supplier_name || "—"}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${cfg.badge}`}>
+                                {cfg.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-[#0f172a]">AED {o.total_amount?.toLocaleString() || 0}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Add Supplier Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Add New Supplier</DialogTitle></DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Supplier Name</label>
+              <Input required value={form.supplier_name} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Supplier Code</label>
+              <Input required value={form.supplier_code} onChange={(e) => setForm({ ...form, supplier_code: e.target.value })} placeholder="e.g. SUP-001" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={saving} className="bg-[#1e3a5f] hover:bg-[#152a45]">{saving ? "Saving..." : "Create Supplier"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

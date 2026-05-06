@@ -87,7 +87,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Menu size={20} className="text-muted-foreground" />
               </button>
             )}
-            <img src="/aries-logo-transparent.png" alt="Aries" className="h-7 w-7" />
             <h1 className="text-sm font-semibold">Aries ERP</h1>
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
               AI-Powered

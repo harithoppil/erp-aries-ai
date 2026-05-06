@@ -24,6 +24,7 @@ from backend.app.api.routes.workflow import router as workflow_router
 from backend.app.api.routes.ai import router as ai_router
 from backend.app.api.routes.channels import router as channels_router
 from backend.app.api.routes.document_upload import router as document_upload_router
+from backend.app.api.routes.notebooks import router as notebooks_router
 
 # Configure structured logging
 logging.basicConfig(
@@ -81,6 +82,7 @@ app.include_router(workflow_router, prefix="/api/v1")
 app.include_router(ai_router, prefix="/api/v1")
 app.include_router(channels_router, prefix="/api/v1")
 app.include_router(document_upload_router, prefix="/api/v1")
+app.include_router(notebooks_router, prefix="/api/v1")
 
 
 @app.get("/health")

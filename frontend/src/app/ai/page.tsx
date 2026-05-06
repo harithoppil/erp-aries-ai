@@ -11,7 +11,6 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useResponsive } from "@/hooks/use-responsive";
 import { throttledFetch } from "@/lib/throttledFetch";
 import { API_BASE } from "@/lib/api";
@@ -62,7 +61,7 @@ export default function AIChatPage() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load personas on mount
@@ -105,9 +104,12 @@ export default function AIChatPage() {
     }
   }, [selectedPersona, personas]);
 
-  // Auto-scroll
+  // Auto-scroll inside the message container only
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
   }, [messages]);
 
   const handleSend = useCallback(async () => {
@@ -228,8 +230,8 @@ export default function AIChatPage() {
     <div
       className={
         isMobile
-          ? "flex h-[calc(100vh-8rem)] flex-col"
-          : "mx-auto flex h-[calc(100vh-4rem)] max-w-4xl flex-col"
+          ? "flex h-[calc(100vh-8rem)] flex-col overflow-hidden"
+          : "mx-auto flex h-[calc(100vh-6rem)] max-w-4xl flex-col overflow-hidden"
       }
     >
       {/* ═══ Persona selector — glass header ═══ */}
@@ -278,7 +280,7 @@ export default function AIChatPage() {
       </div>
 
       {/* ═══ Messages area ═══ */}
-      <ScrollArea className="flex-1 px-4 py-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4">
         <div className="space-y-4">
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
@@ -389,9 +391,8 @@ export default function AIChatPage() {
             </motion.div>
           )}
 
-          <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* ═══ Input area — glass footer ═══ */}
       <div className="glass-card border-t px-4 py-3">

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { API_BASE } from "@/lib/api";
-import { Upload, FileText, CheckCircle, XCircle, Loader2, Eye, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { Upload, FileText, CheckCircle, XCircle, Loader2, Eye, Image as ImageIcon, RefreshCw, ArrowRight } from "lucide-react";
 
 interface DocRecord {
   id: string;
@@ -38,15 +39,36 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 };
 
 export function DocumentUploadPanel({ entityType, entityId }: { entityType?: string; entityId?: string }) {
+  const router = useRouter();
   const [documents, setDocuments] = useState<DocRecord[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocRecord | null>(null);
   const [reprocessing, setReprocessing] = useState<string | null>(null);
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const fetchedIds = useRef<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadDocuments();
   }, [entityType, entityId]);
+
+  // Fetch signed URLs for image thumbnails
+  useEffect(() => {
+    documents.forEach(async (doc) => {
+      if (doc.content_type.startsWith("image/") && !fetchedIds.current.has(doc.id)) {
+        fetchedIds.current.add(doc.id);
+        try {
+          const res = await fetch(`${API_BASE}/document-upload/${doc.id}/signed-url`);
+          if (res.ok) {
+            const data = await res.json();
+            setThumbnails((prev) => ({ ...prev, [doc.id]: data.url }));
+          }
+        } catch {
+          // silent fail
+        }
+      }
+    });
+  }, [documents]);
 
   const loadDocuments = async () => {
     try {
@@ -150,8 +172,15 @@ export function DocumentUploadPanel({ entityType, entityId }: { entityType?: str
                   selectedDoc?.id === doc.id ? "border-[#0ea5e9] bg-[#0ea5e9]/5" : "border-border"
                 }`}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700">
-                  {doc.content_type.startsWith("image/") ? (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                  {doc.content_type.startsWith("image/") && thumbnails[doc.id] ? (
+                    <img
+                      src={thumbnails[doc.id]}
+                      alt={doc.original_filename}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : doc.content_type.startsWith("image/") ? (
                     <ImageIcon className="h-5 w-5 text-[#0ea5e9]" />
                   ) : (
                     <FileText className="h-5 w-5 text-amber" />
@@ -165,11 +194,22 @@ export function DocumentUploadPanel({ entityType, entityId }: { entityType?: str
                     <span>{formatFileSize(doc.file_size)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <StatusIcon
-                    className={`h-4 w-4 ${status.color} ${doc.processing_status === "processing" ? "animate-spin" : ""}`}
-                  />
-                  <span className={`text-xs font-medium ${status.color}`}>{status.label}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <StatusIcon
+                      className={`h-4 w-4 ${status.color} ${doc.processing_status === "processing" ? "animate-spin" : ""}`}
+                    />
+                    <span className={`text-xs font-medium ${status.color}`}>{status.label}</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/documents/${doc.id}`);
+                    }}
+                    className="flex items-center gap-1 rounded-lg bg-[#1e3a5f] px-2.5 py-1 text-[10px] font-medium text-white transition-colors hover:bg-[#152a45]"
+                  >
+                    Open <ArrowRight size={10} />
+                  </button>
                 </div>
               </div>
             );
@@ -204,7 +244,18 @@ export function DocumentUploadPanel({ entityType, entityId }: { entityType?: str
               </button>
             </div>
           </div>
-          <div className="p-4">
+          <div className="p-4 space-y-3">
+            {/* Image preview */}
+            {selectedDoc.content_type.startsWith("image/") && thumbnails[selectedDoc.id] && (
+              <div className="flex justify-center rounded-xl border bg-slate-50 p-3 dark:bg-slate-800">
+                <img
+                  src={thumbnails[selectedDoc.id]}
+                  alt={selectedDoc.original_filename}
+                  className="max-h-64 rounded-lg object-contain"
+                />
+              </div>
+            )}
+
             {selectedDoc.processing_status === "completed" && selectedDoc.extracted_data ? (
               <div className="space-y-3">
                 {/* Invoice-specific display */}

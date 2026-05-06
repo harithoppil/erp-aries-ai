@@ -8,7 +8,7 @@ import {
   FileText, Home, BookOpen, Bot, Package, Users,
   DollarSign, Wrench, FolderKanban, ShoppingCart,
   ChevronLeft, ChevronRight, Anchor,
-  Truck, Sparkles,
+  Truck, Sparkles, Wallet, Clock,
   GitBranch, MessageSquare, Database, Upload,
 } from "lucide-react";
 import {
@@ -26,12 +26,14 @@ const NAV_GROUPS = [
       { href: "/enquiries", label: "Enquiries", icon: FileText, badge: 6 },
       { href: "/erp/accounts", label: "Accounts", icon: DollarSign },
       { href: "/erp/stock", label: "Stock", icon: Package },
-      { href: "/erp/procurement", label: "Purchase Orders", icon: ShoppingCart },
-      { href: "/erp/procurement", label: "Suppliers", icon: Truck },
+      { href: "/erp/procurement", label: "Procurement", icon: ShoppingCart },
       { href: "/erp/hr", label: "Personnel", icon: Users },
       { href: "/erp/assets", label: "Assets", icon: Wrench },
       { href: "/erp/projects", label: "Projects", icon: FolderKanban },
+      { href: "/erp/payments", label: "Payments", icon: Wallet },
+      { href: "/erp/timesheets", label: "Timesheets", icon: Clock },
       { href: "/documents", label: "Documents", icon: Upload },
+      { href: "/notebooks", label: "Notebooks", icon: BookOpen },
       { href: "/wiki", label: "Wiki", icon: BookOpen },
     ],
   },
@@ -61,7 +63,7 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
 
   return (
     <motion.aside
-      className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] flex-col overflow-y-auto bg-[#0f172a] text-[#cbd5e1] dark:bg-[#0f172a]"
+      className="fixed left-0 top-0 z-40 flex h-screen flex-col overflow-y-auto bg-[#0f172a] text-[#cbd5e1] dark:bg-[#0f172a]"
       animate={{ width: isCollapsed ? 64 : 240 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
     >

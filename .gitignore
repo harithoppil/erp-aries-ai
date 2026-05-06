@@ -81,3 +81,5 @@ rag_store.db
 # Celery
 celerybeat-schedule
 celerybeat.pid
+
+tmp/

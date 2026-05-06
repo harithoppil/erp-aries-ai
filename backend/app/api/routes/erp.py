@@ -99,6 +99,12 @@ async def list_invoices(limit: int = Query(50, ge=1), offset: int = Query(0, ge=
     return await _paginated_results(db, stmt, limit, offset)
 
 
+@router.get("/payments")
+async def list_payments(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    stmt = select(PaymentEntry).order_by(PaymentEntry.posting_date.desc())
+    return await _paginated_results(db, stmt, limit, offset)
+
+
 @router.post("/payments", status_code=201)
 async def record_payment(data: PaymentCreate, db: AsyncSession = Depends(get_db)):
     invoice = await db.get(SalesInvoice, uuid.UUID(data.invoice_id))
@@ -264,6 +270,38 @@ async def assign_personnel(project_id: uuid.UUID, personnel_id: uuid.UUID, role:
     return {"assigned": True, "compliance_passed": len(issues) == 0, "issues": issues}
 
 
+class TaskCreate(BaseModel):
+    project_id: str
+    subject: str
+    description: str | None = None
+    assigned_to: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+@router.get("/tasks")
+async def list_tasks(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    stmt = select(Task).order_by(Task.id.desc())
+    return await _paginated_results(db, stmt, limit, offset)
+
+
+@router.post("/tasks", status_code=201)
+async def create_task(data: TaskCreate, db: AsyncSession = Depends(get_db)):
+    task = Task(
+        project_id=uuid.UUID(data.project_id),
+        subject=data.subject,
+        description=data.description,
+        assigned_to=data.assigned_to,
+        start_date=datetime.fromisoformat(data.start_date) if data.start_date else None,
+        end_date=datetime.fromisoformat(data.end_date) if data.end_date else None,
+
+    )
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+    return {"id": str(task.id)}
+
+
 class TimesheetCreate(BaseModel):
     project_id: str
     personnel_id: str
@@ -272,6 +310,12 @@ class TimesheetCreate(BaseModel):
     activity_type: str
     description: str | None = None
     billable: bool = True
+
+
+@router.get("/timesheets")
+async def list_timesheets(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    stmt = select(Timesheet).order_by(Timesheet.date.desc())
+    return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/timesheets", status_code=201)
@@ -381,7 +425,73 @@ async def list_purchase_orders(limit: int = Query(50, ge=1), offset: int = Query
     return await _paginated_results(db, stmt, limit, offset)
 
 
+class POItemIn(BaseModel):
+    description: str
+    quantity: int = 1
+    rate: float
+    item_code: str | None = None
+
+class PurchaseOrderCreate(BaseModel):
+    supplier_id: str
+    project_id: str | None = None
+    expected_delivery: str | None = None
+    notes: str | None = None
+    items: list[POItemIn]
+
+@router.post("/purchase-orders", status_code=201)
+async def create_purchase_order(data: PurchaseOrderCreate, db: AsyncSession = Depends(get_db)):
+    po_number = f"PO-{uuid.uuid4().hex[:8].upper()}"
+    subtotal = sum(i.quantity * i.rate for i in data.items)
+    tax_amount = subtotal * 0.05  # 5% VAT
+    total = subtotal + tax_amount
+
+    po = PurchaseOrder(
+        po_number=po_number,
+        supplier_id=uuid.UUID(data.supplier_id),
+        project_id=uuid.UUID(data.project_id) if data.project_id else None,
+        subtotal=subtotal,
+        tax_amount=tax_amount,
+        total=total,
+        notes=data.notes,
+    )
+    if data.expected_delivery:
+        po.expected_delivery = datetime.fromisoformat(data.expected_delivery)
+    db.add(po)
+    await db.flush()
+
+    for i in data.items:
+        item = POItem(po_id=po.id, item_code=i.item_code, description=i.description, quantity=i.quantity, rate=i.rate, amount=i.quantity * i.rate)
+        db.add(item)
+
+    await db.commit()
+    await db.refresh(po)
+    return {"id": str(po.id), "po_number": po_number, "total": total}
+
+
 @router.get("/material-requests")
 async def list_material_requests(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(MaterialRequest).order_by(MaterialRequest.created_at.desc())
     return await _paginated_results(db, stmt, limit, offset)
+
+
+class MaterialRequestCreate(BaseModel):
+    project_id: str | None = None
+    requested_by: str
+    purpose: str | None = None
+
+@router.post("/material-requests", status_code=201)
+async def create_material_request(data: MaterialRequestCreate, db: AsyncSession = Depends(get_db)):
+    req_number = f"MR-{uuid.uuid4().hex[:8].upper()}"
+    mr = MaterialRequest(
+        request_number=req_number,
+        project_id=uuid.UUID(data.project_id) if data.project_id else None,
+        requested_by=data.requested_by,
+        purpose=data.purpose,
+    )
+    db.add(mr)
+    await db.commit()
+    await db.refresh(mr)
+    return mr
+
+
+

@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { Sparkles, X, Send, Bot, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const quickActions = ["Summarize this page", "Create Record", "Export Data", "Help"];
 
@@ -155,7 +157,17 @@ export function AiChatPanel() {
                   : "rounded-2xl rounded-tl-sm border border-slate-100 bg-white text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               }`}
             >
-              {msg.content}
+              {msg.sender === "user" ? (
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+              ) : msg.sender === "system" ? (
+                msg.content
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:bg-slate-50 prose-pre:border prose-pre:border-slate-200 prose-pre:rounded-md prose-pre:p-2 prose-code:text-[#0ea5e9] prose-code:before:content-[''] prose-code:after:content-[''] prose-a:text-[#0ea5e9]">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         ))}
