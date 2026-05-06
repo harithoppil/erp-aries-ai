@@ -60,7 +60,7 @@ export function AiChatPanel() {
   return (
     <aside className="fixed right-0 top-0 z-40 flex h-full w-80 flex-col border-l border-slate-200 dark:border-slate-700 bg-[#f1f5f9] dark:bg-slate-900">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
+      <div className="flex h-14 items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4">
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-[#0ea5e9]" />
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">AI Assistant</span>

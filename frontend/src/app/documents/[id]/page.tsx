@@ -62,7 +62,7 @@ export default function DocumentViewerPage() {
   const docId = params.id as string;
 
   const [doc, setDoc] = useState<DocRecord | null>(null);
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const imageUrl = docId ? `/api/document-image/${docId}` : null;
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"data" | "chat">("data");
   const [zoom, setZoom] = useState(1);
@@ -76,20 +76,13 @@ export default function DocumentViewerPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load document + signed URL
+  // Load document
   useEffect(() => {
     if (!docId) return;
     const load = async () => {
       try {
-        const [docRes, urlRes] = await Promise.all([
-          fetch(`${API_BASE}/document-upload/${docId}`),
-          fetch(`${API_BASE}/document-upload/${docId}/signed-url`),
-        ]);
-        if (docRes.ok) setDoc(await docRes.json());
-        if (urlRes.ok) {
-          const data = await urlRes.json();
-          setSignedUrl(data.url);
-        }
+        const res = await fetch(`${API_BASE}/document-upload/${docId}`);
+        if (res.ok) setDoc(await res.json());
       } catch (e) {
         console.error(e);
         toast.error("Failed to load document");
@@ -242,8 +235,8 @@ export default function DocumentViewerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {signedUrl && (
-            <a href={signedUrl} target="_blank" rel="noopener noreferrer" download={doc.original_filename}>
+          {imageUrl && (
+            <a href={imageUrl} target="_blank" rel="noopener noreferrer" download={doc.original_filename}>
               <Button variant="outline" size="sm" className="gap-1.5 text-xs">
                 <Download size={12} /> Download
               </Button>
@@ -260,7 +253,7 @@ export default function DocumentViewerPage() {
           <div className="flex items-center justify-center gap-2 border-b border-gray-100 bg-white px-4 py-1.5 shrink-0">
             {isImage && (
               <>
-                <button onClick={() => setZoom((z) => Math.min(z + 0.25, 3))} className="rounded p-1.5 hover:bg-gray-100 text-[#64748b]">
+                <button onClick={() => setZoom((z) => Math.min(z + 0.25, 2))} className="rounded p-1.5 hover:bg-gray-100 text-[#64748b]">
                   <ZoomIn size={14} />
                 </button>
                 <span className="text-[10px] text-[#64748b] w-10 text-center">{Math.round(zoom * 100)}%</span>
@@ -276,18 +269,18 @@ export default function DocumentViewerPage() {
 
           {/* Document display */}
           <div className="flex-1 overflow-auto flex items-center justify-center p-4">
-            {!signedUrl ? (
+            {!imageUrl ? (
               <div className="text-[#94a3b8] text-sm">No preview available</div>
             ) : isImage ? (
               <img
-                src={signedUrl}
+                src={imageUrl}
                 alt={doc.original_filename}
-                className="max-w-none transition-transform duration-200 shadow-lg rounded-lg"
+                className="max-w-full h-auto transition-transform duration-200 shadow-lg rounded-lg"
                 style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}
               />
             ) : isPdf ? (
               <iframe
-                src={signedUrl}
+                src={imageUrl}
                 className="w-full h-full rounded-lg border border-gray-200 bg-white"
                 title={doc.original_filename}
               />
@@ -295,7 +288,7 @@ export default function DocumentViewerPage() {
               <div className="flex flex-col items-center text-[#94a3b8]">
                 <FileText size={48} className="mb-4 opacity-40" />
                 <p className="text-sm">Preview not available for this file type</p>
-                <a href={signedUrl} target="_blank" rel="noopener noreferrer" className="mt-2 text-xs text-[#0ea5e9] hover:underline">
+                <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 text-xs text-[#0ea5e9] hover:underline">
                   Open in new tab
                 </a>
               </div>

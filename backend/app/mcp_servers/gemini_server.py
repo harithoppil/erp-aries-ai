@@ -1,10 +1,10 @@
-"""Gemini MCP Server — call Gemini 2.5 Pro via MCP protocol."""
+"""Gemini MCP Server — call Gemini 3.1 Pro via MCP protocol."""
 
 from mcp.server.fastmcp import FastMCP
 
 from backend.app.services.gemini import GeminiService
 
-gemini_mcp = FastMCP("Gemini MCP", instructions="Call Gemini 2.5 Pro for reasoning, classification, and drafting")
+gemini_mcp = FastMCP("Gemini MCP", instructions="Call Gemini 3.1 Pro for reasoning, classification, and drafting")
 
 
 @gemini_mcp.tool()
@@ -30,7 +30,7 @@ async def gemini_draft_proposal(
     industry: str = "",
     wiki_context: str = "",
 ) -> str:
-    """Draft a proposal using Gemini 2.5 Pro."""
+    """Draft a proposal using Gemini 3.1 Pro."""
     from backend.app.models.enquiry import Enquiry
     from backend.app.services.rules import apply_rules, RulesOutput
 

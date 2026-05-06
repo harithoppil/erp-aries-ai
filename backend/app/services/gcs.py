@@ -47,3 +47,18 @@ def generate_signed_url(gcs_path: str, expiration: int = 3600) -> str:
     bucket = _get_bucket()
     blob = bucket.blob(gcs_path)
     return blob.generate_signed_url(version="v4", expiration=expiration)
+
+
+def delete_from_gcs(gcs_path: str) -> None:
+    """Delete a GCS object."""
+    bucket = _get_bucket()
+    blob = bucket.blob(gcs_path)
+    blob.delete()
+    logger.info("Deleted gs://%s/%s", settings.gcs_bucket_name, gcs_path)
+
+
+def download_bytes(gcs_path: str) -> bytes:
+    """Download a GCS object and return its bytes."""
+    bucket = _get_bucket()
+    blob = bucket.blob(gcs_path)
+    return blob.download_as_bytes()

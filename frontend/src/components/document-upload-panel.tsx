@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE } from "@/lib/api";
-import { Upload, FileText, CheckCircle, XCircle, Loader2, Eye, Image as ImageIcon, RefreshCw, ArrowRight } from "lucide-react";
+import { Upload, FileText, CheckCircle, XCircle, Loader2, Eye, Image as ImageIcon, RefreshCw, ArrowRight, Trash2 } from "lucide-react";
 
 interface DocRecord {
   id: string;
@@ -44,31 +44,15 @@ export function DocumentUploadPanel({ entityType, entityId }: { entityType?: str
   const [uploading, setUploading] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocRecord | null>(null);
   const [reprocessing, setReprocessing] = useState<string | null>(null);
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const fetchedIds = useRef<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const contentUrl = (docId: string) => `/api/document-image/${docId}`;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadDocuments();
   }, [entityType, entityId]);
 
-  // Fetch signed URLs for image thumbnails
-  useEffect(() => {
-    documents.forEach(async (doc) => {
-      if (doc.content_type.startsWith("image/") && !fetchedIds.current.has(doc.id)) {
-        fetchedIds.current.add(doc.id);
-        try {
-          const res = await fetch(`${API_BASE}/document-upload/${doc.id}/signed-url`);
-          if (res.ok) {
-            const data = await res.json();
-            setThumbnails((prev) => ({ ...prev, [doc.id]: data.url }));
-          }
-        } catch {
-          // silent fail
-        }
-      }
-    });
-  }, [documents]);
+
 
   const loadDocuments = async () => {
     try {
@@ -122,6 +106,20 @@ export function DocumentUploadPanel({ entityType, entityId }: { entityType?: str
     setReprocessing(null);
   };
 
+  const handleDelete = async (docId: string) => {
+    setDeleting(docId);
+    try {
+      const res = await fetch(`${API_BASE}/document-upload/${docId}`, { method: "DELETE" });
+      if (res.ok) {
+        setDocuments((prev) => prev.filter((d) => d.id !== docId));
+        if (selectedDoc?.id === docId) setSelectedDoc(null);
+      }
+    } catch (e) {
+      console.error("Delete failed:", e);
+    }
+    setDeleting(null);
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -173,17 +171,15 @@ export function DocumentUploadPanel({ entityType, entityId }: { entityType?: str
                 }`}
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                  {doc.content_type.startsWith("image/") && thumbnails[doc.id] ? (
+                  {doc.content_type.startsWith("image/") ? (
                     <img
-                      src={thumbnails[doc.id]}
+                      src={contentUrl(doc.id)}
                       alt={doc.original_filename}
                       className="h-full w-full object-cover"
                       loading="lazy"
                     />
-                  ) : doc.content_type.startsWith("image/") ? (
-                    <ImageIcon className="h-5 w-5 text-[#0ea5e9]" />
                   ) : (
-                    <FileText className="h-5 w-5 text-amber" />
+                    <ImageIcon className="h-5 w-5 text-[#0ea5e9]" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -209,6 +205,16 @@ export function DocumentUploadPanel({ entityType, entityId }: { entityType?: str
                     className="flex items-center gap-1 rounded-lg bg-[#1e3a5f] px-2.5 py-1 text-[10px] font-medium text-white transition-colors hover:bg-[#152a45]"
                   >
                     Open <ArrowRight size={10} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(doc.id);
+                    }}
+                    disabled={deleting === doc.id}
+                    className="flex items-center gap-1 rounded-lg bg-red-50 px-2 py-1 text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                  >
+                    <Trash2 size={12} />
                   </button>
                 </div>
               </div>
@@ -246,10 +252,10 @@ export function DocumentUploadPanel({ entityType, entityId }: { entityType?: str
           </div>
           <div className="p-4 space-y-3">
             {/* Image preview */}
-            {selectedDoc.content_type.startsWith("image/") && thumbnails[selectedDoc.id] && (
+            {selectedDoc.content_type.startsWith("image/") && (
               <div className="flex justify-center rounded-xl border bg-slate-50 p-3 dark:bg-slate-800">
                 <img
-                  src={thumbnails[selectedDoc.id]}
+                  src={contentUrl(selectedDoc.id)}
                   alt={selectedDoc.original_filename}
                   className="max-h-64 rounded-lg object-contain"
                 />

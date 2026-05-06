@@ -9,12 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_db
 from backend.app.models.erp import (
-    Account, SalesInvoice, InvoiceItem, PaymentEntry,
+    Account, SalesInvoice, InvoiceItem, PaymentEntry, JournalEntry, JournalEntryLine, Quotation, QuotationItem, SalesOrder, SalesOrderItem,
     Asset, MaintenanceRecord,
     Item, Warehouse, StockEntry, Bin,
     Project, Task, Timesheet, ProjectAssignment,
     Personnel, Certification, QualityInspection,
-    Supplier, PurchaseOrder, POItem, MaterialRequest,
+    Supplier, Customer, PurchaseOrder, POItem, MaterialRequest,
+    GLEntry, FiscalYear, CostCenter, Subsidiary,
 )
 from pydantic import BaseModel, Field
 
@@ -121,6 +122,149 @@ async def record_payment(data: PaymentCreate, db: AsyncSession = Depends(get_db)
 
     await db.commit()
     return {"id": str(payment.id), "outstanding": invoice.outstanding_amount}
+
+
+class QuotationItemIn(BaseModel):
+    description: str
+    quantity: int = 1
+    rate: float
+    item_code: str | None = None
+
+class QuotationCreate(BaseModel):
+    customer_id: str | None = None
+    customer_name: str
+    project_type: str | None = None
+    items: list[QuotationItemIn]
+    tax_rate: float = 5.0
+    valid_until: str | None = None
+    notes: str | None = None
+
+
+@router.get("/quotations")
+async def list_quotations(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    stmt = select(Quotation).order_by(Quotation.created_at.desc())
+    return await _paginated_results(db, stmt, limit, offset)
+
+
+@router.post("/quotations", status_code=201)
+async def create_quotation(data: QuotationCreate, db: AsyncSession = Depends(get_db)):
+    q_number = f"QTN-{uuid.uuid4().hex[:8].upper()}"
+    subtotal = sum(i.quantity * i.rate for i in data.items)
+    tax_amount = subtotal * (data.tax_rate / 100)
+    total = subtotal + tax_amount
+
+    quotation = Quotation(
+        quotation_number=q_number,
+        customer_id=uuid.UUID(data.customer_id) if data.customer_id else None,
+        customer_name=data.customer_name,
+        project_type=data.project_type,
+        subtotal=subtotal,
+        tax_rate=data.tax_rate,
+        tax_amount=tax_amount,
+        total=total,
+        valid_until=datetime.fromisoformat(data.valid_until).replace(tzinfo=timezone.utc) if data.valid_until else None,
+        notes=data.notes,
+    )
+    db.add(quotation)
+    await db.flush()
+
+    for i in data.items:
+        item = QuotationItem(quotation_id=quotation.id, item_code=i.item_code, description=i.description, quantity=i.quantity, rate=i.rate, amount=i.quantity * i.rate)
+        db.add(item)
+
+    await db.commit()
+    await db.refresh(quotation)
+    return {"id": str(quotation.id), "quotation_number": q_number, "total": total}
+
+
+class JournalEntryCreate(BaseModel):
+    account: str
+    entry_type: str
+    amount: float
+    party_type: str | None = None
+    party_name: str | None = None
+    reference: str | None = None
+    notes: str | None = None
+
+
+@router.get("/journal-entries")
+async def list_journal_entries(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    stmt = select(JournalEntry).order_by(JournalEntry.posting_date.desc())
+    return await _paginated_results(db, stmt, limit, offset)
+
+
+@router.post("/journal-entries", status_code=201)
+async def create_journal_entry(data: JournalEntryCreate, db: AsyncSession = Depends(get_db)):
+    entry_num = f"JV-{uuid.uuid4().hex[:8].upper()}"
+    entry = JournalEntry(
+        entry_number=entry_num,
+        account=data.account,
+        entry_type=data.entry_type,
+        amount=data.amount,
+        party_type=data.party_type,
+        party_name=data.party_name,
+        reference=data.reference,
+        notes=data.notes,
+    )
+    db.add(entry)
+    await db.commit()
+    await db.refresh(entry)
+    return entry
+
+
+class SalesOrderItemIn(BaseModel):
+    description: str
+    quantity: int = 1
+    rate: float
+    item_code: str | None = None
+
+class SalesOrderCreate(BaseModel):
+    quotation_id: str | None = None
+    customer_id: str | None = None
+    customer_name: str
+    project_type: str | None = None
+    items: list[SalesOrderItemIn]
+    tax_rate: float = 5.0
+    delivery_date: str | None = None
+    notes: str | None = None
+
+
+@router.get("/sales-orders")
+async def list_sales_orders(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    stmt = select(SalesOrder).order_by(SalesOrder.created_at.desc())
+    return await _paginated_results(db, stmt, limit, offset)
+
+
+@router.post("/sales-orders", status_code=201)
+async def create_sales_order(data: SalesOrderCreate, db: AsyncSession = Depends(get_db)):
+    so_number = f"SO-{uuid.uuid4().hex[:8].upper()}"
+    subtotal = sum(i.quantity * i.rate for i in data.items)
+    tax_amount = subtotal * (data.tax_rate / 100)
+    total = subtotal + tax_amount
+
+    so = SalesOrder(
+        order_number=so_number,
+        quotation_id=uuid.UUID(data.quotation_id) if data.quotation_id else None,
+        customer_id=uuid.UUID(data.customer_id) if data.customer_id else None,
+        customer_name=data.customer_name,
+        project_type=data.project_type,
+        subtotal=subtotal,
+        tax_rate=data.tax_rate,
+        tax_amount=tax_amount,
+        total=total,
+        delivery_date=datetime.fromisoformat(data.delivery_date).replace(tzinfo=timezone.utc) if data.delivery_date else None,
+        notes=data.notes,
+    )
+    db.add(so)
+    await db.flush()
+
+    for i in data.items:
+        item = SalesOrderItem(sales_order_id=so.id, item_code=i.item_code, description=i.description, quantity=i.quantity, rate=i.rate, amount=i.quantity * i.rate)
+        db.add(item)
+
+    await db.commit()
+    await db.refresh(so)
+    return {"id": str(so.id), "order_number": so_number, "total": total}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -379,18 +523,25 @@ async def add_certification(data: CertCreate, db: AsyncSession = Depends(get_db)
         cert_type=data.cert_type,
         cert_number=data.cert_number,
         issuing_body=data.issuing_body,
-        issue_date=datetime.fromisoformat(data.issue_date) if data.issue_date else None,
-        expiry_date=datetime.fromisoformat(data.expiry_date) if data.expiry_date else None,
+        issue_date=datetime.fromisoformat(data.issue_date).replace(tzinfo=timezone.utc) if data.issue_date else None,
+        expiry_date=datetime.fromisoformat(data.expiry_date).replace(tzinfo=timezone.utc) if data.expiry_date else None,
     )
     # Auto-set status based on expiry
     if cert.expiry_date:
-        if cert.expiry_date < datetime.now(timezone.utc):
+        now = datetime.now(timezone.utc)
+        if cert.expiry_date < now:
             cert.status = "expired"
-        elif cert.expiry_date < datetime.now(timezone.utc) + __import__("datetime").timedelta(days=90):
+        elif cert.expiry_date < now + __import__("datetime").timedelta(days=90):
             cert.status = "expiring_soon"
     db.add(cert)
     await db.commit()
     return cert
+
+
+@router.get("/certifications")
+async def list_certifications(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    stmt = select(Certification).order_by(Certification.expiry_date)
+    return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.get("/personnel/compliance-alerts")
@@ -411,12 +562,49 @@ async def list_suppliers(limit: int = Query(50, ge=1), offset: int = Query(0, ge
     return await _paginated_results(db, stmt, limit, offset)
 
 
+class SupplierCreate(BaseModel):
+    supplier_name: str
+    supplier_code: str
+    contact_person: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    category: str | None = None
+
 @router.post("/suppliers", status_code=201)
-async def create_supplier(name: str, code: str, db: AsyncSession = Depends(get_db)):
-    supplier = Supplier(supplier_name=name, supplier_code=code)
+async def create_supplier(data: SupplierCreate, db: AsyncSession = Depends(get_db)):
+    supplier = Supplier(**data.model_dump(exclude_none=True))
     db.add(supplier)
     await db.commit()
+    await db.refresh(supplier)
     return supplier
+
+
+class CustomerCreate(BaseModel):
+    customer_name: str
+    customer_code: str
+    contact_person: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    industry: str | None = None
+    tax_id: str | None = None
+    credit_limit: float | None = None
+
+
+@router.get("/customers")
+async def list_customers(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    stmt = select(Customer).order_by(Customer.customer_name)
+    return await _paginated_results(db, stmt, limit, offset)
+
+
+@router.post("/customers", status_code=201)
+async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db)):
+    customer = Customer(**data.model_dump(exclude_none=True))
+    db.add(customer)
+    await db.commit()
+    await db.refresh(customer)
+    return customer
 
 
 @router.get("/purchase-orders")

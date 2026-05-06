@@ -1,4 +1,4 @@
-"""RAG Pipeline — chunking, embeddings, and vector search.
+"""RAG Pipeline -- chunking, embeddings, and vector search.
 
 Dual embedding routes:
 - gemini-embedding-2 (v2): Multimodal (text + images), prompt-based task instructions,
@@ -14,11 +14,12 @@ import asyncio
 import json
 import logging
 import re
-import sqlite3
 from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
+
+from backend.app.services import rag_postgres
 from google import genai
 from google.genai import types
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -69,7 +70,7 @@ class SearchResult(NamedTuple):
 # --- v2 prompt-based helpers (gemini-embedding-2) ---
 
 def _prepare_document_v2(title: str, content: str) -> str:
-    """Format a document for v2 embedding — prompt-based task instruction.
+    """Format a document for v2 embedding -- prompt-based task instruction.
 
     Format: "title: {title} | text: {content}"
     """
@@ -78,7 +79,7 @@ def _prepare_document_v2(title: str, content: str) -> str:
 
 
 def _prepare_query_v2(query: str) -> str:
-    """Format a query for v2 embedding — prompt-based task instruction.
+    """Format a query for v2 embedding -- prompt-based task instruction.
 
     Format: "task: search result | query: {query}"
     """
@@ -86,21 +87,21 @@ def _prepare_query_v2(query: str) -> str:
 
 
 # --- v1 task_type helpers (gemini-embedding-001) ---
-# No special formatting needed — raw text + task_type parameter handles it.
+# No special formatting needed -- raw text + task_type parameter handles it.
 
 
 class RAGService:
-    """RAG pipeline: chunk → embed → store → search.
+    """RAG pipeline: chunk -> embed -> store -> search.
 
     Supports two embedding routes:
-    - v2 (default): gemini-embedding-2 — multimodal, prompt-based, auto-normalized
-    - v1: gemini-embedding-001 — text-only, task_type, manual normalization, batch
+    - v2 (default): gemini-embedding-2 -- multimodal, prompt-based, auto-normalized
+    - v1: gemini-embedding-001 -- text-only, task_type, manual normalization, batch
 
     Each route has its own DB table (chunks_v2 / chunks_v1) to keep
     embedding spaces separate and avoid cross-contamination.
     """
 
-    # Allowlist of valid table/FTS names — prevents SQL injection via f-strings
+    # Allowlist of valid table/FTS names -- prevents SQL injection via f-strings
     _VALID_TABLES = {"chunks_v1", "chunks_v2"}
     _VALID_FTS = {"chunks_v1_fts", "chunks_v2_fts"}
 
@@ -132,74 +133,11 @@ class RAGService:
         else:
             self.client = settings.get_genai_client()
 
-        self.db_path = Path(settings.database_url.replace("sqlite+aiosqlite:///", "")).parent / "rag_store.db"
         self._query_cache: dict[str, list[float]] = {}
-        self._init_db()
 
     def _init_db(self):
-        """Initialize the RAG vector store database."""
-        conn = sqlite3.connect(str(self.db_path))
-
-        # --- v2 table (multimodal, with modality column) ---
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS chunks_v2 (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_path TEXT NOT NULL,
-                heading TEXT,
-                chunk_index INTEGER NOT NULL,
-                content TEXT NOT NULL,
-                embedding BLOB,
-                char_start INTEGER,
-                char_end INTEGER,
-                modality TEXT DEFAULT 'text',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunks_v2_source ON chunks_v2(source_path)
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunks_v2_modality ON chunks_v2(modality)
-        """)
-        conn.execute("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_v2_fts USING fts5(
-                content,
-                heading,
-                source_path,
-                content='chunks_v2',
-                content_rowid='id'
-            )
-        """)
-
-        # --- v1 table (text-only, no modality column) ---
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS chunks_v1 (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_path TEXT NOT NULL,
-                heading TEXT,
-                chunk_index INTEGER NOT NULL,
-                content TEXT NOT NULL,
-                embedding BLOB,
-                char_start INTEGER,
-                char_end INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunks_v1_source ON chunks_v1(source_path)
-        """)
-        conn.execute("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_v1_fts USING fts5(
-                content,
-                heading,
-                source_path,
-                content='chunks_v1',
-                content_rowid='id'
-            )
-        """)
-
-        conn.commit()
-        conn.close()
+        """No-op -- PostgreSQL schema initialized globally."""
+        pass
 
     # --- Chunking ---
 
@@ -302,7 +240,7 @@ class RAGService:
         embeddings = []
 
         if self.route == "v2":
-            # v2: Embed documents individually — aggregates multi-input into one vector
+            # v2: Embed documents individually -- aggregates multi-input into one vector
             for i, (text, title) in enumerate(zip(texts, titles)):
                 try:
                     prepared = _prepare_document_v2(title or "none", text)
@@ -414,10 +352,10 @@ class RAGService:
 
     async def embed_image(self, image_bytes: bytes, mime_type: str = "image/jpeg",
                           title: str = "none") -> list[float]:
-        """Generate embedding for an image (v2 only — multimodal).
+        """Generate embedding for an image (v2 only -- multimodal).
 
         Combines a text description with the image in the same embedding space,
-        enabling cross-modal search (text query → image result).
+        enabling cross-modal search (text query -> image result).
         Not supported on v1 (text-only model).
         """
         if self.route == "v1":
@@ -444,7 +382,7 @@ class RAGService:
             return [0.0] * EMBEDDING_DIM
 
     async def embed_pdf(self, pdf_bytes: bytes, title: str = "none") -> list[float]:
-        """Generate embedding for a PDF document (v2 only — multimodal).
+        """Generate embedding for a PDF document (v2 only -- multimodal).
 
         gemini-embedding-2 supports PDFs up to 6 pages inline.
         Not supported on v1 (text-only model).
@@ -489,50 +427,26 @@ class RAGService:
             emb_bytes = np.array(embedding, dtype=np.float32).tobytes()
             rows.append((chunk, emb_bytes))
 
-        count = await asyncio.to_thread(self._index_chunks_sync, rows)
+        count = await self._index_chunks_async(rows)
         logger.info("Indexed %d chunks into %s from %s", count, self.table, chunks[0].metadata.get("source_path", ""))
         return count
 
-    def _index_chunks_sync(self, rows: list[tuple]) -> int:
-        """Synchronous chunk insertion — runs in a worker thread."""
-        conn = sqlite3.connect(str(self.db_path))
-        count = 0
+    async def _index_chunks_async(self, rows: list[tuple]) -> int:
+        """Async chunk insertion into PostgreSQL."""
+        pg_rows = []
         for chunk, emb_bytes in rows:
-            if self.route == "v2":
-                conn.execute(
-                    f"""INSERT INTO {self.table} (source_path, heading, chunk_index, content, embedding, char_start, char_end, modality)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        chunk.metadata.get("source_path", ""),
-                        chunk.metadata.get("heading", ""),
-                        chunk.metadata.get("chunk_index", 0),
-                        chunk.content,
-                        emb_bytes,
-                        chunk.metadata.get("char_start"),
-                        chunk.metadata.get("char_end"),
-                        "text",
-                    ),
-                )
-            else:
-                # v1: no modality column
-                conn.execute(
-                    f"""INSERT INTO {self.table} (source_path, heading, chunk_index, content, embedding, char_start, char_end)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        chunk.metadata.get("source_path", ""),
-                        chunk.metadata.get("heading", ""),
-                        chunk.metadata.get("chunk_index", 0),
-                        chunk.content,
-                        emb_bytes,
-                        chunk.metadata.get("char_start"),
-                        chunk.metadata.get("char_end"),
-                    ),
-                )
-            count += 1
-
-        conn.commit()
-        conn.close()
-        return count
+            embedding = np.frombuffer(emb_bytes, dtype=np.float32).tolist() if emb_bytes else None
+            pg_rows.append((
+                chunk.metadata.get("source_path", ""),
+                chunk.metadata.get("heading", ""),
+                chunk.metadata.get("chunk_index", 0),
+                chunk.content,
+                embedding,
+                chunk.metadata.get("char_start"),
+                chunk.metadata.get("char_end"),
+                "text",
+            ))
+        return await rag_postgres.index_chunks(pg_rows, route=self.route)
 
     async def index_image(self, image_path: str, source_path: str,
                           title: str = "none") -> int:
@@ -556,22 +470,12 @@ class RAGService:
 
         emb_bytes = np.array(embedding, dtype=np.float32).tobytes()
 
-        await asyncio.to_thread(
-            self._index_image_sync, source_path, title, path.name, emb_bytes
+        embedding = np.frombuffer(emb_bytes, dtype=np.float32).tolist()
+        await rag_postgres.index_image(
+            source_path, title, f"[Image: {path.name}]", embedding
         )
         logger.info("Indexed image %s as %s", path.name, source_path)
         return 1
-
-    def _index_image_sync(self, source_path: str, title: str, filename: str, emb_bytes: bytes):
-        """Synchronous image insertion — runs in a worker thread."""
-        conn = sqlite3.connect(str(self.db_path))
-        conn.execute(
-            f"""INSERT INTO {self.table} (source_path, heading, chunk_index, content, embedding, char_start, char_end, modality)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (source_path, title, 0, f"[Image: {filename}]", emb_bytes, 0, 0, "image"),
-        )
-        conn.commit()
-        conn.close()
 
     async def index_wiki_page(self, path: str, content: str) -> int:
         """Chunk a wiki page and index it into the vector store."""
@@ -652,14 +556,7 @@ class RAGService:
 
         Delegates the synchronous SQLite work to a thread via asyncio.to_thread.
         """
-        await asyncio.to_thread(self._delete_path_sync, path)
-
-    def _delete_path_sync(self, path: str):
-        """Synchronous path deletion — runs in a worker thread."""
-        conn = sqlite3.connect(str(self.db_path))
-        conn.execute(f"DELETE FROM {self.table} WHERE source_path = ?", (path,))
-        conn.commit()
-        conn.close()
+        await rag_postgres.delete_by_path(path)
 
     # --- Search ---
 
@@ -713,106 +610,11 @@ class RAGService:
         if all(v == 0.0 for v in query_embedding):
             return []
 
-        return await asyncio.to_thread(
-            self._semantic_search_sync, query_embedding, limit, modality
-        )
-
-    def _semantic_search_sync(self, query_embedding: list[float], limit: int,
-                               modality: str | None) -> list[SearchResult]:
-        """Synchronous cosine-similarity search — runs in a worker thread."""
-        query_vec = np.array(query_embedding, dtype=np.float32)
-        # Both routes produce normalized vectors (v2 auto-normalizes, v1 we normalize manually)
-        query_norm = np.linalg.norm(query_vec)
-        if query_norm == 0:
-            return []
-
-        conn = sqlite3.connect(str(self.db_path))
-
-        # Build query with optional modality filter (v2 only)
-        if self.route == "v2" and modality:
-            cursor = conn.execute(
-                f"SELECT id, source_path, heading, content, embedding, modality FROM {self.table} WHERE embedding IS NOT NULL AND modality = ?",
-                (modality,),
-            )
-        elif self.route == "v2":
-            cursor = conn.execute(
-                f"SELECT id, source_path, heading, content, embedding, modality FROM {self.table} WHERE embedding IS NOT NULL"
-            )
-        else:
-            # v1: no modality column
-            cursor = conn.execute(
-                f"SELECT id, source_path, heading, content, embedding FROM {self.table} WHERE embedding IS NOT NULL"
-            )
-        rows = cursor.fetchall()
-        conn.close()
-
-        results = []
-        for row in rows:
-            if self.route == "v2":
-                chunk_id, source_path, heading, content, emb_bytes, chunk_modality = row
-            else:
-                chunk_id, source_path, heading, content, emb_bytes = row
-                chunk_modality = "text"
-
-            if not emb_bytes:
-                continue
-
-            chunk_vec = np.frombuffer(emb_bytes, dtype=np.float32)
-            chunk_norm = np.linalg.norm(chunk_vec)
-            if chunk_norm == 0:
-                continue
-
-            # Cosine similarity
-            similarity = float(np.dot(query_vec, chunk_vec) / (query_norm * chunk_norm))
-            if similarity > 0.3:  # relevance threshold
-                results.append(SearchResult(
-                    content=content,
-                    score=similarity,
-                    metadata={
-                        "source_path": source_path,
-                        "heading": heading,
-                        "method": "semantic",
-                        "modality": chunk_modality or "text",
-                    },
-                ))
-
-        results.sort(key=lambda x: x.score, reverse=True)
-        return results[:limit]
+        return await rag_postgres.semantic_search(query_embedding, limit=limit, modality=modality)
 
     async def _keyword_search(self, query: str, limit: int = 20) -> list[SearchResult]:
         """Search using FTS5 full-text search (route-specific table).
 
         Delegates the synchronous SQLite work to a thread via asyncio.to_thread.
         """
-        return await asyncio.to_thread(self._keyword_search_sync, query, limit)
-
-    def _keyword_search_sync(self, query: str, limit: int) -> list[SearchResult]:
-        """Synchronous FTS5 keyword search — runs in a worker thread."""
-        conn = sqlite3.connect(str(self.db_path))
-        try:
-            cursor = conn.execute(
-                f"""SELECT c.source_path, c.heading, c.content, f.rank
-                   FROM {self.fts_table} f
-                   JOIN {self.table} c ON c.id = f.rowid
-                   WHERE {self.fts_table} MATCH ?
-                   ORDER BY f.rank
-                   LIMIT ?""",
-                (query, limit),
-            )
-            rows = cursor.fetchall()
-        except sqlite3.OperationalError:
-            # FTS5 might not handle special chars
-            rows = []
-        conn.close()
-
-        results = []
-        for source_path, heading, content, rank in rows:
-            # Convert FTS5 rank (negative BM25) to 0-1 score
-            score = min(1.0, max(0.0, 1.0 + rank / 10))
-            results.append(SearchResult(
-                content=content,
-                score=score,
-                metadata={"source_path": source_path, "heading": heading, "method": "keyword"},
-            ))
-
-        return results
+        return await rag_postgres.keyword_search(query, limit=limit)

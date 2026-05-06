@@ -36,7 +36,7 @@ export default function NewEnquiryPage() {
   return (
     <div className={isMobile ? "" : "mx-auto max-w-2xl"}>
       <h2 className="mb-6 text-2xl font-bold">New Enquiry</h2>
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-card p-6">
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-card p-3">
         <div>
           <label className="mb-1 block text-sm font-medium">Client Name *</label>
           <Input required value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} placeholder="e.g. Acme Corp" />

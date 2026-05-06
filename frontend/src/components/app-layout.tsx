@@ -88,7 +88,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </button>
             )}
             <h1 className="text-sm font-semibold">Aries ERP</h1>
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+            <span className="rounded-full bg-primary/10 px-2 py-0 text-[10px] font-medium text-primary leading-none">
               AI-Powered
             </span>
           </div>
@@ -103,8 +103,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   : "text-muted-foreground hover:bg-accent"
               }`}
             >
-              <MessageSquare size={16} />
-              <span className="hidden sm:inline">AI Assistant</span>
+              <MessageSquare size={14} />
+              <span className="hidden sm:inline text-xs">AI Assistant</span>
             </button>
           </div>
         </header>
@@ -121,7 +121,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main Content — shifts between sidebar and chat panel */}
         <motion.main
-          className="min-h-screen p-6 pt-[4.5rem] lg:p-8 lg:pt-[5rem]"
+          className="min-h-screen p-4 pt-16"
           animate={{
             marginLeft: sidebarWidth,
             marginRight: chatWidth,

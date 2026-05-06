@@ -277,6 +277,38 @@ async def get_signed_url(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         raise HTTPException(502, f"Cannot generate signed URL: {e}")
 
 
+@router.delete("/{doc_id}", status_code=204)
+async def delete_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Delete a document and its GCS file."""
+    doc = await db.get(UploadedDocument, doc_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    await db.delete(doc)
+    await db.commit()
+    if doc.gcs_path:
+        try:
+            from backend.app.services.gcs import delete_from_gcs
+            delete_from_gcs(doc.gcs_path)
+        except Exception as e:
+            logger.warning("GCS delete failed (may not exist): %s", e)
+    return None
+
+
+@router.get("/{doc_id}/content")
+async def get_document_content(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Proxy document bytes from GCS — frontend never sees signed URLs."""
+    doc = await db.get(UploadedDocument, doc_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    try:
+        from backend.app.services.gcs import download_bytes
+        data = download_bytes(doc.gcs_path)
+        from fastapi import Response
+        return Response(content=data, media_type=doc.content_type)
+    except Exception as e:
+        raise HTTPException(502, f"Cannot fetch document: {e}")
+
+
 # --- Internal helpers ---
 
 async def _process_image(doc: UploadedDocument, image_bytes: bytes, db: AsyncSession):
@@ -312,7 +344,7 @@ async def _process_image(doc: UploadedDocument, image_bytes: bytes, db: AsyncSes
             schema = AUTO_DETECT_SCHEMA
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=contents,
             config={
                 "response_mime_type": "application/json",

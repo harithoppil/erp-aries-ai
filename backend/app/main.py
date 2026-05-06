@@ -20,6 +20,7 @@ from backend.app.api.routes.documents import router as documents_router
 from backend.app.api.routes.wiki import router as wiki_router
 from backend.app.api.routes.pipeline import router as pipeline_router
 from backend.app.api.routes.erp import router as erp_router
+from backend.app.api.routes.erp_financial_reports import router as erp_financial_router
 from backend.app.api.routes.workflow import router as workflow_router
 from backend.app.api.routes.ai import router as ai_router
 from backend.app.api.routes.channels import router as channels_router
@@ -78,6 +79,7 @@ app.include_router(documents_router, prefix="/api/v1")
 app.include_router(wiki_router, prefix="/api/v1")
 app.include_router(pipeline_router, prefix="/api/v1")
 app.include_router(erp_router, prefix="/api/v1")
+app.include_router(erp_financial_router, prefix="/api/v1")
 app.include_router(workflow_router, prefix="/api/v1")
 app.include_router(ai_router, prefix="/api/v1")
 app.include_router(channels_router, prefix="/api/v1")

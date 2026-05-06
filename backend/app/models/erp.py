@@ -28,19 +28,151 @@ class AccountType(str, enum.Enum):
 
 
 class Account(Base):
-    """Chart of Accounts — General Ledger accounts."""
+    """Chart of Accounts — General Ledger accounts with nested set tree."""
     __tablename__ = "accounts"
 
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200), unique=True)
     account_number: Mapped[str | None] = mapped_column(String(50))
-    account_type: Mapped[AccountType] = mapped_column(SAEnum(AccountType))
+    account_type: Mapped[AccountType | None] = mapped_column(SAEnum(AccountType), nullable=True)
+    root_type: Mapped[str | None] = mapped_column(String(20))  # Asset, Liability, Equity, Income, Expense
+    report_type: Mapped[str | None] = mapped_column(String(50))  # Balance Sheet, Profit and Loss
     parent_account: Mapped[str | None] = mapped_column(String(200))
     is_group: Mapped[bool] = mapped_column(Boolean, default=False)
     company: Mapped[str] = mapped_column(String(200), default="Aries Marine")
+    account_currency: Mapped[str] = mapped_column(String(3), default="AED")
+    tax_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    balance_must_be: Mapped[str | None] = mapped_column(String(10))
     balance: Mapped[float] = mapped_column(Float, default=0.0)
+    # Nested set for fast tree traversal
+    lft: Mapped[int] = mapped_column(Integer, default=0)
+    rgt: Mapped[int] = mapped_column(Integer, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Subsidiary(Base):
+    """Subsidiary / Company — default accounts and settings."""
+    __tablename__ = "subsidiaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(200))
+    abbr: Mapped[str | None] = mapped_column(String(20))
+    default_currency: Mapped[str] = mapped_column(String(3), default="AED")
+    country: Mapped[str | None] = mapped_column(String(100))
+    tax_id: Mapped[str | None] = mapped_column(String(50))
+
+    # Default accounts
+    default_receivable_account: Mapped[str | None] = mapped_column(String(200))
+    default_payable_account: Mapped[str | None] = mapped_column(String(200))
+    default_income_account: Mapped[str | None] = mapped_column(String(200))
+    default_expense_account: Mapped[str | None] = mapped_column(String(200))
+    default_bank_account: Mapped[str | None] = mapped_column(String(200))
+    default_cash_account: Mapped[str | None] = mapped_column(String(200))
+    cost_center: Mapped[str | None] = mapped_column(String(200))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class FiscalYear(Base):
+    """Fiscal Year configuration."""
+    __tablename__ = "fiscal_years"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    year: Mapped[str] = mapped_column(String(20))
+    year_start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    year_end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_short_year: Mapped[bool] = mapped_column(Boolean, default=False)
+    subsidiary_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("subsidiaries.id"), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CostCenter(Base):
+    """Cost Centers for reporting dimensions."""
+    __tablename__ = "cost_centers"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(200))
+    cost_center_number: Mapped[str | None] = mapped_column(String(50))
+    parent_cost_center: Mapped[str | None] = mapped_column(String(200))
+    subsidiary_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("subsidiaries.id"), nullable=True)
+    is_group: Mapped[bool] = mapped_column(Boolean, default=False)
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    lft: Mapped[int] = mapped_column(Integer, default=0)
+    rgt: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GLEntry(Base):
+    """General Ledger Entry — unified transaction log. All invoices, payments, journal entries post here."""
+    __tablename__ = "gl_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    posting_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fiscal_year: Mapped[str | None] = mapped_column(String(20))
+
+    # Account
+    account_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("accounts.id"), nullable=True, index=True)
+    account_currency: Mapped[str | None] = mapped_column(String(3))
+
+    # Party
+    party_type: Mapped[str | None] = mapped_column(String(50))  # Customer, Supplier, Employee
+    party_name: Mapped[str | None] = mapped_column(String(255))
+
+    # Source document
+    voucher_type: Mapped[str | None] = mapped_column(String(50))  # Sales Invoice, Purchase Invoice, Journal Entry, Payment Entry
+    voucher_no: Mapped[str | None] = mapped_column(String(100))
+    voucher_detail_no: Mapped[str | None] = mapped_column(String(100))
+    against_voucher_type: Mapped[str | None] = mapped_column(String(50))
+    against_voucher: Mapped[str | None] = mapped_column(String(100))
+
+    # Amounts
+    debit: Mapped[float] = mapped_column(Float, default=0.0)
+    credit: Mapped[float] = mapped_column(Float, default=0.0)
+    debit_in_account_currency: Mapped[float] = mapped_column(Float, default=0.0)
+    credit_in_account_currency: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Dimensions
+    cost_center: Mapped[str | None] = mapped_column(String(200))
+    project_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("projects.id"), nullable=True)
+    subsidiary_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("subsidiaries.id"), nullable=True)
+
+    # Flags
+    is_opening: Mapped[str | None] = mapped_column(String(10), default="No")
+    is_cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+    remarks: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class JournalEntryLine(Base):
+    """Journal Entry line items — debit/credit lines per journal entry."""
+    __tablename__ = "journal_entry_lines"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    journal_entry_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("journal_entries.id"), index=True)
+
+    account_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("accounts.id"), nullable=True)
+    party_type: Mapped[str | None] = mapped_column(String(50))
+    party_name: Mapped[str | None] = mapped_column(String(255))
+
+    debit: Mapped[float] = mapped_column(Float, default=0.0)
+    credit: Mapped[float] = mapped_column(Float, default=0.0)
+
+    cost_center: Mapped[str | None] = mapped_column(String(200))
+    project_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("projects.id"), nullable=True)
+
+    reference_type: Mapped[str | None] = mapped_column(String(50))
+    reference_name: Mapped[str | None] = mapped_column(String(100))
+    user_remark: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    journal_entry: Mapped["JournalEntry"] = relationship(back_populates="lines")
 
 
 class SalesInvoiceStatus(str, enum.Enum):
@@ -95,6 +227,38 @@ class InvoiceItem(Base):
     invoice: Mapped["SalesInvoice"] = relationship(back_populates="items")
 
 
+class JournalEntryType(str, enum.Enum):
+    DEBIT = "debit"
+    CREDIT = "credit"
+
+
+class JournalEntry(Base):
+    """Journal Entries — double-entry bookkeeping header."""
+    __tablename__ = "journal_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    entry_number: Mapped[str] = mapped_column(String(50), unique=True)
+    posting_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    reference: Mapped[str | None] = mapped_column(String(200))
+    # Legacy flat fields (kept for compatibility with existing data)
+    account: Mapped[str | None] = mapped_column(String(255))  # Account name/code
+    party_type: Mapped[str | None] = mapped_column(String(50))
+    party_name: Mapped[str | None] = mapped_column(String(255))
+    entry_type: Mapped[JournalEntryType | None] = mapped_column(SAEnum(JournalEntryType), nullable=True)
+    amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), default="AED")
+    notes: Mapped[str | None] = mapped_column(Text)
+    # New header fields
+    total_debit: Mapped[float] = mapped_column(Float, default=0.0)
+    total_credit: Mapped[float] = mapped_column(Float, default=0.0)
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, submitted, cancelled
+    subsidiary_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("subsidiaries.id"), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    lines: Mapped[list["JournalEntryLine"]] = relationship(back_populates="journal_entry", cascade="all, delete-orphan")
+
+
 class PaymentEntry(Base):
     """Payment entries — track receipts and payments."""
     __tablename__ = "payment_entries"
@@ -111,6 +275,103 @@ class PaymentEntry(Base):
     posting_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     invoice: Mapped["SalesInvoice | None"] = relationship(back_populates="payments")
+
+
+class QuotationStatus(str, enum.Enum):
+    DRAFT = "draft"
+    SENT = "sent"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class Quotation(Base):
+    """Quotations / Proposals to customers."""
+    __tablename__ = "quotations"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    quotation_number: Mapped[str] = mapped_column(String(50), unique=True)
+    enquiry_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("enquiries.id"))
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("customers.id"))
+    customer_name: Mapped[str] = mapped_column(String(255))
+    project_type: Mapped[str | None] = mapped_column(String(100))
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[QuotationStatus] = mapped_column(SAEnum(QuotationStatus), default=QuotationStatus.DRAFT)
+
+    subtotal: Mapped[float] = mapped_column(Float, default=0.0)
+    tax_rate: Mapped[float] = mapped_column(Float, default=5.0)
+    tax_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    total: Mapped[float] = mapped_column(Float, default=0.0)
+    currency: Mapped[str] = mapped_column(String(3), default="AED")
+
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    items: Mapped[list["QuotationItem"]] = relationship(back_populates="quotation", cascade="all, delete-orphan")
+
+
+class QuotationItem(Base):
+    """Line items on a Quotation."""
+    __tablename__ = "quotation_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    quotation_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("quotations.id"))
+    item_code: Mapped[str | None] = mapped_column(String(100))
+    description: Mapped[str] = mapped_column(Text)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    rate: Mapped[float] = mapped_column(Float)
+    amount: Mapped[float] = mapped_column(Float)
+
+    quotation: Mapped["Quotation"] = relationship(back_populates="items")
+
+
+class SalesOrderStatus(str, enum.Enum):
+    DRAFT = "draft"
+    TO_DELIVER = "to_deliver"
+    TO_BILL = "to_bill"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class SalesOrder(Base):
+    """Sales Orders — confirmed customer orders."""
+    __tablename__ = "sales_orders"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    order_number: Mapped[str] = mapped_column(String(50), unique=True)
+    quotation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("quotations.id"))
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("customers.id"))
+    customer_name: Mapped[str] = mapped_column(String(255))
+    project_type: Mapped[str | None] = mapped_column(String(100))
+    delivery_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[SalesOrderStatus] = mapped_column(SAEnum(SalesOrderStatus), default=SalesOrderStatus.DRAFT)
+
+    subtotal: Mapped[float] = mapped_column(Float, default=0.0)
+    tax_rate: Mapped[float] = mapped_column(Float, default=5.0)
+    tax_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    total: Mapped[float] = mapped_column(Float, default=0.0)
+    currency: Mapped[str] = mapped_column(String(3), default="AED")
+
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    items: Mapped[list["SalesOrderItem"]] = relationship(back_populates="sales_order", cascade="all, delete-orphan")
+
+
+class SalesOrderItem(Base):
+    """Line items on a Sales Order."""
+    __tablename__ = "sales_order_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    sales_order_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("sales_orders.id"))
+    item_code: Mapped[str | None] = mapped_column(String(100))
+    description: Mapped[str] = mapped_column(Text)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    rate: Mapped[float] = mapped_column(Float)
+    amount: Mapped[float] = mapped_column(Float)
+    delivered_qty: Mapped[int] = mapped_column(Integer, default=0)
+
+    sales_order: Mapped["SalesOrder"] = relationship(back_populates="items")
 
 
 class TaxCategory(Base):
@@ -307,7 +568,7 @@ class Project(Base):
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     project_name: Mapped[str] = mapped_column(String(255))
     project_code: Mapped[str] = mapped_column(String(50), unique=True)
-    project_type: Mapped[ProjectType] = mapped_column(SAEnum(ProjectType))
+    project_type: Mapped[str] = mapped_column(String(100))
     status: Mapped[ProjectStatus] = mapped_column(SAEnum(ProjectStatus), default=ProjectStatus.PLANNING)
 
     enquiry_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("enquiries.id"))
@@ -492,6 +753,25 @@ class Supplier(Base):
     category: Mapped[str | None] = mapped_column(String(100))  # ndt_equipment, rope_access, marine_services
     rating: Mapped[float | None] = mapped_column(Float)
     document_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("uploaded_documents.id"), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Customer(Base):
+    """Customers / Clients for marine services."""
+    __tablename__ = "customers"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    customer_name: Mapped[str] = mapped_column(String(255))
+    customer_code: Mapped[str] = mapped_column(String(50), unique=True)
+    contact_person: Mapped[str | None] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(String(50))
+    address: Mapped[str | None] = mapped_column(Text)
+    industry: Mapped[str | None] = mapped_column(String(100))  # oil_gas, marine, renewable, etc.
+    tax_id: Mapped[str | None] = mapped_column(String(50))  # TRN for UAE VAT
+    credit_limit: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(20), default="active")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

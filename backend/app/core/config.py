@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
 
-    # Database (SQLite for local dev, PostgreSQL for production)
-    database_url: str = "sqlite+aiosqlite:///./aries.db"
+    # Database — Azure PostgreSQL (production & dev)
+    database_url: str = "postgresql+asyncpg://postgres:Arieserp1!@aries-erp-ai.postgres.database.azure.com:5432/postgres"
     database_echo: bool = False
 
     # Redis
@@ -40,9 +40,9 @@ class Settings(BaseSettings):
 
     # Legacy — kept in .env, not used for client creation
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3-flash-preview"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+    model_config = {"env_file": str(Path(__file__).resolve().parents[3] / ".env"), "env_file_encoding": "utf-8", "extra": "ignore"}
 
     def get_genai_client(self) -> "genai.Client":
         """Get a Gemini client for generation — Vertex AI API key, no location."""

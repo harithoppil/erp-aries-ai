@@ -70,7 +70,7 @@ export default function PipelinePage() {
         ))}
       </div>
 
-      <div className="mt-8 rounded-xl border bg-card p-6">
+      <div className="mt-8 rounded-xl border bg-card p-3">
         <h3 className="mb-3 font-semibold">Hard Rules (from spec)</h3>
         <ul className="space-y-2 text-sm text-foreground">
           <li className="flex items-start gap-2"><Shield className="mt-0.5 h-4 w-4 text-red-500" /> Rules engine runs BEFORE LLM — pricing, margins, tax never decided by AI alone</li>

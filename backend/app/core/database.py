@@ -6,11 +6,7 @@ from sqlalchemy.types import TypeDecorator, CHAR
 
 from backend.app.core.config import settings
 
-connect_args = {}
-if settings.database_url.startswith("sqlite"):
-    connect_args["check_same_thread"] = False
-
-engine = create_async_engine(settings.database_url, echo=settings.database_echo, connect_args=connect_args)
+engine = create_async_engine(settings.database_url, echo=settings.database_echo)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

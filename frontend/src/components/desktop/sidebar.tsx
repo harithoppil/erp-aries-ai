@@ -8,8 +8,9 @@ import {
   FileText, Home, BookOpen, Bot, Package, Users,
   DollarSign, Wrench, FolderKanban, ShoppingCart,
   ChevronLeft, ChevronRight, Anchor,
-  Truck, Sparkles, Wallet, Clock,
+  Truck, Sparkles, Wallet, Clock, BarChart3, Briefcase,
   GitBranch, MessageSquare, Database, Upload,
+  TreePine, ScrollText, Scale, TrendingUp, TrendingDown,
 } from "lucide-react";
 import {
   Tooltip,
@@ -24,14 +25,24 @@ const NAV_GROUPS = [
     items: [
       { href: "/", label: "Dashboard", icon: Home },
       { href: "/enquiries", label: "Enquiries", icon: FileText, badge: 6 },
+      { href: "/erp/customers", label: "Customers", icon: Briefcase },
+      { href: "/erp/quotations", label: "Quotations", icon: FileText },
+      { href: "/erp/sales-orders", label: "Sales Orders", icon: Package },
       { href: "/erp/accounts", label: "Accounts", icon: DollarSign },
+      { href: "/erp/chart-of-accounts", label: "Chart of Accounts", icon: TreePine },
+      { href: "/erp/journal-entries", label: "Journal Entries", icon: BookOpen },
+      { href: "/erp/payments", label: "Payments", icon: Wallet },
+      { href: "/erp/reports/general-ledger", label: "General Ledger", icon: ScrollText },
+      { href: "/erp/reports/trial-balance", label: "Trial Balance", icon: Scale },
+      { href: "/erp/reports/balance-sheet", label: "Balance Sheet", icon: TrendingUp },
+      { href: "/erp/reports/profit-and-loss", label: "Profit & Loss", icon: TrendingDown },
       { href: "/erp/stock", label: "Stock", icon: Package },
       { href: "/erp/procurement", label: "Procurement", icon: ShoppingCart },
       { href: "/erp/hr", label: "Personnel", icon: Users },
       { href: "/erp/assets", label: "Assets", icon: Wrench },
       { href: "/erp/projects", label: "Projects", icon: FolderKanban },
-      { href: "/erp/payments", label: "Payments", icon: Wallet },
       { href: "/erp/timesheets", label: "Timesheets", icon: Clock },
+      { href: "/erp/reports", label: "Reports", icon: BarChart3 },
       { href: "/documents", label: "Documents", icon: Upload },
       { href: "/notebooks", label: "Notebooks", icon: BookOpen },
       { href: "/wiki", label: "Wiki", icon: BookOpen },
@@ -119,7 +130,7 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
               if (isCollapsed) {
                 return (
                   <Tooltip key={item.label}>
-                    <TooltipTrigger asChild>{link}</TooltipTrigger>
+                    <TooltipTrigger>{link}</TooltipTrigger>
                     <TooltipContent side="right" className="text-xs">
                       {item.label}
                     </TooltipContent>

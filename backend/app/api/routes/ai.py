@@ -721,40 +721,9 @@ async def rag_index_ocr_images(
 
 @router.get("/rag/stats")
 async def rag_stats():
-    """Get RAG store statistics for both v1 and v2 routes."""
-    import sqlite3
-    from pathlib import Path
-    from backend.app.core.config import settings
-
-    db_path = Path(settings.database_url.replace("sqlite+aiosqlite:///", "")).parent / "rag_store.db"
-    if not db_path.exists():
-        return {"v1": {"total": 0}, "v2": {"total": 0}}
-
-    conn = sqlite3.connect(str(db_path))
-    stats = {}
-
-    for route in _VALID_RAG_ROUTES:
-        # route is validated against _VALID_RAG_ROUTES allowlist, so the
-        # f-string table construction is safe from SQL injection.
-        table = f"chunks_{route}"
-        try:
-            total = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-            with_emb = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE embedding IS NOT NULL").fetchone()[0]
-            sources = conn.execute(f"SELECT COUNT(DISTINCT source_path) FROM {table}").fetchone()[0]
-
-            route_stats = {"total": total, "with_embedding": with_emb, "unique_sources": sources}
-
-            if route == "v2":
-                # Modality breakdown for v2
-                mod_rows = conn.execute(f"SELECT modality, COUNT(*) FROM {table} GROUP BY modality").fetchall()
-                route_stats["by_modality"] = {m: c for m, c in mod_rows}
-
-            stats[route] = route_stats
-        except sqlite3.OperationalError:
-            stats[route] = {"total": 0, "error": "table not found"}
-
-    conn.close()
-    return stats
+    """Get RAG store statistics from PostgreSQL."""
+    from backend.app.services.rag_postgres import get_routes_stats
+    return await get_routes_stats()
 
 
 # --- Image Generation ---
