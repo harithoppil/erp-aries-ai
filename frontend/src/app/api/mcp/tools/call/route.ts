@@ -1,0 +1,22 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getMCPGateway } from '@/lib/mcp-gateway';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { tool_name, kwargs } = body;
+
+    if (!tool_name) {
+      return NextResponse.json({ error: 'tool_name is required' }, { status: 400 });
+    }
+
+    const gateway = getMCPGateway();
+    const result = await gateway.callTool(tool_name, kwargs || {});
+    return NextResponse.json({ result });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message || 'Tool call failed' },
+      { status: 500 }
+    );
+  }
+}

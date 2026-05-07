@@ -1,5 +1,8 @@
 """SAP MCP Server — prepare sales orders and transactional drafts."""
 
+# PORTED — This MCP server is now registered in Next.js src/lib/mcp-gateway.ts
+# Tool handlers run as async functions calling Prisma or Python microservice.
+
 from mcp.server.fastmcp import FastMCP
 
 sap_mcp = FastMCP("SAP MCP", instructions="Prepare sales orders and transactional drafts in SAP")

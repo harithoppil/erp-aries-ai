@@ -3,6 +3,9 @@
 Uses reportlab for PDF generation and openpyxl for Excel/CSV quote files.
 """
 
+# PORTED — This MCP server is now registered in Next.js src/lib/mcp-gateway.ts
+# Tool handlers run as async functions calling Prisma or Python microservice.
+
 import csv
 import io
 import os

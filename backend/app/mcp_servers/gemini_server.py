@@ -1,5 +1,8 @@
 """Gemini MCP Server — call Gemini 3.1 Pro via MCP protocol."""
 
+# PORTED — This MCP server is now registered in Next.js src/lib/mcp-gateway.ts
+# Tool handlers run as async functions calling Prisma or Python microservice.
+
 from mcp.server.fastmcp import FastMCP
 
 from backend.app.services.gemini import GeminiService

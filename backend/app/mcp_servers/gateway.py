@@ -1,5 +1,11 @@
 """MCP Gateway — central registry + auth proxy for MCP servers (Node 3).
 
+# PORTED — MCP gateway now implemented in Next.js as src/lib/mcp-gateway.ts
+# with REST API routes at /api/mcp/servers, /api/mcp/tools, /api/mcp/tools/call
+# Tool handlers call Prisma directly (ERP, mutator) or proxy to Python
+# microservice for media generation and document output (reportlab/openpyxl).
+# SAP and Outlook tools are stubs (require external integrations).
+
 Handles tool discovery, scoping, rate limits, and credential brokering.
 Agents never see raw secrets — they receive scoped MCP tool tokens.
 """

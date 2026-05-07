@@ -1,5 +1,8 @@
 """Outlook MCP Server — send approved proposals and client updates via email."""
 
+# PORTED — This MCP server is now registered in Next.js src/lib/mcp-gateway.ts
+# Tool handlers run as async functions calling Prisma or Python microservice.
+
 from mcp.server.fastmcp import FastMCP
 
 outlook_mcp = FastMCP("Outlook MCP", instructions="Send approved proposal emails and client updates via Outlook")
