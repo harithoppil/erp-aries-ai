@@ -120,6 +120,8 @@ export async function createPurchaseOrder(data: {
         po_number: poNumber,
         supplier_id: data.supplier_id,
         project_id: data.project_id || null,
+        status: 'DRAFT',
+        currency: 'AED',
         expected_delivery: data.expected_delivery ? new Date(data.expected_delivery) : null,
         subtotal,
         tax_amount: taxAmount,

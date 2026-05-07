@@ -1,7 +1,6 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { API_BASE } from '@/lib/api-base';
 import { listInvoices, type ClientSafeInvoice } from '@/app/erp/accounts/actions';
 import { listPayments, type ClientSafePayment } from '@/app/erp/payments/actions';
 import { listProjects, type ClientSafeProject } from '@/app/erp/projects/actions';
@@ -81,20 +80,10 @@ export async function getReportsSummary(): Promise<
 }
 
 // ── Financial Report Server Actions ────────────────────────────────────────
-// These proxy to the Python backend which does complex SQL aggregations
-// for GL entries, trial balance, balance sheet, and P&L.
+// Direct Prisma $queryRaw — no Python proxy needed.
+// Ported from backend/app/api/routes/erp_financial_reports.py
 
-async function reportFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    const msg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail || err);
-    throw new Error(msg || 'Report fetch failed');
-  }
-  return res.json();
-}
+// ── General Ledger ───────────────────────────────────────────────────────
 
 export interface GLEntry {
   id?: string;
@@ -121,19 +110,100 @@ export async function getGeneralLedger(params: {
   { success: true; entries: GLEntry[]; total: { debit: number; credit: number } } | { success: false; error: string }
 > {
   try {
-    const qs = new URLSearchParams();
-    if (params.from_date) qs.set('from_date', params.from_date);
-    if (params.to_date) qs.set('to_date', params.to_date);
-    if (params.voucher_no) qs.set('voucher_no', params.voucher_no);
-    const data = await reportFetch<{ entries: GLEntry[]; total: { debit: number; credit: number } }>(
-      `/erp/reports/general-ledger?${qs.toString()}`
-    );
-    return { success: true, entries: data.entries || [], total: data.total || { debit: 0, credit: 0 } };
+    const fromDate = params.from_date || '2026-01-01';
+    const toDate = params.to_date || '2026-12-31';
+
+    // Build WHERE clause dynamically
+    const conditions = [
+      `ge.posting_date >= $1::timestamptz`,
+      `ge.posting_date <= $2::timestamptz`,
+      `ge.is_cancelled = false`,
+    ];
+    const queryParams: any[] = [fromDate, toDate];
+    let paramIdx = 3;
+
+    if (params.voucher_no) {
+      conditions.push(`ge.voucher_no ILIKE $${paramIdx}`);
+      queryParams.push(`%${params.voucher_no}%`);
+      paramIdx++;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Fetch entries with running balance (window function)
+    const entries = await prisma.$queryRawUnsafe<Array<{
+      id: string;
+      posting_date: Date;
+      account_id: string | null;
+      party_type: string | null;
+      party_name: string | null;
+      voucher_type: string | null;
+      voucher_no: string | null;
+      debit: number;
+      credit: number;
+      balance: number;
+      cost_center: string | null;
+      remarks: string | null;
+    }>>(`
+      SELECT
+        ge.id,
+        ge.posting_date,
+        ge.account_id,
+        ge.party_type,
+        ge.party_name,
+        ge.voucher_type,
+        ge.voucher_no,
+        ge.debit,
+        ge.credit,
+        ROUND(SUM(ge.debit - ge.credit) OVER (ORDER BY ge.posting_date, ge.voucher_no, ge.created_at), 2) as balance,
+        ge.cost_center,
+        ge.remarks
+      FROM gl_entries ge
+      WHERE ${whereClause}
+      ORDER BY ge.posting_date, ge.voucher_no, ge.created_at
+      LIMIT 500
+    `, ...queryParams);
+
+    // Calculate totals
+    const totalResult = await prisma.$queryRawUnsafe<Array<{
+      total_debit: number;
+      total_credit: number;
+    }>>(`
+      SELECT COALESCE(SUM(ge.debit), 0) as total_debit,
+             COALESCE(SUM(ge.credit), 0) as total_credit
+      FROM gl_entries ge
+      WHERE ${whereClause}
+    `, ...queryParams);
+
+    const totals = totalResult[0] || { total_debit: 0, total_credit: 0 };
+
+    const mapped: GLEntry[] = entries.map((e) => ({
+      id: e.id,
+      posting_date: e.posting_date?.toISOString()?.split('T')[0] || '',
+      account_id: e.account_id || undefined,
+      party_type: e.party_type,
+      party_name: e.party_name,
+      voucher_type: e.voucher_type,
+      voucher_no: e.voucher_no,
+      debit: Number(e.debit) || 0,
+      credit: Number(e.credit) || 0,
+      balance: Number(e.balance) || 0,
+      cost_center: e.cost_center,
+      remarks: e.remarks,
+    }));
+
+    return {
+      success: true,
+      entries: mapped,
+      total: { debit: Number(totals.total_debit) || 0, credit: Number(totals.total_credit) || 0 },
+    };
   } catch (error: any) {
     console.error('[reports] getGeneralLedger failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch general ledger' };
   }
 }
+
+// ── Trial Balance ────────────────────────────────────────────────────────
 
 export interface TBAccount {
   id?: string;
@@ -163,18 +233,88 @@ export async function getTrialBalance(params: {
   { success: true; accounts: TBAccount[] } | { success: false; error: string }
 > {
   try {
-    const qs = new URLSearchParams();
-    if (params.from_date) qs.set('from_date', params.from_date);
-    if (params.to_date) qs.set('to_date', params.to_date);
-    const data = await reportFetch<{ accounts: TBAccount[] }>(
-      `/erp/reports/trial-balance?${qs.toString()}`
-    );
-    return { success: true, accounts: data.accounts || [] };
+    const fromDate = params.from_date || '2026-01-01';
+    const toDate = params.to_date || '2026-12-31';
+    const company = 'Aries Marine';
+
+    // 1. Get all accounts for company ordered by lft
+    const accounts = await prisma.accounts.findMany({
+      where: { company },
+      orderBy: { lft: 'asc' },
+    });
+
+    // 2. Get opening balances (before from_date)
+    const opening = await prisma.$queryRawUnsafe<Array<{
+      account_id: string;
+      debit: number;
+      credit: number;
+    }>>(`
+      SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
+      FROM gl_entries
+      WHERE posting_date < $1::timestamptz AND is_cancelled = false
+      GROUP BY account_id
+    `, fromDate);
+
+    const openingMap = new Map<string, { debit: number; credit: number }>();
+    for (const r of opening) {
+      openingMap.set(r.account_id, { debit: Number(r.debit) || 0, credit: Number(r.credit) || 0 });
+    }
+
+    // 3. Get period movements (from_date to to_date)
+    const period = await prisma.$queryRawUnsafe<Array<{
+      account_id: string;
+      debit: number;
+      credit: number;
+    }>>(`
+      SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
+      FROM gl_entries
+      WHERE posting_date >= $1::timestamptz AND posting_date <= $2::timestamptz AND is_cancelled = false
+      GROUP BY account_id
+    `, fromDate, toDate);
+
+    const periodMap = new Map<string, { debit: number; credit: number }>();
+    for (const r of period) {
+      periodMap.set(r.account_id, { debit: Number(r.debit) || 0, credit: Number(r.credit) || 0 });
+    }
+
+    // 4. Build trial balance rows (matching Python logic exactly)
+    const rows: TBAccount[] = [];
+    for (const a of accounts) {
+      const aid = a.id;
+      const opDr = openingMap.get(aid)?.debit || 0;
+      const opCr = openingMap.get(aid)?.credit || 0;
+      const perDr = periodMap.get(aid)?.debit || 0;
+      const perCr = periodMap.get(aid)?.credit || 0;
+
+      const opening = opDr - opCr;
+      const closing = opening + perDr - perCr;
+
+      // Skip zero-balance accounts
+      if (opening === 0 && perDr === 0 && perCr === 0 && closing === 0) continue;
+
+      rows.push({
+        id: aid,
+        name: a.name,
+        account_number: a.account_number,
+        root_type: a.root_type ?? undefined,
+        is_group: a.is_group,
+        opening_debit: opening > 0 ? Math.round(Math.max(opening, 0) * 100) / 100 : 0,
+        opening_credit: opening < 0 ? Math.round(Math.abs(Math.min(opening, 0)) * 100) / 100 : 0,
+        debit: Math.round(perDr * 100) / 100,
+        credit: Math.round(perCr * 100) / 100,
+        closing_debit: closing > 0 ? Math.round(Math.max(closing, 0) * 100) / 100 : 0,
+        closing_credit: closing < 0 ? Math.round(Math.abs(Math.min(closing, 0)) * 100) / 100 : 0,
+      });
+    }
+
+    return { success: true, accounts: rows };
   } catch (error: any) {
     console.error('[reports] getTrialBalance failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch trial balance' };
   }
 }
+
+// ── Balance Sheet ────────────────────────────────────────────────────────
 
 export interface BSAccount {
   id?: string;
@@ -208,17 +348,80 @@ export async function getBalanceSheet(params: {
   { success: true; data: BSData } | { success: false; error: string }
 > {
   try {
-    const qs = new URLSearchParams();
-    if (params.as_of_date) qs.set('as_of_date', params.as_of_date);
-    const data = await reportFetch<BSData>(
-      `/erp/reports/balance-sheet?${qs.toString()}`
-    );
-    return { success: true, data };
+    const asOfDate = params.as_of_date || '2026-12-31';
+    const company = 'Aries Marine';
+
+    // 1. Get Asset/Liability/Equity accounts ordered by lft
+    const accounts = await prisma.accounts.findMany({
+      where: {
+        company,
+        root_type: { in: ['Asset', 'Liability', 'Equity'] },
+      },
+      orderBy: { lft: 'asc' },
+    });
+
+    // 2. Get balances up to as_of_date
+    const balances = await prisma.$queryRawUnsafe<Array<{
+      account_id: string;
+      debit: number;
+      credit: number;
+    }>>(`
+      SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
+      FROM gl_entries
+      WHERE posting_date <= $1::timestamptz AND is_cancelled = false
+      GROUP BY account_id
+    `, asOfDate);
+
+    const balanceMap = new Map<string, number>();
+    for (const r of balances) {
+      balanceMap.set(r.account_id, Number(r.debit) - Number(r.credit));
+    }
+
+    // 3. Build sections (matching Python logic)
+    function buildSection(rootType: string): { accounts: BSAccount[]; total: number } {
+      const sectionAccounts = accounts.filter((a) => a.root_type === rootType);
+      const items: BSAccount[] = [];
+      let total = 0;
+
+      for (const a of sectionAccounts) {
+        const bal = balanceMap.get(a.id) || 0;
+        if (bal === 0 && !a.is_group) continue;
+        if (!a.is_group) total += bal;
+        items.push({
+          id: a.id,
+          name: a.name,
+          account_number: a.account_number,
+          is_group: a.is_group,
+          balance: Math.round(bal * 100) / 100,
+          level: 0,
+        });
+      }
+
+      return { accounts: items, total: Math.round(total * 100) / 100 };
+    }
+
+    const assets = buildSection('Asset');
+    const liabilities = buildSection('Liability');
+    const equity = buildSection('Equity');
+
+    return {
+      success: true,
+      data: {
+        as_of_date: asOfDate,
+        company,
+        assets,
+        liabilities,
+        equity,
+        total_liabilities_and_equity: Math.round((liabilities.total + equity.total) * 100) / 100,
+      },
+    };
   } catch (error: any) {
     console.error('[reports] getBalanceSheet failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch balance sheet' };
   }
 }
+
+// ── Profit & Loss ────────────────────────────────────────────────────────
 
 export interface PLAccount {
   id?: string;
@@ -254,13 +457,76 @@ export async function getProfitAndLoss(params: {
   { success: true; data: PLData } | { success: false; error: string }
 > {
   try {
-    const qs = new URLSearchParams();
-    if (params.from_date) qs.set('from_date', params.from_date);
-    if (params.to_date) qs.set('to_date', params.to_date);
-    const data = await reportFetch<PLData>(
-      `/erp/reports/profit-and-loss?${qs.toString()}`
-    );
-    return { success: true, data };
+    const fromDate = params.from_date || '2026-01-01';
+    const toDate = params.to_date || '2026-12-31';
+    const company = 'Aries Marine';
+
+    // 1. Get Income/Expense accounts ordered by lft
+    const accounts = await prisma.accounts.findMany({
+      where: {
+        company,
+        root_type: { in: ['Income', 'Expense'] },
+      },
+      orderBy: { lft: 'asc' },
+    });
+
+    // 2. Get period balances — note: P&L uses credit - debit (opposite of BS)
+    const balances = await prisma.$queryRawUnsafe<Array<{
+      account_id: string;
+      debit: number;
+      credit: number;
+    }>>(`
+      SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
+      FROM gl_entries
+      WHERE posting_date >= $1::timestamptz AND posting_date <= $2::timestamptz AND is_cancelled = false
+      GROUP BY account_id
+    `, fromDate, toDate);
+
+    const balanceMap = new Map<string, number>();
+    for (const r of balances) {
+      // P&L balance = credit - debit (income is credit-positive)
+      balanceMap.set(r.account_id, Number(r.credit) - Number(r.debit));
+    }
+
+    // 3. Build sections (matching Python logic)
+    function buildSection(rootType: string): { accounts: PLAccount[]; total: number } {
+      const sectionAccounts = accounts.filter((a) => a.root_type === rootType);
+      const items: PLAccount[] = [];
+      let total = 0;
+
+      for (const a of sectionAccounts) {
+        const bal = balanceMap.get(a.id) || 0;
+        if (bal === 0 && !a.is_group) continue;
+        if (!a.is_group) total += bal;
+        items.push({
+          id: a.id,
+          name: a.name,
+          account_number: a.account_number,
+          is_group: a.is_group,
+          balance: Math.round(bal * 100) / 100,
+          level: 0,
+        });
+      }
+
+      return { accounts: items, total: Math.round(total * 100) / 100 };
+    }
+
+    const income = buildSection('Income');
+    const expenses = buildSection('Expense');
+    const netProfit = Math.round((income.total - expenses.total) * 100) / 100;
+
+    return {
+      success: true,
+      data: {
+        from_date: fromDate,
+        to_date: toDate,
+        company,
+        income,
+        expenses,
+        net_profit: netProfit,
+        is_profit: netProfit >= 0,
+      },
+    };
   } catch (error: any) {
     console.error('[reports] getProfitAndLoss failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch profit and loss' };

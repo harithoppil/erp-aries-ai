@@ -147,7 +147,7 @@ export async function assignPersonnel(
 
     // Compliance check — find expired certs
     const expiredCerts = await prisma.certifications.findMany({
-      where: { personnel_id: personnelId, status: { in: ['EXPIRED', 'expired'] } },
+      where: { personnel_id: personnelId, status: 'EXPIRED' },
     });
     const issues = expiredCerts.map(c => `${c.cert_type} expired on ${c.expiry_date?.toISOString().split('T')[0] || 'N/A'}`);
     const compliancePassed = issues.length === 0;

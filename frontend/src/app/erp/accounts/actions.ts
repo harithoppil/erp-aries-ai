@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { API_BASE } from '@/lib/api-base';
+
 import { salesinvoicestatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
@@ -187,6 +187,8 @@ export async function createInvoice(data: {
 }
 
 // ── Account Tree (hierarchical chart of accounts) ───────────────────────────
+// Direct Prisma query — no Python proxy needed.
+// Ported from backend/app/api/routes/erp_financial_reports.py chart_of_accounts()
 
 export interface AccountTreeNode {
   id: string;
@@ -207,11 +209,41 @@ export async function getAccountTree(): Promise<
   { success: true; accounts: AccountTreeNode[] } | { success: false; error: string }
 > {
   try {
-    // Account tree uses complex nested set queries — proxy to Python backend
-    const res = await fetch(`${API_BASE}/erp/accounts/tree?company=Aries%20Marine`);
-    if (!res.ok) throw new Error('Failed to fetch account tree');
-    const data = await res.json();
-    return { success: true, accounts: data.accounts || [] };
+    // Fetch all accounts ordered by lft for correct tree traversal
+    const accounts = await prisma.accounts.findMany({
+      where: { company: 'Aries Marine' },
+      orderBy: { lft: 'asc' },
+    });
+
+    // Build tree with nested-set level computation (matches Python build_tree())
+    const result: AccountTreeNode[] = [];
+    const stack: { rgt: number }[] = [];
+
+    for (const a of accounts) {
+      // Pop stack until we find the parent
+      while (stack.length > 0 && stack[stack.length - 1].rgt < a.rgt) {
+        stack.pop();
+      }
+      const level = stack.length;
+      stack.push({ rgt: a.rgt });
+
+      result.push({
+        id: a.id,
+        name: a.name,
+        account_number: a.account_number,
+        account_type: a.account_type ?? null,
+        root_type: a.root_type ?? '',
+        parent_account: a.parent_account,
+        is_group: a.is_group,
+        balance: a.balance,
+        lft: a.lft,
+        rgt: a.rgt,
+        level,
+        has_children: a.rgt - a.lft > 1,
+      });
+    }
+
+    return { success: true, accounts: result };
   } catch (error: any) {
     console.error('[accounts] getAccountTree failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch account tree' };
