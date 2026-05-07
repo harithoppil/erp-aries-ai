@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listAccounts, listInvoices, createInvoice, type ClientSafeAccount, type ClientSafeInvoice } from "./actions";
 import {
   DollarSign, FileText, TrendingUp, TrendingDown,
   Search, Wallet, Plus, X,
@@ -29,8 +28,8 @@ interface InvoiceItem {
 }
 
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<ClientSafeAccount[]>([]);
+  const [invoices, setInvoices] = useState<ClientSafeInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -45,13 +44,13 @@ export default function AccountsPage() {
 
   const load = async () => {
     try {
-      const [accRes, invRes] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/accounts`),
-        throttledFetch(`${API_BASE}/erp/invoices`),
+      const [accResult, invResult] = await Promise.all([
+        listAccounts(),
+        listInvoices(),
       ]);
-      if (accRes.ok) setAccounts(unwrapPaginated(await accRes.json()));
-      if (invRes.ok) setInvoices(unwrapPaginated(await invRes.json()));
-    } catch (e) { console.error(e); }
+      if (accResult.success) setAccounts(accResult.accounts);
+      if (invResult.success) setInvoices(invResult.invoices);
+    } catch (e: any) { console.error(e); }
     finally { setLoading(false); }
   };
 
@@ -61,7 +60,7 @@ export default function AccountsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = {
+      const result = await createInvoice({
         customer_name: form.customer_name,
         customer_email: form.customer_email || undefined,
         tax_rate: parseFloat(form.tax_rate) || 5,
@@ -74,24 +73,18 @@ export default function AccountsPage() {
             rate: parseFloat(i.rate),
             item_code: i.item_code || undefined,
           })),
-      };
-      const res = await throttledFetch(`${API_BASE}/erp/invoices`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
       });
-      if (res.ok) {
+      if (result.success) {
         toast.success("Invoice created");
         setDialogOpen(false);
         setForm({ customer_name: "", customer_email: "", tax_rate: "5", due_date_days: "30" });
         setItems([{ description: "", quantity: "1", rate: "", item_code: "" }]);
         load();
       } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create invoice");
+        toast.error(result.error);
       }
-    } catch (e) {
-      toast.error("Network error");
+    } catch (e: any) {
+      toast.error(e.message || "Network error");
     } finally { setSaving(false); }
   };
 

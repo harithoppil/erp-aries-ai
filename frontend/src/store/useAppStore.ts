@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { useActionDispatcher, parseActionMarkers } from "./useActionDispatcher";
 import { planUIActions, executeFunctionCalls, type FunctionCall } from "@/lib/gemini-client";
+import { API_BASE } from "@/lib/api";
 
 export interface ChatMessage {
   id: string;
@@ -18,6 +19,7 @@ export interface Persona {
   model: string;
   greeting: string | null;
   category: string;
+  enabled?: boolean;
 }
 
 interface AppState {
@@ -37,6 +39,7 @@ interface AppState {
   personas: Persona[];
   loadPersonas: () => Promise<void>;
   personasLoaded: boolean;
+  personaError: string | null;
 
   // Page context
   currentPageLabel: string;
@@ -47,8 +50,6 @@ interface AppState {
   uiActionActive: boolean;
   lastUiActions: FunctionCall[];
 }
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api/v1";
 
 export const useAppStore = create<AppState>((set, get) => ({
   sidebarOpen: true,
@@ -68,18 +69,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   activePersona: "",
   personas: [],
   personasLoaded: false,
+  personaError: null,
 
   loadPersonas: async () => {
-    if (get().personasLoaded) return;
+    // Always retry if we have no personas — the loaded flag just prevents
+    // redundant fetches when personas are already loaded successfully.
+    if (get().personasLoaded && get().personas.length > 0) return;
+    set({ personaError: null });
     try {
       const res = await fetch(`${API_BASE}/ai/personas`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        set({ personaError: `Backend returned ${res.status}` });
+        return;
+      }
       const data: Persona[] = await res.json();
-      const enabled = data.filter((p: any) => p.enabled);
+      const enabled = data.filter((p: Persona) => p.enabled);
       set({
         personas: enabled,
         activePersona: enabled[0]?.id || "",
         personasLoaded: true,
+        personaError: null,
       });
       if (enabled[0]?.greeting) {
         set({
@@ -93,8 +102,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           ],
         });
       }
-    } catch {
-      // Silently fail — chat will show error on send
+    } catch (e: any) {
+      console.error("[loadPersonas] Failed:", e?.message || e);
+      set({ personaError: e?.message || "Network error" });
     }
   },
 
@@ -125,18 +135,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   lastUiActions: [],
 
   sendMessage: async (content, pageContext) => {
-    const state = get();
-    if (!state.activePersona) {
-      await state.loadPersonas();
+    // Try to load personas if we don't have one yet
+    if (!get().activePersona) {
+      await get().loadPersonas();
     }
 
-    // If still no persona after loading, show error and bail
+    // If still no persona after retry, show actionable error
     const personaId = get().activePersona;
     if (!personaId) {
       const errMsg: ChatMessage = {
         id: Date.now().toString(),
         sender: "system",
-        content: "AI personas couldn't be loaded. Is the backend running?",
+        content: "Can't reach the AI backend. Please check that the server is running on port 8001, then click Retry.",
         timestamp: new Date().toISOString(),
       };
       set((s) => ({ messages: [...s.messages, errMsg], isTyping: false }));
@@ -151,8 +161,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ messages: [...s.messages, userMsg], isTyping: true }));
 
-    const context = pageContext || state.currentPageData;
-    const pageLabel = state.currentPageLabel;
+    const context = pageContext || get().currentPageData;
+    const pageLabel = get().currentPageLabel;
     const contextPrefix = context
       ? `[Context: User is on the "${pageLabel}" page. Visible data summary: ${context.slice(0, 800)}]`
       : "";
@@ -250,7 +260,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleChat: () => {
     const willOpen = !get().chatOpen;
     set({ chatOpen: willOpen });
-    if (willOpen && !get().personasLoaded) {
+    // Always try to load personas if we don't have any yet
+    if (willOpen && get().personas.length === 0) {
       get().loadPersonas();
     }
   },

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listPayments, createPayment } from "./actions";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listPayments, createPayment, type ClientSafePayment } from "./actions";
+import { listInvoices, type ClientSafeInvoice } from "@/app/erp/accounts/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Wallet, Search, Plus, ArrowRightLeft, User,
@@ -16,8 +15,8 @@ import {
 import { toast } from "sonner";
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState<any[]>([]);
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [payments, setPayments] = useState<ClientSafePayment[]>([]);
+  const [invoices, setInvoices] = useState<ClientSafeInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -36,10 +35,10 @@ export default function PaymentsPage() {
     try {
       const [pRes, iRes] = await Promise.all([
         listPayments(),
-        throttledFetch(`${API_BASE}/erp/invoices`),
+        listInvoices(),
       ]);
       if (pRes.success) setPayments(pRes.payments);
-      if (iRes.ok) setInvoices(unwrapPaginated(await iRes.json()));
+      if (iRes.success) setInvoices(iRes.invoices);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };

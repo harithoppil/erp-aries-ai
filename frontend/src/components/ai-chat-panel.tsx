@@ -25,6 +25,8 @@ export function AiChatPanel() {
     activePersona,
     setPersona,
     personas,
+    loadPersonas,
+    personaError,
     currentPageLabel,
   } = useAppStore();
   const [input, setInput] = useState("");
@@ -130,6 +132,18 @@ export function AiChatPanel() {
       </div>
 
       {/* Messages */}
+      {personaError && !activePersona && (
+        <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <p className="font-medium mb-1">AI backend unreachable</p>
+          <p className="mb-2">{personaError}</p>
+          <button
+            onClick={() => loadPersonas()}
+            className="rounded-md bg-amber-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-amber-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {messages.map((msg) => (
           <div
@@ -214,7 +228,7 @@ export function AiChatPanel() {
                 handleSend();
               }
             }}
-            placeholder={activePersona ? `Ask ${activePersonaName}...` : "Loading..."}
+            placeholder={activePersona ? `Ask ${activePersonaName}...` : personaError ? "Backend unreachable — click Retry above" : "Loading AI..."}
             rows={1}
             className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/20 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
           />

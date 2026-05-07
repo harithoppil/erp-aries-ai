@@ -1,54 +1,21 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { getReportsSummary, type ReportsSummary } from "./actions";
 import {
   BarChart3, DollarSign, Users, FolderKanban, Package,
   Wrench, TrendingUp, TrendingDown, Clock, AlertTriangle,
   CheckCircle, Receipt, CreditCard,
 } from "lucide-react";
 
-interface SummaryData {
-  invoices: any[];
-  payments: any[];
-  projects: any[];
-  personnel: any[];
-  assets: any[];
-  items: any[];
-  timesheets: any[];
-  certifications: any[];
-}
-
 export default function ReportsPage() {
-  const [data, setData] = useState<SummaryData | null>(null);
+  const [data, setData] = useState<ReportsSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
-      const [
-        invRes, payRes, projRes, perRes, assetRes, itemRes, tsRes, certRes,
-      ] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/invoices`),
-        throttledFetch(`${API_BASE}/erp/payments`),
-        throttledFetch(`${API_BASE}/erp/projects`),
-        throttledFetch(`${API_BASE}/erp/personnel`),
-        throttledFetch(`${API_BASE}/erp/assets`),
-        throttledFetch(`${API_BASE}/erp/items`),
-        throttledFetch(`${API_BASE}/erp/timesheets`),
-        throttledFetch(`${API_BASE}/erp/certifications`),
-      ]);
-
-      setData({
-        invoices: invRes.ok ? unwrapPaginated(await invRes.json()) : [],
-        payments: payRes.ok ? unwrapPaginated(await payRes.json()) : [],
-        projects: projRes.ok ? unwrapPaginated(await projRes.json()) : [],
-        personnel: perRes.ok ? unwrapPaginated(await perRes.json()) : [],
-        assets: assetRes.ok ? unwrapPaginated(await assetRes.json()) : [],
-        items: itemRes.ok ? unwrapPaginated(await itemRes.json()) : [],
-        timesheets: tsRes.ok ? unwrapPaginated(await tsRes.json()) : [],
-        certifications: certRes.ok ? unwrapPaginated(await certRes.json()) : [],
-      });
+      const result = await getReportsSummary();
+      if (result.success) setData(result.data);
     } catch (e) {
       console.error(e);
     } finally {

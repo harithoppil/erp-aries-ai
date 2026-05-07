@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listJournalEntries, createJournalEntry } from "./actions";
+import { listJournalEntries, createJournalEntry, type ClientSafeJournalEntry } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   BookOpen, Search, Plus, ArrowDownLeft, ArrowUpRight,
@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 
 export default function JournalEntriesPage() {
-  const [entries, setEntries] = useState<any[]>([]);
+  const [entries, setEntries] = useState<ClientSafeJournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);

@@ -24,7 +24,7 @@ const NAV_GROUPS = [
     label: "Main",
     items: [
       { href: "/", label: "Dashboard", icon: Home },
-      { href: "/enquiries", label: "Enquiries", icon: FileText, badge: 6 },
+      { href: "/enquiries", label: "Enquiries", icon: FileText },
       { href: "/erp/customers", label: "Customers", icon: Briefcase },
       { href: "/erp/quotations", label: "Quotations", icon: FileText },
       { href: "/erp/sales-orders", label: "Sales Orders", icon: Package },
@@ -55,7 +55,7 @@ const NAV_GROUPS = [
       { href: "/pipeline", label: "Workflows", icon: GitBranch },
       { href: "/settings", label: "Personas", icon: Sparkles },
       { href: "/settings", label: "Channels", icon: MessageSquare },
-      { href: "/settings", label: "RAG Index", icon: Database },
+      { href: "/settings/rag", label: "RAG Index", icon: Database },
     ],
   },
 ];
@@ -117,11 +117,6 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
                   {!isCollapsed && (
                     <>
                       <span className="flex-1">{item.label}</span>
-                      {"badge" in item && item.badge && (
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                          {item.badge}
-                        </span>
-                      )}
                     </>
                   )}
                 </Link>

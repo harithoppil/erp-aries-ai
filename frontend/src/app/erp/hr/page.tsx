@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listPersonnel, createPersonnel } from "./actions";
+import { listPersonnel, createPersonnel, type ClientSafePersonnel } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Users, CheckCircle, AlertTriangle, XCircle,
@@ -39,7 +39,7 @@ function getInitials(first?: string, last?: string): string {
 }
 
 export default function HRPage() {
-  const [personnel, setPersonnel] = useState<any[]>([]);
+  const [personnel, setPersonnel] = useState<ClientSafePersonnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeDept, setActiveDept] = useState("All");
@@ -161,7 +161,7 @@ export default function HRPage() {
             {departments.map((dept) => (
               <button
                 key={dept}
-                onClick={() => setActiveDept(dept)}
+                onClick={() => setActiveDept(dept || "")}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   activeDept === dept
                     ? "bg-[#1e3a5f] text-white"
@@ -228,7 +228,7 @@ export default function HRPage() {
                     {filtered.map((p) => {
                       const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.active;
                       const StatusIcon = cfg.icon;
-                      const deptColor = DEPARTMENT_COLORS[p.department] || "bg-gray-100 text-gray-700 border-gray-200";
+                      const deptColor = DEPARTMENT_COLORS[(p.department ?? "")] || "bg-gray-100 text-gray-700 border-gray-200";
                       const fullName = `${p.first_name || ""} ${p.last_name || ""}`.trim();
                       return (
                         <tr key={p.id} className="hover:bg-gray-50 transition-colors">

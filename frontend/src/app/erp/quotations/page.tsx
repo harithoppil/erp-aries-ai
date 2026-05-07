@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listQuotations, createQuotation } from "./actions";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listQuotations, createQuotation, type ClientSafeQuotation } from "./actions";
+import { listCustomers, type ClientSafeCustomer } from "@/app/erp/customers/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   FileText, Search, Plus, X, DollarSign, Calendar, CheckCircle,
@@ -32,8 +31,8 @@ interface QItem {
 }
 
 export default function QuotationsPage() {
-  const [quotations, setQuotations] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<ClientSafeQuotation[]>([]);
+  const [customers, setCustomers] = useState<ClientSafeCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -54,10 +53,10 @@ export default function QuotationsPage() {
     try {
       const [qRes, cRes] = await Promise.all([
         listQuotations(),
-        throttledFetch(`${API_BASE}/erp/customers`),
+        listCustomers(),
       ]);
       if (qRes.success) setQuotations(qRes.quotations);
-      if (cRes.ok) setCustomers(unwrapPaginated(await cRes.json()));
+      if (cRes.success) setCustomers(cRes.customers);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };

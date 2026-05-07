@@ -18,6 +18,10 @@ export type ClientSafeItem = {
   standard_rate: number | null;
   min_order_qty: number | null;
   safety_stock: number | null;
+  stock_qty: number;
+  reorder_level: number | null;
+  quantity: number;
+  unit_cost: number | null;
   created_at: Date;
 };
 
@@ -26,7 +30,15 @@ export async function listItems(): Promise<
 > {
   try {
     const items = await prisma.items.findMany({ orderBy: { created_at: 'desc' } });
-    return { success: true, items: items.map((i) => ({ ...i, item_group: String(i.item_group), valuation_method: String(i.valuation_method) })) };
+    return { success: true, items: items.map((i) => ({
+      ...i,
+      item_group: String(i.item_group),
+      valuation_method: String(i.valuation_method),
+      stock_qty: 0,
+      reorder_level: i.safety_stock,
+      quantity: 0,
+      unit_cost: i.standard_rate,
+    })) };
   } catch (error) {
     console.error('Error fetching items:', error);
     return { success: false, error: 'Failed to fetch items' };

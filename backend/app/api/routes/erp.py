@@ -58,12 +58,14 @@ class PaymentCreate(BaseModel):
 
 
 @router.get("/accounts")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/accounts/actions.ts
 async def list_accounts(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Account).order_by(Account.account_number)
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/invoices", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/accounts/actions.ts
 async def create_invoice(data: SalesInvoiceCreate, db: AsyncSession = Depends(get_db)):
     inv_number = f"SINV-{uuid.uuid4().hex[:8].upper()}"
     subtotal = sum(i.quantity * i.rate for i in data.items)
@@ -95,18 +97,21 @@ async def create_invoice(data: SalesInvoiceCreate, db: AsyncSession = Depends(ge
 
 
 @router.get("/invoices")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/accounts/actions.ts
 async def list_invoices(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(SalesInvoice).order_by(SalesInvoice.created_at.desc())
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.get("/payments")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/payments/actions.ts
 async def list_payments(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(PaymentEntry).order_by(PaymentEntry.posting_date.desc())
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/payments", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/payments/actions.ts
 async def record_payment(data: PaymentCreate, db: AsyncSession = Depends(get_db)):
     invoice = await db.get(SalesInvoice, uuid.UUID(data.invoice_id))
     if not invoice:
@@ -141,12 +146,14 @@ class QuotationCreate(BaseModel):
 
 
 @router.get("/quotations")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/quotations/actions.ts
 async def list_quotations(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Quotation).order_by(Quotation.created_at.desc())
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/quotations", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/quotations/actions.ts
 async def create_quotation(data: QuotationCreate, db: AsyncSession = Depends(get_db)):
     q_number = f"QTN-{uuid.uuid4().hex[:8].upper()}"
     subtotal = sum(i.quantity * i.rate for i in data.items)
@@ -230,12 +237,14 @@ class SalesOrderCreate(BaseModel):
 
 
 @router.get("/sales-orders")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/sales-orders/actions.ts
 async def list_sales_orders(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(SalesOrder).order_by(SalesOrder.created_at.desc())
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/sales-orders", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/sales-orders/actions.ts
 async def create_sales_order(data: SalesOrderCreate, db: AsyncSession = Depends(get_db)):
     so_number = f"SO-{uuid.uuid4().hex[:8].upper()}"
     subtotal = sum(i.quantity * i.rate for i in data.items)
@@ -283,6 +292,7 @@ class AssetCreate(BaseModel):
 
 
 @router.get("/assets")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/assets/actions.ts
 async def list_assets(status: str | None = None, limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Asset).order_by(Asset.asset_code)
     if status:
@@ -314,6 +324,7 @@ async def calibration_due(db: AsyncSession = Depends(get_db)):
 # ═══════════════════════════════════════════════════════════════════
 
 @router.get("/items")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/stock/actions.ts
 async def list_items(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Item).order_by(Item.item_code)
     return await _paginated_results(db, stmt, limit, offset)
@@ -367,6 +378,7 @@ class ProjectCreate(BaseModel):
 
 
 @router.get("/projects")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/projects/actions.ts
 async def list_projects(status: str | None = None, limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Project).order_by(Project.created_at.desc())
     if status:
@@ -375,6 +387,7 @@ async def list_projects(status: str | None = None, limit: int = Query(50, ge=1),
 
 
 @router.post("/projects", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/projects/actions.ts
 async def create_project(data: ProjectCreate, db: AsyncSession = Depends(get_db)):
     code = f"PRJ-{uuid.uuid4().hex[:6].upper()}"
     project = Project(project_code=code, **{k: v for k, v in data.model_dump(exclude_none=True).items() if k != "enquiry_id"})
@@ -424,12 +437,14 @@ class TaskCreate(BaseModel):
 
 
 @router.get("/tasks")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/projects/actions.ts
 async def list_tasks(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Task).order_by(Task.id.desc())
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/tasks", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/projects/actions.ts
 async def create_task(data: TaskCreate, db: AsyncSession = Depends(get_db)):
     task = Task(
         project_id=uuid.UUID(data.project_id),
@@ -457,12 +472,14 @@ class TimesheetCreate(BaseModel):
 
 
 @router.get("/timesheets")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/timesheets/actions.ts
 async def list_timesheets(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Timesheet).order_by(Timesheet.date.desc())
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/timesheets", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/timesheets/actions.ts
 async def create_timesheet(data: TimesheetCreate, db: AsyncSession = Depends(get_db)):
     ts = Timesheet(
         project_id=uuid.UUID(data.project_id),
@@ -502,12 +519,14 @@ class CertCreate(BaseModel):
 
 
 @router.get("/personnel")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/hr/actions.ts
 async def list_personnel(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Personnel).order_by(Personnel.employee_id)
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/personnel", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/hr/actions.ts
 async def create_personnel(data: PersonnelCreate, db: AsyncSession = Depends(get_db)):
     person = Personnel(**data.model_dump(exclude_none=True))
     db.add(person)
@@ -539,6 +558,7 @@ async def add_certification(data: CertCreate, db: AsyncSession = Depends(get_db)
 
 
 @router.get("/certifications")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/hr/actions.ts
 async def list_certifications(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Certification).order_by(Certification.expiry_date)
     return await _paginated_results(db, stmt, limit, offset)
@@ -557,6 +577,7 @@ async def compliance_alerts(db: AsyncSession = Depends(get_db)):
 # ═══════════════════════════════════════════════════════════════════
 
 @router.get("/suppliers")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/procurement/actions.ts
 async def list_suppliers(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Supplier).order_by(Supplier.supplier_name)
     return await _paginated_results(db, stmt, limit, offset)
@@ -572,6 +593,7 @@ class SupplierCreate(BaseModel):
     category: str | None = None
 
 @router.post("/suppliers", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/procurement/actions.ts
 async def create_supplier(data: SupplierCreate, db: AsyncSession = Depends(get_db)):
     supplier = Supplier(**data.model_dump(exclude_none=True))
     db.add(supplier)
@@ -593,12 +615,14 @@ class CustomerCreate(BaseModel):
 
 
 @router.get("/customers")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/customers/actions.ts
 async def list_customers(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(Customer).order_by(Customer.customer_name)
     return await _paginated_results(db, stmt, limit, offset)
 
 
 @router.post("/customers", status_code=201)
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/customers/actions.ts
 async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db)):
     customer = Customer(**data.model_dump(exclude_none=True))
     db.add(customer)
@@ -608,6 +632,7 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
 
 
 @router.get("/purchase-orders")
+# PORTED: This endpoint has been ported to Next.js Server Actions at frontend/src/app/erp/procurement/actions.ts
 async def list_purchase_orders(limit: int = Query(50, ge=1), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
     stmt = select(PurchaseOrder).order_by(PurchaseOrder.created_at.desc())
     return await _paginated_results(db, stmt, limit, offset)

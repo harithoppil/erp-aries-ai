@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listTimesheets, createTimesheet } from "./actions";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listTimesheets, createTimesheet, type ClientSafeTimesheet } from "./actions";
+import { listProjects, type ClientSafeProject } from "@/app/erp/projects/actions";
+import { listPersonnel, type ClientSafePersonnel } from "@/app/erp/hr/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Clock, Search, Plus, Calendar, Briefcase, User, CheckCircle,
@@ -16,9 +16,9 @@ import {
 import { toast } from "sonner";
 
 export default function TimesheetsPage() {
-  const [timesheets, setTimesheets] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [personnel, setPersonnel] = useState<any[]>([]);
+  const [timesheets, setTimesheets] = useState<ClientSafeTimesheet[]>([]);
+  const [projects, setProjects] = useState<ClientSafeProject[]>([]);
+  const [personnel, setPersonnel] = useState<ClientSafePersonnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -37,12 +37,12 @@ export default function TimesheetsPage() {
     try {
       const [tRes, pRes, perRes] = await Promise.all([
         listTimesheets(),
-        throttledFetch(`${API_BASE}/erp/projects`),
-        throttledFetch(`${API_BASE}/erp/personnel`),
+        listProjects(),
+        listPersonnel(),
       ]);
       if (tRes.success) setTimesheets(tRes.timesheets);
-      if (pRes.ok) setProjects(unwrapPaginated(await pRes.json()));
-      if (perRes.ok) setPersonnel(unwrapPaginated(await perRes.json()));
+      if (pRes.success) setProjects(pRes.projects);
+      if (perRes.success) setPersonnel(perRes.personnel);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };

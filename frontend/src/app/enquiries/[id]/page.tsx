@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-responsive";
-import { useEnquiry, runPipeline, approveEnquiry, executeEnquiry, uploadDocument, API_BASE } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { getEnquiry, runPipeline, approveEnquiry, executeEnquiry, listEnquiryDocuments, uploadDocument } from "@/app/enquiries/actions";
 import { EnquiryRead, STATUS_COLORS, DocumentRead } from "@/types/api";
 import { ArrowLeft, Play, CheckCircle, Upload, Zap, FileText, Loader2, Image } from "lucide-react";
 import { toast } from "sonner";
@@ -15,54 +14,103 @@ export default function EnquiryDetailPage() {
   const isMobile = useIsMobile();
   const { id } = useParams();
   const router = useRouter();
-  const { data: enquiry, error, isLoading, mutate } = useEnquiry(id as string);
-  const [pipelineResult, setPipelineResult] = useState<{ [key: string]: unknown } | null>(null);
+  const [enquiry, setEnquiry] = useState<EnquiryRead | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pipelineResult, setPipelineResult] = useState<Record<string, unknown> | null>(null);
   const [executionResult, setExecutionResult] = useState<{ executions: ExecutionItem[] } | null>(null);
   const [acting, setActing] = useState(false);
   const [documents, setDocuments] = useState<DocumentRead[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
 
-  // Load documents for this enquiry
-  useEffect(() => {
+  const loadEnquiry = useCallback(async () => {
     if (!id) return;
-    const loadDocs = async () => {
-      try {
-        const res = await throttledFetch(`${API_BASE}/documents/${id}`);
-        if (res.ok) setDocuments(await res.json());
-      } catch (e) { console.error("Failed to load documents:", e); }
-      finally { setDocsLoading(false); }
-    };
+    setLoading(true);
+    try {
+      const result = await getEnquiry(id as string);
+      if (result.success) setEnquiry(result.enquiry);
+      else setError(result.error);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  const loadDocs = useCallback(async () => {
+    if (!id) return;
+    setDocsLoading(true);
+    try {
+      const result = await listEnquiryDocuments(id as string);
+      if (result.success) setDocuments(result.documents);
+    } catch (e) { console.error("Failed to load documents:", e); }
+    finally { setDocsLoading(false); }
+  }, [id]);
+
+  useEffect(() => {
+    loadEnquiry();
     loadDocs();
-  }, [id, acting]); // re-fetch after upload (acting goes false→true→false)
+  }, [loadEnquiry, loadDocs]);
+
+  const reload = useCallback(async () => {
+    await loadEnquiry();
+    await loadDocs();
+  }, [loadEnquiry, loadDocs]);
 
   const handleRunPipeline = async () => {
     setActing(true);
     try {
       const result = await runPipeline(id as string);
-      setPipelineResult(result as unknown as { [key: string]: unknown });
-      await mutate();
-    } catch (e) { toast.error((e as Error).message); } finally { setActing(false); }
+      if (result.success) {
+        setPipelineResult(result.result);
+        await reload();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (e: any) { toast.error(e.message); } finally { setActing(false); }
   };
 
   const handleApprove = async () => {
     setActing(true);
-    try { await approveEnquiry(id as string, "Current User"); await mutate(); } finally { setActing(false); }
+    try {
+      const result = await approveEnquiry(id as string, "Current User");
+      if (result.success) await reload();
+      else toast.error(result.error);
+    } catch (e: any) { toast.error(e.message); } finally { setActing(false); }
   };
 
   const handleExecute = async () => {
     setActing(true);
-    try { const r = await executeEnquiry(id as string); setExecutionResult(r as any); await mutate(); } finally { setActing(false); }
+    try {
+      const result = await executeEnquiry(id as string);
+      if (result.success) {
+        setExecutionResult(result.result as any);
+        await reload();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (e: any) { toast.error(e.message); } finally { setActing(false); }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setActing(true);
-    try { await uploadDocument(id as string, file); toast.success("Document uploaded and ingested!"); } catch (err) { toast.error("Upload failed: " + (err as Error).message); } finally { setActing(false); }
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await uploadDocument(id as string, formData);
+      if (result.success) {
+        toast.success("Document uploaded and ingested!");
+        await reload();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) { toast.error("Upload failed: " + err.message); } finally { setActing(false); }
   };
 
-  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Loading...</div>;
-  if (error) return <div className="py-12 text-center text-red-500">{error.message}</div>;
+  if (loading) return <div className="py-12 text-center text-muted-foreground">Loading...</div>;
+  if (error) return <div className="py-12 text-center text-red-500">{error}</div>;
   if (!enquiry) return <div className="py-12 text-center text-muted-foreground">Enquiry not found</div>;
 
   const canRunPipeline = ["draft", "ingested"].includes(enquiry.status);

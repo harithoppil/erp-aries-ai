@@ -11,6 +11,7 @@ from backend.app.services.pipeline import run_pipeline
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
 
+# PORTED: Ported to frontend/src/app/enquiries/actions.ts
 @router.post("/run", response_model=PipelineRunResponse)
 async def run_decisioning_pipeline(
     request: PipelineRunRequest,
@@ -24,6 +25,7 @@ async def run_decisioning_pipeline(
     return result
 
 
+# PORTED: Ported to frontend/src/app/enquiries/actions.ts
 @router.post("/execute/{enquiry_id}")
 async def execute_approved(
     enquiry_id: uuid.UUID,

@@ -85,6 +85,23 @@ export interface WikiSearchResult {
   score: number;
 }
 
+export interface RAGSearchResult {
+  content: string;
+  score: number;
+  source_path: string | null;
+  heading: string | null;
+  method: string | null;
+  modality: string | null;
+  route: string;
+}
+
+export interface RAGStats {
+  [route: string]: {
+    total_chunks: number;
+    modalities: Record<string, number>;
+  };
+}
+
 export interface PipelineRunRequest {
   enquiry_id: string;
 }

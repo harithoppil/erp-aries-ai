@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listItems, listWarehouses, createStockEntry } from "./actions";
+import { listItems, listWarehouses, createStockEntry, type ClientSafeItem } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Package, CheckCircle, AlertTriangle, ShieldAlert,
@@ -32,8 +32,8 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string; icon: React.
 };
 
 export default function StockPage() {
-  const [items, setItems] = useState<any[]>([]);
-  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [items, setItems] = useState<ClientSafeItem[]>([]);
+  const [warehouses, setWarehouses] = useState<{id: string; warehouse_name: string; warehouse_code: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listSalesOrders, createSalesOrder } from "./actions";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listSalesOrders, createSalesOrder, type ClientSafeSalesOrder } from "./actions";
+import { listCustomers, type ClientSafeCustomer } from "@/app/erp/customers/actions";
+import { listQuotations, type ClientSafeQuotation } from "@/app/erp/quotations/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Package, Search, Plus, X, DollarSign, Calendar, CheckCircle,
@@ -32,9 +32,9 @@ interface SOItem {
 }
 
 export default function SalesOrdersPage() {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [quotations, setQuotations] = useState<any[]>([]);
+  const [orders, setOrders] = useState<ClientSafeSalesOrder[]>([]);
+  const [customers, setCustomers] = useState<ClientSafeCustomer[]>([]);
+  const [quotations, setQuotations] = useState<ClientSafeQuotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -55,12 +55,12 @@ export default function SalesOrdersPage() {
     try {
       const [oRes, cRes, qRes] = await Promise.all([
         listSalesOrders(),
-        throttledFetch(`${API_BASE}/erp/customers`),
-        throttledFetch(`${API_BASE}/erp/quotations`),
+        listCustomers(),
+        listQuotations(),
       ]);
       if (oRes.success) setOrders(oRes.orders);
-      if (cRes.ok) setCustomers(unwrapPaginated(await cRes.json()));
-      if (qRes.ok) setQuotations(unwrapPaginated(await qRes.json()));
+      if (cRes.success) setCustomers(cRes.customers);
+      if (qRes.success) setQuotations(qRes.quotations);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };

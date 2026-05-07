@@ -11,6 +11,7 @@ from backend.app.schemas.enquiry import EnquiryCreate, EnquiryRead, EnquiryUpdat
 router = APIRouter(prefix="/enquiries", tags=["enquiries"])
 
 
+# PORTED: Ported to frontend/src/app/enquiries/actions.ts
 @router.post("/", response_model=EnquiryRead, status_code=201)
 async def create_enquiry(data: EnquiryCreate, db: AsyncSession = Depends(get_db)):
     enquiry = Enquiry(**data.model_dump())
@@ -20,6 +21,7 @@ async def create_enquiry(data: EnquiryCreate, db: AsyncSession = Depends(get_db)
     return enquiry
 
 
+# PORTED: Ported to frontend/src/app/enquiries/actions.ts
 @router.get("/", response_model=list[EnquiryRead])
 async def list_enquiries(
     status: EnquiryStatus | None = None,
@@ -34,6 +36,7 @@ async def list_enquiries(
     return result.scalars().all()
 
 
+# PORTED: Ported to frontend/src/app/enquiries/actions.ts
 @router.get("/{enquiry_id}", response_model=EnquiryRead)
 async def get_enquiry(enquiry_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     enquiry = await db.get(Enquiry, enquiry_id)
@@ -42,6 +45,7 @@ async def get_enquiry(enquiry_id: uuid.UUID, db: AsyncSession = Depends(get_db))
     return enquiry
 
 
+# PORTED: Ported to frontend/src/app/enquiries/actions.ts
 @router.patch("/{enquiry_id}", response_model=EnquiryRead)
 async def update_enquiry(
     enquiry_id: uuid.UUID,
@@ -60,6 +64,7 @@ async def update_enquiry(
     return enquiry
 
 
+# PORTED: Ported to frontend/src/app/enquiries/actions.ts
 @router.post("/{enquiry_id}/approve", response_model=EnquiryRead)
 async def approve_enquiry(
     enquiry_id: uuid.UUID,

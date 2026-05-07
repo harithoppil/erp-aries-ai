@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listProjects, listTasks, createProject, createTask } from "./actions";
+import { listProjects, listTasks, createProject, createTask, type ClientSafeProject, type ClientSafeTask } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   FolderKanban, CheckCircle, Clock, PauseCircle, Search,
@@ -31,7 +31,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ClientSafeProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeStatus, setActiveStatus] = useState("All");
@@ -43,7 +43,7 @@ export default function ProjectsPage() {
     expected_start: "", expected_end: "",
   });
   const [activeTab, setActiveTab] = useState<"projects" | "tasks">("projects");
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<ClientSafeTask[]>([]);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [taskForm, setTaskForm] = useState({
     project_id: "", subject: "", description: "", assigned_to: "", start_date: "", end_date: "",

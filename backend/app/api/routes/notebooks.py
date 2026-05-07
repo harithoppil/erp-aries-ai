@@ -39,6 +39,7 @@ class NotebookResponse(BaseModel):
         from_attributes = True
 
 
+# PORTED: Ported to frontend/src/app/notebooks/actions.ts
 @router.get("/", response_model=list[NotebookResponse])
 async def list_notebooks(db: AsyncSession = Depends(get_db)):
     """List all notebooks ordered by most recently updated."""
@@ -48,6 +49,7 @@ async def list_notebooks(db: AsyncSession = Depends(get_db)):
     return [_to_response(n) for n in notebooks]
 
 
+# PORTED: Ported to frontend/src/app/notebooks/actions.ts
 @router.post("/", response_model=NotebookResponse, status_code=201)
 async def create_notebook(data: NotebookCreate, db: AsyncSession = Depends(get_db)):
     """Create a new notebook."""
@@ -62,6 +64,7 @@ async def create_notebook(data: NotebookCreate, db: AsyncSession = Depends(get_d
     return _to_response(notebook)
 
 
+# PORTED: Ported to frontend/src/app/notebooks/actions.ts
 @router.get("/{notebook_id}", response_model=NotebookResponse)
 async def get_notebook(notebook_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """Get a single notebook by ID."""
@@ -71,6 +74,7 @@ async def get_notebook(notebook_id: uuid.UUID, db: AsyncSession = Depends(get_db
     return _to_response(notebook)
 
 
+# PORTED: Ported to frontend/src/app/notebooks/actions.ts
 @router.patch("/{notebook_id}", response_model=NotebookResponse)
 async def update_notebook(
     notebook_id: uuid.UUID,
@@ -95,6 +99,7 @@ async def update_notebook(
     return _to_response(notebook)
 
 
+# PORTED: Ported to frontend/src/app/notebooks/actions.ts
 @router.delete("/{notebook_id}", status_code=204)
 async def delete_notebook(notebook_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """Delete a notebook."""

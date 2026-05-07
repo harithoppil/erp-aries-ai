@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listSuppliers, createSupplier } from "./actions";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listSuppliers, createSupplier, listPurchaseOrders, type ClientSafeSupplier, type ClientSafePurchaseOrder } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   ShoppingCart, Search, Truck, FileText, Plus,
@@ -23,8 +21,8 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
 };
 
 export default function ProcurementPage() {
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<ClientSafeSupplier[]>([]);
+  const [orders, setOrders] = useState<ClientSafePurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"suppliers" | "orders">("suppliers");
@@ -42,10 +40,10 @@ export default function ProcurementPage() {
     try {
       const [sRes, oRes] = await Promise.all([
         listSuppliers(),
-        throttledFetch(`${API_BASE}/erp/purchase-orders`),
+        listPurchaseOrders(),
       ]);
       if (sRes.success) setSuppliers(sRes.suppliers);
-      if (oRes.ok) setOrders(unwrapPaginated(await oRes.json()));
+      if (oRes.success) setOrders(oRes.orders);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -234,7 +232,7 @@ export default function ProcurementPage() {
                                 {cfg.label}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-right font-medium text-[#0f172a]">AED {o.total_amount?.toLocaleString() || 0}</td>
+                            <td className="px-4 py-3 text-right font-medium text-[#0f172a]">AED {o.total?.toLocaleString() || 0}</td>
                           </tr>
                         );
                       })}

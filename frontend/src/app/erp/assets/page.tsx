@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listAssets, createAsset } from "./actions";
+import { listAssets, createAsset, type ClientSafeAsset } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Wrench, CheckCircle, AlertTriangle, XCircle,
@@ -33,7 +33,7 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string; dot: string;
 };
 
 export default function AssetsPage() {
-  const [assets, setAssets] = useState<any[]>([]);
+  const [assets, setAssets] = useState<ClientSafeAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");

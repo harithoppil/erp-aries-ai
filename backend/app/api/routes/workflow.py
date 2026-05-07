@@ -62,6 +62,7 @@ class ExecutionCreate(BaseModel):
 
 # --- Workflow CRUD ---
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.get("/")
 async def list_workflows(
     status: WorkflowStatus | None = None,
@@ -86,6 +87,7 @@ async def list_workflows(
     ]
 
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.get("/{workflow_id}")
 async def get_workflow(workflow_id: str, db: AsyncSession = Depends(get_db)):
     stmt = select(Workflow).where(Workflow.id == uuid.UUID(workflow_id))
@@ -136,6 +138,7 @@ async def get_workflow(workflow_id: str, db: AsyncSession = Depends(get_db)):
     }
 
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.post("/")
 async def create_workflow(
     data: WorkflowCreate,
@@ -176,6 +179,7 @@ async def create_workflow(
     return {"id": str(workflow.id), "name": workflow.name, "status": workflow.status}
 
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.patch("/{workflow_id}")
 async def update_workflow(
     workflow_id: str,
@@ -203,6 +207,7 @@ async def update_workflow(
 
 # --- Node / Edge management ---
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.post("/{workflow_id}/nodes")
 async def add_node(
     workflow_id: str,
@@ -230,6 +235,7 @@ async def add_node(
     return {"id": str(node.id), "node_key": node.node_key, "node_type": node.node_type}
 
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.post("/{workflow_id}/edges")
 async def add_edge(
     workflow_id: str,
@@ -255,6 +261,7 @@ async def add_edge(
 
 # --- Workflow Execution ---
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.post("/execute")
 async def run_workflow(
     data: ExecutionCreate,
@@ -295,6 +302,7 @@ async def run_workflow(
         raise HTTPException(500, f"Workflow execution failed: {e}")
 
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.get("/executions/{execution_id}")
 async def get_execution(execution_id: str, db: AsyncSession = Depends(get_db)):
     stmt = select(WorkflowExecution).where(WorkflowExecution.id == uuid.UUID(execution_id))
@@ -334,6 +342,7 @@ async def get_execution(execution_id: str, db: AsyncSession = Depends(get_db)):
     }
 
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.get("/{workflow_id}/executions")
 async def list_executions(
     workflow_id: str,
@@ -364,6 +373,7 @@ async def list_executions(
 
 # --- Seed default workflow ---
 
+# PORTED: Ported to frontend/src/app/pipeline/actions.ts
 @router.post("/seed-default")
 async def seed_default_workflow(db: AsyncSession = Depends(get_db)):
     """Seed the default Aries presales pipeline as a DB-stored DAG."""
