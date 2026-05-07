@@ -781,6 +781,9 @@ async def _get_wiki_context(persona: Persona, query: str) -> str:
 
 # --- RAG Search ---
 
+# PORTED — RAG search now uses Next.js Server Actions (app/actions/rag.ts)
+# with direct Gemini embedding calls (lib/rag-embed.ts) and pgvector via
+# Prisma $queryRaw (lib/rag-db.ts). No longer proxied through Python backend.
 @router.post("/rag/search")
 async def rag_search(
     query: str,
@@ -811,6 +814,9 @@ async def rag_search(
     ]
 
 
+# PORTED — Wiki indexing now uses Next.js Server Actions with direct
+# Gemini embedding + pgvector insertion. Wiki page content still fetched
+# from Python backend (git-vaulted wiki).
 @router.post("/rag/index-wiki")
 async def rag_index_wiki(route: str = "v2"):
     """Index all wiki pages into the RAG vector store.
@@ -824,6 +830,7 @@ async def rag_index_wiki(route: str = "v2"):
     return result
 
 
+# PORTED — Single page indexing now via Next.js Server Actions
 @router.post("/rag/index-page")
 async def rag_index_page(path: str, route: str = "v2"):
     """Index a single wiki page into the RAG vector store.
@@ -844,6 +851,7 @@ async def rag_index_page(path: str, route: str = "v2"):
     return {"path": path, "chunks_indexed": count, "route": route}
 
 
+# PORTED — OCR image indexing not yet ported (requires filesystem access)
 @router.post("/rag/index-ocr-images")
 async def rag_index_ocr_images(
     images_dir: str = "seed_data/filtered_invoices_ocr/images",
@@ -866,6 +874,7 @@ async def rag_index_ocr_images(
     return result
 
 
+# PORTED — RAG stats now via Next.js Server Actions with Prisma $queryRaw
 @router.get("/rag/stats")
 async def rag_stats():
     """Get RAG store statistics from PostgreSQL."""

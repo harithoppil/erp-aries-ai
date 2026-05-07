@@ -947,3 +947,27 @@ enum taskstatus {
   REVIEW
   DONE
 }
+
+// ── RAG / pgvector ─────────────────────────────────────────────────────────
+// The rag_chunks table is managed via raw SQL ($queryRaw / $executeRawUnsafe)
+// because Prisma doesn't support the VECTOR type natively.
+// The Unsupported("vector(768)") column lets Prisma know the table structure
+// but all actual vector operations go through src/lib/rag-db.ts.
+
+model rag_chunks {
+  id          Int                      @id @default(autoincrement())
+  source_path String
+  heading     String?
+  chunk_index Int?
+  content     String
+  embedding   Unsupported("vector(768)")?
+  char_start  Int?
+  char_end    Int?
+  modality    String                   @default("text")
+  tsv         Unsupported("tsvector")?
+  created_at  DateTime                 @default(now()) @db.Timestamptz()
+
+  @@index([source_path], name: "idx_rag_chunks_source")
+  @@index([modality], name: "idx_rag_chunks_modality")
+  @@map("rag_chunks")
+}
