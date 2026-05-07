@@ -6,8 +6,10 @@ import { useState, useEffect, useCallback } from "react";
  * Three-tier responsive hook — Nautical bridge layout
  *
  * Desktop (≥1024px): Full sidebar with collapsible toggle
- * Tablet (640–1023px): Icon-only sidebar, no toggle
- * Mobile (<640px): Split nav — top bar + bottom tabs
+ * Tablet (768–1023px): Icon-only sidebar, no toggle
+ * Mobile (<768px): Split nav — top bar + bottom tabs
+ *
+ * Breakpoints aligned with shadcn/ui defaults (768px mobile)
  * ═══════════════════════════════════════════════════════════ */
 
 type Breakpoint = "desktop" | "tablet" | "mobile";
@@ -21,7 +23,7 @@ export function useResponsive() {
     const update = () => {
       const w = window.innerWidth;
       if (w >= 1024) setBreakpoint("desktop");
-      else if (w >= 640) setBreakpoint("tablet");
+      else if (w >= 768) setBreakpoint("tablet");
       else setBreakpoint("mobile");
     };
     update();
