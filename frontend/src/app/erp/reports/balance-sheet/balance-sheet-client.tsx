@@ -23,7 +23,7 @@ interface BalanceSheetClientProps {
 export default function BalanceSheetClient({ initialData }: BalanceSheetClientProps) {
   const [data, setData] = useState<BSData | null>(initialData);
   const [fetching, setFetching] = useState(false);
-  const [asOfDate, setAsOfDate] = useState("2026-12-31");
+  const [asOfDate, setAsOfDate] = useState(`${new Date().getFullYear()}-12-31`);
 
   const fetchData = async () => {
     setFetching(true);

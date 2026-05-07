@@ -110,8 +110,9 @@ export async function getGeneralLedger(params: {
   { success: true; entries: GLEntry[]; total: { debit: number; credit: number } } | { success: false; error: string }
 > {
   try {
-    const fromDate = params.from_date || '2026-01-01';
-    const toDate = params.to_date || '2026-12-31';
+    const year = new Date().getFullYear();
+    const fromDate = params.from_date || `${year}-01-01`;
+    const toDate = params.to_date || `${year}-12-31`;
 
     // Build WHERE clause dynamically
     const conditions = [
@@ -233,8 +234,9 @@ export async function getTrialBalance(params: {
   { success: true; accounts: TBAccount[] } | { success: false; error: string }
 > {
   try {
-    const fromDate = params.from_date || '2026-01-01';
-    const toDate = params.to_date || '2026-12-31';
+    const year = new Date().getFullYear();
+    const fromDate = params.from_date || `${year}-01-01`;
+    const toDate = params.to_date || `${year}-12-31`;
     const company = 'Aries Marine';
 
     // 1. Get all accounts for company ordered by lft
@@ -348,7 +350,7 @@ export async function getBalanceSheet(params: {
   { success: true; data: BSData } | { success: false; error: string }
 > {
   try {
-    const asOfDate = params.as_of_date || '2026-12-31';
+    const asOfDate = params.as_of_date || `${new Date().getFullYear()}-12-31`;
     const company = 'Aries Marine';
 
     // 1. Get Asset/Liability/Equity accounts ordered by lft
@@ -457,8 +459,9 @@ export async function getProfitAndLoss(params: {
   { success: true; data: PLData } | { success: false; error: string }
 > {
   try {
-    const fromDate = params.from_date || '2026-01-01';
-    const toDate = params.to_date || '2026-12-31';
+    const year = new Date().getFullYear();
+    const fromDate = params.from_date || `${year}-01-01`;
+    const toDate = params.to_date || `${year}-12-31`;
     const company = 'Aries Marine';
 
     // 1. Get Income/Expense accounts ordered by lft

@@ -26,8 +26,8 @@ interface TrialBalanceClientProps {
 export default function TrialBalanceClient({ initialAccounts }: TrialBalanceClientProps) {
   const [accounts, setAccounts] = useState<TBAccount[]>(initialAccounts);
   const [fetching, setFetching] = useState(false);
-  const [fromDate, setFromDate] = useState("2026-01-01");
-  const [toDate, setToDate] = useState("2026-12-31");
+  const [fromDate, setFromDate] = useState(`${new Date().getFullYear()}-01-01`);
+  const [toDate, setToDate] = useState(`${new Date().getFullYear()}-12-31`);
 
   const fetchData = async () => {
     setFetching(true);

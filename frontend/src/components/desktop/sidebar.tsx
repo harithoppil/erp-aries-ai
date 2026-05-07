@@ -53,8 +53,8 @@ const NAV_GROUPS = [
     items: [
       { href: "/ai", label: "AI Chat", icon: Bot },
       { href: "/pipeline", label: "Workflows", icon: GitBranch },
-      { href: "/settings", label: "Personas", icon: Sparkles },
-      { href: "/settings", label: "Channels", icon: MessageSquare },
+      { href: "/settings", label: "Settings", icon: Sparkles },
+      { href: "/channels", label: "Channels", icon: MessageSquare },
       { href: "/settings/rag", label: "RAG Index", icon: Database },
     ],
   },

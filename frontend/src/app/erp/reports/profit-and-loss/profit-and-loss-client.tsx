@@ -22,8 +22,8 @@ interface ProfitAndLossClientProps {
 export default function ProfitAndLossClient({ initialData }: ProfitAndLossClientProps) {
   const [data, setData] = useState<PLData | null>(initialData);
   const [fetching, setFetching] = useState(false);
-  const [fromDate, setFromDate] = useState("2026-01-01");
-  const [toDate, setToDate] = useState("2026-12-31");
+  const [fromDate, setFromDate] = useState(`${new Date().getFullYear()}-01-01`);
+  const [toDate, setToDate] = useState(`${new Date().getFullYear()}-12-31`);
 
   const fetchData = async () => {
     setFetching(true);

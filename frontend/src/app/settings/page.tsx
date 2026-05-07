@@ -99,15 +99,15 @@ export default function SettingsPage() {
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Engine</dt>
-              <dd>SQLite (aiosqlite)</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Location</dt>
-              <dd className="text-xs">./aries.db</dd>
+              <dd>PostgreSQL</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">ORM</dt>
-              <dd>SQLAlchemy 2.0</dd>
+              <dd>Prisma</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Schema</dt>
+              <dd className="text-xs">Azure DB / Supabase</dd>
             </div>
           </dl>
         </div>
@@ -121,19 +121,19 @@ export default function SettingsPage() {
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
               <dt className="text-muted-foreground">AI Provider</dt>
-              <dd>Google Vertex AI</dd>
+              <dd>Google Gemini</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Embedding Model</dt>
-              <dd className="text-xs">gemini-embedding-2</dd>
+              <dd className="text-xs">text-embedding-004</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Storage</dt>
-              <dd>GCS (aries-raw-sources)</dd>
+              <dd>Google Cloud Storage</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Wiki</dt>
-              <dd>Local filesystem</dd>
+              <dd>Git-versioned filesystem</dd>
             </div>
           </dl>
         </div>
