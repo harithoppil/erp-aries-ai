@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { API_BASE } from "@/lib/api";
+import { getBalanceSheet, type BSData, type BSSection } from "../actions";
 import { TrendingUp, Calendar, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,29 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-
-interface BSAccount {
-  id: string;
-  name: string;
-  account_number: string | null;
-  is_group: boolean;
-  balance: number;
-  level: number;
-}
-
-interface BSSection {
-  accounts: BSAccount[];
-  total: number;
-}
-
-interface BSData {
-  as_of_date: string;
-  company: string;
-  assets: BSSection;
-  liabilities: BSSection;
-  equity: BSSection;
-  total_liabilities_and_equity: number;
-}
 
 const SECTION_STYLES: Record<string, { headerBg: string; headerText: string; border: string }> = {
   Assets: { headerBg: "bg-blue-50", headerText: "text-blue-700", border: "border-blue-100" },
@@ -69,9 +46,8 @@ export default function BalanceSheetPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/erp/reports/balance-sheet?as_of_date=${asOfDate}`);
-      const d = await res.json();
-      setData(d);
+      const result = await getBalanceSheet({ as_of_date: asOfDate });
+      if (result.success) setData(result.data);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
@@ -95,13 +71,13 @@ export default function BalanceSheetPage() {
           ) : (
             <Table>
               <TableBody>
-                {section.accounts.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell style={{ paddingLeft: `${20 + a.level * 20}px` }}>
-                      <span className={a.is_group ? "font-semibold text-foreground" : "text-muted-foreground"}>{a.name}</span>
+                {section.accounts.map((a, idx) => (
+                  <TableRow key={a.id || idx}>
+                    <TableCell style={{ paddingLeft: `${20 + (a.level || 0) * 20}px` }}>
+                      <span className={a.is_group ? "font-semibold text-foreground" : "text-muted-foreground"}>{a.name || a.account || "—"}</span>
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums font-medium text-foreground w-40">
-                      {a.balance !== 0 ? a.balance.toLocaleString("en-AE", { minimumFractionDigits: 2 }) : "—"}
+                      {(a.balance ?? a.amount ?? 0) !== 0 ? (a.balance ?? a.amount ?? 0).toLocaleString("en-AE", { minimumFractionDigits: 2 }) : "—"}
                     </TableCell>
                   </TableRow>
                 ))}

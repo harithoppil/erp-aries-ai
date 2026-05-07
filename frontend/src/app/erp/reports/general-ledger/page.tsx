@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { API_BASE } from "@/lib/api";
+import { getGeneralLedger, type GLEntry } from "../actions";
 import { ScrollText, Calendar, Search, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,21 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-
-interface GLEntry {
-  id: string;
-  posting_date: string;
-  account_id: string;
-  party_type: string | null;
-  party_name: string | null;
-  voucher_type: string | null;
-  voucher_no: string | null;
-  debit: number;
-  credit: number;
-  balance: number;
-  cost_center: string | null;
-  remarks: string | null;
-}
 
 export default function GeneralLedgerPage() {
   const [entries, setEntries] = useState<GLEntry[]>([]);
@@ -37,13 +22,16 @@ export default function GeneralLedgerPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
-    if (voucherNo) params.set("voucher_no", voucherNo);
     try {
-      const res = await fetch(`${API_BASE}/erp/reports/general-ledger?${params}`);
-      const data = await res.json();
-      setEntries(data.entries || []);
-      setTotal(data.total || 0);
+      const result = await getGeneralLedger({
+        from_date: fromDate,
+        to_date: toDate,
+        voucher_no: voucherNo || undefined,
+      });
+      if (result.success) {
+        setEntries(result.entries);
+        setTotal(result.total.debit + result.total.credit);
+      }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
@@ -166,8 +154,8 @@ export default function GeneralLedgerPage() {
                     <TableCell className="text-muted-foreground truncate max-w-[180px]">{e.party_name || "—"}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums text-foreground">{e.debit > 0 ? e.debit.toLocaleString("en-AE", { minimumFractionDigits: 2 }) : "—"}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums text-foreground">{e.credit > 0 ? e.credit.toLocaleString("en-AE", { minimumFractionDigits: 2 }) : "—"}</TableCell>
-                    <TableCell className={`text-right font-mono tabular-nums font-medium ${e.balance >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                      {e.balance.toLocaleString("en-AE", { minimumFractionDigits: 2 })}
+                    <TableCell className={`text-right font-mono tabular-nums font-medium ${(e.balance ?? 0) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                      {(e.balance ?? 0).toLocaleString("en-AE", { minimumFractionDigits: 2 })}
                     </TableCell>
                   </TableRow>
                 ))

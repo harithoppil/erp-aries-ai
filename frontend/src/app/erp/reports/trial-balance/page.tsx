@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { API_BASE } from "@/lib/api";
+import { getTrialBalance, type TBAccount } from "../actions";
 import { Scale, Calendar, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,20 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-
-interface TBAccount {
-  id: string;
-  name: string;
-  account_number: string | null;
-  root_type: string;
-  is_group: boolean;
-  opening_debit: number;
-  opening_credit: number;
-  debit: number;
-  credit: number;
-  closing_debit: number;
-  closing_credit: number;
-}
 
 const ROOT_BADGE: Record<string, string> = {
   Asset: "bg-blue-50 text-blue-700 hover:bg-blue-50",
@@ -43,18 +29,17 @@ export default function TrialBalancePage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/erp/reports/trial-balance?from_date=${fromDate}&to_date=${toDate}`);
-      const data = await res.json();
-      setAccounts(data.accounts || []);
+      const result = await getTrialBalance({ from_date: fromDate, to_date: toDate });
+      if (result.success) setAccounts(result.accounts);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
 
   const totals = accounts.reduce((acc, a) => ({
-    opDr: acc.opDr + a.opening_debit, opCr: acc.opCr + a.opening_credit,
+    opDr: acc.opDr + (a.opening_debit ?? a.opening_dr ?? 0), opCr: acc.opCr + (a.opening_credit ?? a.opening_cr ?? 0),
     dr: acc.dr + a.debit, cr: acc.cr + a.credit,
-    clDr: acc.clDr + a.closing_debit, clCr: acc.clCr + a.closing_credit,
+    clDr: acc.clDr + (a.closing_debit ?? a.closing_dr ?? 0), clCr: acc.clCr + (a.closing_credit ?? a.closing_cr ?? 0),
   }), { opDr: 0, opCr: 0, dr: 0, cr: 0, clDr: 0, clCr: 0 });
 
   const renderSkeletons = () =>
@@ -132,21 +117,21 @@ export default function TrialBalancePage() {
                 </TableRow>
               ) : (
                 <>
-                  {accounts.map((a) => (
-                    <TableRow key={a.id}>
+                  {accounts.map((a, idx) => (
+                    <TableRow key={a.id || idx}>
                       <TableCell>
-                        <span className="font-medium text-foreground">{a.name}</span>
+                        <span className="font-medium text-foreground">{a.name || a.account || "—"}</span>
                         {a.account_number && <span className="ml-2 text-xs text-muted-foreground">#{a.account_number}</span>}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="secondary" className={`text-[10px] ${ROOT_BADGE[a.root_type] || ""}`}>{a.root_type}</Badge>
+                        <Badge variant="secondary" className={`text-[10px] ${ROOT_BADGE[a.root_type || ""] || ""}`}>{a.root_type || "—"}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{fmt(a.opening_debit)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{fmt(a.opening_credit)}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{fmt(a.opening_debit ?? a.opening_dr ?? 0)}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{fmt(a.opening_credit ?? a.opening_cr ?? 0)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums font-medium text-foreground">{fmt(a.debit)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums font-medium text-foreground">{fmt(a.credit)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-foreground">{fmt(a.closing_debit)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-foreground">{fmt(a.closing_credit)}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-foreground">{fmt(a.closing_debit ?? a.closing_dr ?? 0)}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-foreground">{fmt(a.closing_credit ?? a.closing_cr ?? 0)}</TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="border-t-2 border-border bg-muted/50 font-bold text-foreground">
