@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE } from "@/lib/api";
+import { getAccountTree, type AccountTreeNode } from "../accounts/actions";
 import { TreePine, ChevronRight, ChevronDown, Search, Folder, FileText, SearchX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,21 +9,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-
-interface Account {
-  id: string;
-  name: string;
-  account_number: string | null;
-  account_type: string | null;
-  root_type: string;
-  parent_account: string | null;
-  is_group: boolean;
-  balance: number;
-  lft: number;
-  rgt: number;
-  level: number;
-  has_children: boolean;
-}
 
 const ROOT_COLORS: Record<string, string> = {
   Asset: "text-blue-600",
@@ -34,22 +19,25 @@ const ROOT_COLORS: Record<string, string> = {
 };
 
 export default function ChartOfAccountsPage() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccounts] = useState<AccountTreeNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch(`${API_BASE}/erp/accounts/tree?company=Aries%20Marine`)
-      .then((r) => r.json())
-      .then((data) => {
-        setAccounts(data.accounts || []);
-        const roots = new Set<string>();
-        data.accounts?.forEach((a: Account) => { if (a.level === 0) roots.add(a.id); });
-        setExpanded(roots);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const load = async () => {
+      try {
+        const result = await getAccountTree();
+        if (result.success) {
+          setAccounts(result.accounts);
+          const roots = new Set<string>();
+          result.accounts.forEach((a) => { if (a.level === 0) roots.add(a.id); });
+          setExpanded(roots);
+        }
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    };
+    load();
   }, []);
 
   const filtered = useMemo(() => {
@@ -71,7 +59,7 @@ export default function ChartOfAccountsPage() {
 
   const visible = useMemo(() => {
     if (search.trim()) return filtered;
-    const result: Account[] = [];
+    const result: AccountTreeNode[] = [];
     const skipUntilRgt = new Map<number, number>();
     for (const a of accounts) {
       let hidden = false;

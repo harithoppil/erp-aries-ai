@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { API_BASE } from '@/lib/api';
 import { salesinvoicestatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
@@ -182,5 +183,37 @@ export async function createInvoice(data: {
     console.error('Error creating invoice:', error);
     if (error.code === 'P2002') return { success: false, error: 'Invoice number already exists' };
     return { success: false, error: 'Failed to create invoice' };
+  }
+}
+
+// ── Account Tree (hierarchical chart of accounts) ───────────────────────────
+
+export interface AccountTreeNode {
+  id: string;
+  name: string;
+  account_number: string | null;
+  account_type: string | null;
+  root_type: string;
+  parent_account: string | null;
+  is_group: boolean;
+  balance: number;
+  lft: number;
+  rgt: number;
+  level: number;
+  has_children: boolean;
+}
+
+export async function getAccountTree(): Promise<
+  { success: true; accounts: AccountTreeNode[] } | { success: false; error: string }
+> {
+  try {
+    // Account tree uses complex nested set queries — proxy to Python backend
+    const res = await fetch(`${API_BASE}/erp/accounts/tree?company=Aries%20Marine`);
+    if (!res.ok) throw new Error('Failed to fetch account tree');
+    const data = await res.json();
+    return { success: true, accounts: data.accounts || [] };
+  } catch (error: any) {
+    console.error('[accounts] getAccountTree failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to fetch account tree' };
   }
 }
