@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listJournalEntries, createJournalEntry } from "./actions";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   BookOpen, Search, Plus, ArrowDownLeft, ArrowUpRight,
   DollarSign, Calendar, TrendingUp, TrendingDown,
@@ -25,10 +25,16 @@ export default function JournalEntriesPage() {
     party_type: "", party_name: "", reference: "", notes: "",
   });
 
+  // AI page context
+  const contextSummary = entries.length > 0
+    ? `Journal Entries page: ${entries.length} entries. Debits: AED ${entries.filter(e => e.entry_type === "DEBIT").reduce((s, e) => s + (e.amount || 0), 0).toLocaleString()}. Credits: AED ${entries.filter(e => e.entry_type === "CREDIT").reduce((s, e) => s + (e.amount || 0), 0).toLocaleString()}.`
+    : "Journal Entries page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
-      const res = await throttledFetch(`${API_BASE}/erp/journal-entries`);
-      if (res.ok) setEntries(unwrapPaginated(await res.json()));
+      const result = await listJournalEntries();
+      if (result.success) setEntries(result.entries);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -38,27 +44,24 @@ export default function JournalEntriesPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/journal-entries`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          amount: parseFloat(form.amount),
-        }),
-      });
-      if (res.ok) {
-        toast.success("Journal entry created");
-        setDialogOpen(false);
-        setForm({ account: "", entry_type: "debit", amount: "", party_type: "", party_name: "", reference: "", notes: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create entry");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createJournalEntry({
+      account: form.account,
+      entry_type: form.entry_type,
+      amount: parseFloat(form.amount),
+      party_type: form.party_type || undefined,
+      party_name: form.party_name || undefined,
+      reference: form.reference || undefined,
+      notes: form.notes || undefined,
+    });
+    if (result.success) {
+      toast.success("Journal entry created");
+      setDialogOpen(false);
+      setForm({ account: "", entry_type: "debit", amount: "", party_type: "", party_name: "", reference: "", notes: "" });
+      load();
+    } else {
+      toast.error(result.error || "Failed to create entry");
+    }
+    setSaving(false);
   };
 
   const filtered = useMemo(() => {

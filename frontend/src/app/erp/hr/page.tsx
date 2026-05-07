@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listPersonnel, createPersonnel } from "./actions";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   Users, CheckCircle, AlertTriangle, XCircle,
   Search, ShieldCheck, ShieldAlert, Plus,
@@ -50,10 +50,16 @@ export default function HRPage() {
     designation: "", department: "", day_rate: "",
   });
 
+  // AI page context
+  const contextSummary = personnel.length > 0
+    ? `HR page: ${personnel.length} personnel. Departments: ${[...new Set(personnel.map(p => p.department).filter(Boolean))].slice(0, 5).join(", ")}. Active: ${personnel.filter(p => p.status === "ACTIVE").length}.`
+    : "HR page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
-      const res = await throttledFetch(`${API_BASE}/erp/personnel`);
-      if (res.ok) setPersonnel(unwrapPaginated(await res.json()));
+      const result = await listPersonnel();
+      if (result.success) setPersonnel(result.personnel);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -63,27 +69,24 @@ export default function HRPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/personnel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          day_rate: form.day_rate ? parseFloat(form.day_rate) : undefined,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Personnel created");
-        setDialogOpen(false);
-        setForm({ employee_id: "", first_name: "", last_name: "", email: "", designation: "", department: "", day_rate: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create personnel");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createPersonnel({
+      employee_id: form.employee_id,
+      first_name: form.first_name,
+      last_name: form.last_name,
+      email: form.email || undefined,
+      designation: form.designation || undefined,
+      department: form.department || undefined,
+      day_rate: form.day_rate ? parseFloat(form.day_rate) : undefined,
+    });
+    if (result.success) {
+      toast.success("Personnel created");
+      setDialogOpen(false);
+      setForm({ employee_id: "", first_name: "", last_name: "", email: "", designation: "", department: "", day_rate: "" });
+      load();
+    } else {
+      toast.error(result.error || "Failed to create personnel");
+    }
+    setSaving(false);
   };
 
   const departments = useMemo(() => {

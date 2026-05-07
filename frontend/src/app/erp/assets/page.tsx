@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listAssets, createAsset } from "./actions";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   Wrench, CheckCircle, AlertTriangle, XCircle,
   Search, Package, Plus, X,
@@ -44,10 +44,16 @@ export default function AssetsPage() {
     purchase_cost: "", calibration_date: "", next_calibration_date: "",
   });
 
+  // AI page context
+  const contextSummary = assets.length > 0
+    ? `Assets page: ${assets.length} total assets. Categories: ${[...new Set(assets.map(a => a.asset_category).filter(Boolean))].slice(0, 5).join(", ")}. Status: ${assets.filter(a => a.status === "AVAILABLE").length} available, ${assets.filter(a => a.status === "IN_USE").length} in use.`
+    : "Assets page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
-      const res = await throttledFetch(`${API_BASE}/erp/assets`);
-      if (res.ok) setAssets(unwrapPaginated(await res.json()));
+      const result = await listAssets();
+      if (result.success) setAssets(result.assets);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -57,27 +63,24 @@ export default function AssetsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/assets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          purchase_cost: form.purchase_cost ? parseFloat(form.purchase_cost) : undefined,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Asset created");
-        setDialogOpen(false);
-        setForm({ asset_name: "", asset_code: "", asset_category: "", location: "", purchase_cost: "", calibration_date: "", next_calibration_date: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create asset");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createAsset({
+      asset_name: form.asset_name,
+      asset_code: form.asset_code,
+      asset_category: form.asset_category,
+      location: form.location || undefined,
+      purchase_cost: form.purchase_cost ? parseFloat(form.purchase_cost) : undefined,
+      calibration_date: form.calibration_date ? new Date(form.calibration_date) : undefined,
+      next_calibration_date: form.next_calibration_date ? new Date(form.next_calibration_date) : undefined,
+    });
+    if (result.success) {
+      toast.success("Asset created");
+      setDialogOpen(false);
+      setForm({ asset_name: "", asset_code: "", asset_category: "", location: "", purchase_cost: "", calibration_date: "", next_calibration_date: "" });
+      load();
+    } else {
+      toast.error(result.error || "Failed to create asset");
+    }
+    setSaving(false);
   };
 
   const categories = useMemo(() => {

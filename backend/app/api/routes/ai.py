@@ -105,6 +105,24 @@ class ChatResponse(BaseModel):
     tool_calls: list | None = None
 
 
+class UIPlanRequest(BaseModel):
+    """Request for the lightweight UI action planner.
+
+    The browser sends the user's message + current page context + available
+    UI actions. Gemini decides which actions to call and returns structured
+    function calls. The browser executes them immediately.
+    """
+    message: str
+    page_context: str = ""
+    page_label: str = ""
+    actions: list[dict]  # Gemini functionDeclarations format
+
+
+class UIPlanResponse(BaseModel):
+    function_calls: list[dict]
+    reasoning: str = ""
+
+
 class DashboardCreate(BaseModel):
     name: str
     ui_type: str  # dashboard, form, report, kanban
@@ -359,6 +377,135 @@ async def chat_with_persona(
         role="assistant",
         content=ai_response,
     )
+
+
+@router.get("/token")
+async def get_ephemeral_token():
+    """Mint a short-lived OAuth access token for client-side Gemini calls.
+
+    The browser uses this token to call Vertex AI REST API directly
+    (fast UI track) without exposing long-lived credentials.
+    Token expires in ~1 hour and is scoped to cloud-platform only.
+    """
+    try:
+        from google.oauth2 import service_account
+        import google.auth.transport.requests
+        import json
+
+        if not settings.gca_key:
+            raise HTTPException(503, "Service account not configured. Set GCA_KEY in .env")
+
+        sa_info = json.loads(settings.gca_key)
+        credentials = service_account.Credentials.from_service_account_info(
+            sa_info,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+        request = google.auth.transport.requests.Request()
+        credentials.refresh(request)
+
+        return {
+            "token": credentials.token,
+            "expires_at": credentials.expiry.isoformat() if credentials.expiry else None,
+            "project_id": settings.gcp_project_id or sa_info.get("project_id", ""),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"Failed to mint token: {e}")
+
+
+@router.post("/ui-plan", response_model=UIPlanResponse)
+async def plan_ui_actions(data: UIPlanRequest):
+    """Lightweight UI action planner — dual-track architecture.
+
+    This endpoint is the "fast track": it takes the user's message + page
+    context + available UI actions, asks Gemini (function calling mode) which
+    actions to execute, and returns structured function calls.
+
+    The browser executes these immediately (~50-200ms) while the "slow track"
+    (/chat) handles reasoning, DB queries, wiki lookups, and conversation.
+    """
+    if not data.actions:
+        return UIPlanResponse(function_calls=[])
+
+    try:
+        gemini = GeminiService()
+        client = gemini.client
+
+        # Build the prompt — concise, focused on UI planning only
+        prompt = f"""You are a UI action planner for an ERP web application.
+The user is on the "{data.page_label}" page.
+
+Page context: {data.page_context[:600]}
+
+User request: {data.message}
+
+Your job: decide which UI actions (if any) should be executed immediately.
+Only call actions that are directly relevant to the user's request.
+If the user is just asking a question (not requesting an action), do not call any functions.
+If filling a form, infer reasonable values from the user's message."""
+
+        # Convert actions to Gemini function declarations
+        function_declarations = []
+        for action in data.actions:
+            decl = {
+                "name": action["name"],
+                "description": action["description"],
+            }
+            if action.get("parameters"):
+                decl["parameters"] = {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                }
+                for param_name, param_info in action["parameters"].items():
+                    decl["parameters"]["properties"][param_name] = {
+                        "type": param_info.get("type", "string"),
+                        "description": param_info.get("description", ""),
+                    }
+                    if param_info.get("enum"):
+                        decl["parameters"]["properties"][param_name]["enum"] = param_info["enum"]
+                    if param_info.get("required", True):
+                        decl["parameters"]["required"].append(param_name)
+            function_declarations.append(decl)
+
+        from google.genai import types
+
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.1,
+                tools=[types.Tool(function_declarations=function_declarations)],
+                tool_config=types.ToolConfig(
+                    function_calling_config=types.FunctionCallingConfig(
+                        mode=types.FunctionCallingConfigMode.AUTO,
+                    )
+                ),
+            ),
+        )
+
+        # Extract function calls from response
+        function_calls = []
+        if response.candidates:
+            for part in response.candidates[0].content.parts:
+                if part.function_call:
+                    function_calls.append({
+                        "name": part.function_call.name,
+                        "args": dict(part.function_call.args) if part.function_call.args else {},
+                    })
+
+        return UIPlanResponse(
+            function_calls=function_calls,
+            reasoning="",
+        )
+
+    except GeminiError as e:
+        raise HTTPException(502, f"UI planning failed: {e}")
+    except Exception as e:
+        import logging
+        logging.getLogger("aries.ai").error("UI plan error: %s", e, exc_info=True)
+        return UIPlanResponse(function_calls=[])
 
 
 @router.get("/conversations")

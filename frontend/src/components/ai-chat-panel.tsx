@@ -45,13 +45,12 @@ export function AiChatPanel() {
   }, [chatOpen]);
 
   const handleSend = () => {
-    if (!input.trim() || !activePersona) return;
+    if (!input.trim()) return;
     sendMessage(input.trim());
     setInput("");
   };
 
   const handleQuickAction = (action: string) => {
-    if (!activePersona) return;
     sendMessage(action);
   };
 
@@ -221,8 +220,7 @@ export function AiChatPanel() {
           />
           <button
             onClick={handleSend}
-            disabled={!activePersona}
-            className="rounded-xl bg-[#0ea5e9] p-2.5 text-white transition-colors hover:bg-[#0284c7] disabled:opacity-50"
+            className="rounded-xl bg-[#0ea5e9] p-2.5 text-white transition-colors hover:bg-[#0284c7]"
           >
             <Send size={16} />
           </button>

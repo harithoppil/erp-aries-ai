@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { listSuppliers, createSupplier } from "./actions";
 import { API_BASE, unwrapPaginated } from "@/lib/api";
 import { throttledFetch } from "@/lib/throttledFetch";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   ShoppingCart, Search, Truck, FileText, Plus,
 } from "lucide-react";
@@ -30,13 +32,19 @@ export default function ProcurementPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ supplier_name: "", supplier_code: "" });
 
+  // AI page context
+  const contextSummary = suppliers.length > 0
+    ? `Procurement page: ${suppliers.length} suppliers, ${orders.length} purchase orders. Categories: ${[...new Set(suppliers.map(s => s.category).filter(Boolean))].slice(0, 5).join(", ")}.`
+    : "Procurement page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
       const [sRes, oRes] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/suppliers`),
+        listSuppliers(),
         throttledFetch(`${API_BASE}/erp/purchase-orders`),
       ]);
-      if (sRes.ok) setSuppliers(unwrapPaginated(await sRes.json()));
+      if (sRes.success) setSuppliers(sRes.suppliers);
       if (oRes.ok) setOrders(unwrapPaginated(await oRes.json()));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -47,25 +55,19 @@ export default function ProcurementPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      // Backend uses query params for supplier creation
-      const params = new URLSearchParams({ name: form.supplier_name, code: form.supplier_code });
-      const res = await throttledFetch(`${API_BASE}/erp/suppliers?${params.toString()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.ok) {
-        toast.success("Supplier created");
-        setDialogOpen(false);
-        setForm({ supplier_name: "", supplier_code: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create supplier");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createSupplier({
+      supplier_name: form.supplier_name,
+      supplier_code: form.supplier_code,
+    });
+    if (result.success) {
+      toast.success("Supplier created");
+      setDialogOpen(false);
+      setForm({ supplier_name: "", supplier_code: "" });
+      load();
+    } else {
+      toast.error(result.error || "Failed to create supplier");
+    }
+    setSaving(false);
   };
 
   const filteredSuppliers = useMemo(() => {

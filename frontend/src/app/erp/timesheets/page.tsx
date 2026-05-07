@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { listTimesheets, createTimesheet } from "./actions";
 import { API_BASE, unwrapPaginated } from "@/lib/api";
 import { throttledFetch } from "@/lib/throttledFetch";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   Clock, Search, Plus, Calendar, Briefcase, User, CheckCircle,
 } from "lucide-react";
@@ -25,14 +27,20 @@ export default function TimesheetsPage() {
     project_id: "", personnel_id: "", date: "", hours: "8", activity_type: "", description: "", billable: true,
   });
 
+  // AI page context
+  const contextSummary = timesheets.length > 0
+    ? `Timesheets page: ${timesheets.length} entries, ${timesheets.reduce((s, t) => s + (t.hours || 0), 0)} total hours. Billable: ${timesheets.filter(t => t.billable).reduce((s, t) => s + (t.hours || 0), 0)} hours.`
+    : "Timesheets page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
       const [tRes, pRes, perRes] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/timesheets`),
+        listTimesheets(),
         throttledFetch(`${API_BASE}/erp/projects`),
         throttledFetch(`${API_BASE}/erp/personnel`),
       ]);
-      if (tRes.ok) setTimesheets(unwrapPaginated(await tRes.json()));
+      if (tRes.success) setTimesheets(tRes.timesheets);
       if (pRes.ok) setProjects(unwrapPaginated(await pRes.json()));
       if (perRes.ok) setPersonnel(unwrapPaginated(await perRes.json()));
     } catch (e) { console.error(e); }
@@ -44,32 +52,24 @@ export default function TimesheetsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/timesheets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: form.project_id,
-          personnel_id: form.personnel_id,
-          date: form.date,
-          hours: parseFloat(form.hours) || 8,
-          activity_type: form.activity_type,
-          description: form.description || undefined,
-          billable: form.billable,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Timesheet entry created");
-        setDialogOpen(false);
-        setForm({ project_id: "", personnel_id: "", date: "", hours: "8", activity_type: "", description: "", billable: true });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create timesheet");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createTimesheet({
+      project_id: form.project_id,
+      personnel_id: form.personnel_id,
+      date: new Date(form.date),
+      hours: parseFloat(form.hours) || 8,
+      activity_type: form.activity_type,
+      description: form.description || undefined,
+      billable: form.billable,
+    });
+    if (result.success) {
+      toast.success("Timesheet entry created");
+      setDialogOpen(false);
+      setForm({ project_id: "", personnel_id: "", date: "", hours: "8", activity_type: "", description: "", billable: true });
+      load();
+    } else {
+      toast.error(result.error || "Failed to create timesheet");
+    }
+    setSaving(false);
   };
 
   const filtered = useMemo(() => {

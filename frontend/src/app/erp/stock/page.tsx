@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listItems, listWarehouses, createStockEntry } from "./actions";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   Package, CheckCircle, AlertTriangle, ShieldAlert,
   Search, Warehouse, Plus,
@@ -44,14 +44,20 @@ export default function StockPage() {
     source_warehouse: "", target_warehouse: "", reference: "",
   });
 
+  // AI page context
+  const contextSummary = items.length > 0
+    ? `Stock page: ${items.length} items across ${warehouses.length} warehouses. Categories: ${[...new Set(items.map(i => i.item_group).filter(Boolean))].slice(0, 5).join(", ")}.`
+    : "Stock page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
       const [iRes, wRes] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/items`),
-        throttledFetch(`${API_BASE}/erp/warehouses`),
+        listItems(),
+        listWarehouses(),
       ]);
-      if (iRes.ok) setItems(unwrapPaginated(await iRes.json()));
-      if (wRes.ok) setWarehouses(unwrapPaginated(await wRes.json()));
+      if (iRes.success) setItems(iRes.items);
+      if (wRes.success) setWarehouses(wRes.warehouses);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -61,31 +67,23 @@ export default function StockPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/stock-entries`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          entry_type: form.entry_type,
-          item_id: form.item_id,
-          quantity: parseFloat(form.quantity),
-          source_warehouse: form.source_warehouse || undefined,
-          target_warehouse: form.target_warehouse || undefined,
-          reference: form.reference || undefined,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Stock entry created");
-        setDialogOpen(false);
-        setForm({ entry_type: "receipt", item_id: "", quantity: "", source_warehouse: "", target_warehouse: "", reference: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create stock entry");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createStockEntry({
+      entry_type: form.entry_type,
+      item_id: form.item_id,
+      quantity: parseFloat(form.quantity),
+      source_warehouse: form.source_warehouse || undefined,
+      target_warehouse: form.target_warehouse || undefined,
+      reference: form.reference || undefined,
+    });
+    if (result.success) {
+      toast.success("Stock entry created");
+      setDialogOpen(false);
+      setForm({ entry_type: "receipt", item_id: "", quantity: "", source_warehouse: "", target_warehouse: "", reference: "" });
+      load();
+    } else {
+      toast.error(result.error || "Failed to create stock entry");
+    }
+    setSaving(false);
   };
 
   const categories = useMemo(() => {

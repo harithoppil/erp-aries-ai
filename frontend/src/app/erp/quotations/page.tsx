@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { listQuotations, createQuotation } from "./actions";
 import { API_BASE, unwrapPaginated } from "@/lib/api";
 import { throttledFetch } from "@/lib/throttledFetch";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   FileText, Search, Plus, X, DollarSign, Calendar, CheckCircle,
   Clock, XCircle, Send, TrendingUp,
@@ -42,13 +44,19 @@ export default function QuotationsPage() {
   });
   const [items, setItems] = useState<QItem[]>([{ description: "", quantity: "1", rate: "", item_code: "" }]);
 
+  // AI page context
+  const contextSummary = quotations.length > 0
+    ? `Quotations page: ${quotations.length} quotations. Total value: AED ${quotations.reduce((s, q) => s + (q.total || 0), 0).toLocaleString()}. Status breakdown: ${quotations.filter(q => q.status === "DRAFT").length} draft, ${quotations.filter(q => q.status === "SENT").length} sent, ${quotations.filter(q => q.status === "ACCEPTED").length} accepted.`
+    : "Quotations page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
       const [qRes, cRes] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/quotations`),
+        listQuotations(),
         throttledFetch(`${API_BASE}/erp/customers`),
       ]);
-      if (qRes.ok) setQuotations(unwrapPaginated(await qRes.json()));
+      if (qRes.success) setQuotations(qRes.quotations);
       if (cRes.ok) setCustomers(unwrapPaginated(await cRes.json()));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -67,33 +75,30 @@ export default function QuotationsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/quotations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          tax_rate: parseFloat(form.tax_rate),
-          items: items.filter((i) => i.description && i.rate).map((i) => ({
-            ...i,
-            quantity: parseInt(i.quantity) || 1,
-            rate: parseFloat(i.rate),
-          })),
-        }),
-      });
-      if (res.ok) {
-        toast.success("Quotation created");
-        setDialogOpen(false);
-        setForm({ customer_id: "", customer_name: "", project_type: "", tax_rate: "5", valid_until: "", notes: "" });
-        setItems([{ description: "", quantity: "1", rate: "", item_code: "" }]);
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create quotation");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createQuotation({
+      customer_id: form.customer_id || undefined,
+      customer_name: form.customer_name,
+      project_type: form.project_type || undefined,
+      tax_rate: parseFloat(form.tax_rate),
+      valid_until: form.valid_until ? new Date(form.valid_until) : undefined,
+      notes: form.notes || undefined,
+      items: items.filter((i) => i.description && i.rate).map((i) => ({
+        description: i.description,
+        quantity: parseInt(i.quantity) || 1,
+        rate: parseFloat(i.rate),
+        item_code: i.item_code || undefined,
+      })),
+    });
+    if (result.success) {
+      toast.success("Quotation created");
+      setDialogOpen(false);
+      setForm({ customer_id: "", customer_name: "", project_type: "", tax_rate: "5", valid_until: "", notes: "" });
+      setItems([{ description: "", quantity: "1", rate: "", item_code: "" }]);
+      load();
+    } else {
+      toast.error(result.error || "Failed to create quotation");
+    }
+    setSaving(false);
   };
 
   const filtered = useMemo(() => {

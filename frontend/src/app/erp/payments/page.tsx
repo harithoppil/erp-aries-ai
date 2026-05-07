@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { listPayments, createPayment } from "./actions";
 import { API_BASE, unwrapPaginated } from "@/lib/api";
 import { throttledFetch } from "@/lib/throttledFetch";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   Wallet, Search, Plus, ArrowRightLeft, User,
 } from "lucide-react";
@@ -24,13 +26,19 @@ export default function PaymentsPage() {
     invoice_id: "", amount: "", reference_number: "",
   });
 
+  // AI page context
+  const contextSummary = payments.length > 0
+    ? `Payments page: ${payments.length} payments. Total received: AED ${payments.reduce((s, p) => s + (p.amount || 0), 0).toLocaleString()}.`
+    : "Payments page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
       const [pRes, iRes] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/payments`),
+        listPayments(),
         throttledFetch(`${API_BASE}/erp/invoices`),
       ]);
-      if (pRes.ok) setPayments(unwrapPaginated(await pRes.json()));
+      if (pRes.success) setPayments(pRes.payments);
       if (iRes.ok) setInvoices(unwrapPaginated(await iRes.json()));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -41,28 +49,21 @@ export default function PaymentsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoice_id: form.invoice_id,
-          amount: parseFloat(form.amount),
-          reference_number: form.reference_number || undefined,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Payment recorded");
-        setDialogOpen(false);
-        setForm({ invoice_id: "", amount: "", reference_number: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to record payment");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createPayment({
+      invoice_id: form.invoice_id || undefined,
+      amount: parseFloat(form.amount),
+      reference_number: form.reference_number || undefined,
+      party_name: invoices.find((i) => i.id === form.invoice_id)?.customer_name || undefined,
+    });
+    if (result.success) {
+      toast.success("Payment recorded");
+      setDialogOpen(false);
+      setForm({ invoice_id: "", amount: "", reference_number: "" });
+      load();
+    } else {
+      toast.error(result.error || "Failed to record payment");
+    }
+    setSaving(false);
   };
 
   const filtered = useMemo(() => {

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listProjects, listTasks, createProject, createTask } from "./actions";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   FolderKanban, CheckCircle, Clock, PauseCircle, Search,
   MapPin, DollarSign, Plus, ListTodo, User, CheckSquare,
@@ -50,14 +50,20 @@ export default function ProjectsPage() {
   });
   const [taskSaving, setTaskSaving] = useState(false);
 
+  // AI page context
+  const contextSummary = projects.length > 0
+    ? `Projects page: ${projects.length} projects, ${tasks.length} tasks. Status: ${projects.filter(p => p.status === "ACTIVE").length} active, ${projects.filter(p => p.status === "PLANNING").length} planning, ${projects.filter(p => p.status === "COMPLETED").length} completed. Types: ${[...new Set(projects.map(p => p.project_type).filter(Boolean))].slice(0, 5).join(", ")}.`
+    : "Projects page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
       const [pRes, tRes] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/projects`),
-        throttledFetch(`${API_BASE}/erp/tasks`),
+        listProjects(),
+        listTasks(),
       ]);
-      if (pRes.ok) setProjects(unwrapPaginated(await pRes.json()));
-      if (tRes.ok) setTasks(unwrapPaginated(await tRes.json()));
+      if (pRes.success) setProjects(pRes.projects);
+      if (tRes.success) setTasks(tRes.tasks);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -67,51 +73,48 @@ export default function ProjectsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/projects`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          estimated_cost: form.estimated_cost ? parseFloat(form.estimated_cost) : undefined,
-          day_rate: form.day_rate ? parseFloat(form.day_rate) : undefined,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Project created");
-        setDialogOpen(false);
-        setForm({ project_name: "", project_type: "", customer_name: "", project_location: "", vessel_name: "", estimated_cost: "", day_rate: "", expected_start: "", expected_end: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create project");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createProject({
+      project_name: form.project_name,
+      project_type: form.project_type,
+      customer_name: form.customer_name,
+      project_location: form.project_location || undefined,
+      vessel_name: form.vessel_name || undefined,
+      estimated_cost: form.estimated_cost ? parseFloat(form.estimated_cost) : undefined,
+      day_rate: form.day_rate ? parseFloat(form.day_rate) : undefined,
+      expected_start: form.expected_start ? new Date(form.expected_start) : undefined,
+      expected_end: form.expected_end ? new Date(form.expected_end) : undefined,
+    });
+    if (result.success) {
+      toast.success("Project created");
+      setDialogOpen(false);
+      setForm({ project_name: "", project_type: "", customer_name: "", project_location: "", vessel_name: "", estimated_cost: "", day_rate: "", expected_start: "", expected_end: "" });
+      load();
+    } else {
+      toast.error(result.error || "Failed to create project");
+    }
+    setSaving(false);
   };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     setTaskSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskForm),
-      });
-      if (res.ok) {
-        toast.success("Task created");
-        setTaskDialogOpen(false);
-        setTaskForm({ project_id: "", subject: "", description: "", assigned_to: "", start_date: "", end_date: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create task");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setTaskSaving(false); }
+    const result = await createTask({
+      project_id: taskForm.project_id,
+      subject: taskForm.subject,
+      description: taskForm.description || undefined,
+      assigned_to: taskForm.assigned_to || undefined,
+      start_date: taskForm.start_date ? new Date(taskForm.start_date) : undefined,
+      end_date: taskForm.end_date ? new Date(taskForm.end_date) : undefined,
+    });
+    if (result.success) {
+      toast.success("Task created");
+      setTaskDialogOpen(false);
+      setTaskForm({ project_id: "", subject: "", description: "", assigned_to: "", start_date: "", end_date: "" });
+      load();
+    } else {
+      toast.error(result.error || "Failed to create task");
+    }
+    setTaskSaving(false);
   };
 
   const statuses = useMemo(() => {

@@ -1,18 +1,26 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { API_BASE, unwrapPaginated } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
 import {
-  Building2, Search, Plus, Mail, Phone, MapPin, TrendingUp,
-  CheckCircle, XCircle, DollarSign,
+  listCustomers,
+  createCustomer,
+  type ClientSafeCustomer,
+} from "./actions";
+import { usePageContext } from "@/hooks/usePageContext";
+import { useAppStore } from "@/store/useAppStore";
+import {
+  Building2, Search, Plus, Mail, Phone, MapPin,
+  CheckCircle, XCircle, DollarSign, Loader2,
+  Sparkles, Wand2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useActionDispatcher } from "@/store/useActionDispatcher";
 
 const INDUSTRY_COLORS: Record<string, string> = {
   oil_gas: "bg-blue-100 text-blue-700 border-blue-200",
@@ -23,22 +31,91 @@ const INDUSTRY_COLORS: Record<string, string> = {
 };
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<ClientSafeCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Track which field was last filled by AI (for visual highlight)
+  const [aiFilledField, setAiFilledField] = useState<string | null>(null);
+  const [aiActive, setAiActive] = useState(false);
+
+  // AI page context
+  const contextSummary = customers.length > 0
+    ? `Customers page: ${customers.length} customers total. ${customers.filter(c => c.status === "active").length} active. Recent: ${customers.slice(0, 3).map(c => c.customer_name).join(", ")}.`
+    : "Customers page: Loading...";
+  usePageContext(contextSummary);
+
   const [form, setForm] = useState({
     customer_name: "", customer_code: "", contact_person: "",
     email: "", phone: "", address: "", industry: "", tax_id: "", credit_limit: "",
   });
 
+  // Register AI UI actions for this page
+  const { registerActions, unregisterActions } = useActionDispatcher();
+  useEffect(() => {
+    registerActions(
+      [
+        {
+          name: "open_create_customer_dialog",
+          description: "Open the 'Add New Customer' dialog form",
+        },
+        {
+          name: "fill_customer_form",
+          description: "Fill a field in the customer creation form. Infer the best value from context.",
+          parameters: {
+            field: { type: "string", description: "Field name to fill", enum: ["customer_name", "customer_code", "contact_person", "email", "phone", "address", "industry", "tax_id", "credit_limit"] },
+            value: { type: "string", description: "Value to fill in" },
+          },
+        },
+        {
+          name: "set_customer_search",
+          description: "Filter the customer list by search term",
+          parameters: {
+            term: { type: "string", description: "Search term" },
+          },
+        },
+        {
+          name: "refresh_customers",
+          description: "Refresh the customer list from the database",
+        },
+      ],
+      {
+        open_create_customer_dialog: () => {
+          setDialogOpen(true);
+          toast.info("AI opened the Add Customer dialog", { icon: <Wand2 size={14} /> });
+        },
+        fill_customer_form: (args: Record<string, any>) => {
+          setForm((prev) => ({ ...prev, [args.field]: args.value }));
+          setAiFilledField(args.field);
+          setTimeout(() => setAiFilledField(null), 1200); // Highlight for 1.2s
+        },
+        set_customer_search: (args: Record<string, any>) => {
+          setSearch(args.term);
+          toast.info(`AI filtered customers by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        },
+        refresh_customers: () => load(),
+      }
+    );
+    return () => unregisterActions();
+  }, [registerActions, unregisterActions]);
+
+  // Listen to global AI action state for visual feedback
+  const uiActionActive = useAppStore((s) => s.uiActionActive);
+  useEffect(() => {
+    setAiActive(uiActionActive);
+  }, [uiActionActive]);
+
   const load = async () => {
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/customers`);
-      if (res.ok) setCustomers(unwrapPaginated(await res.json()));
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    setLoading(true);
+    const result = await listCustomers();
+    if (result.success) {
+      setCustomers(result.customers);
+    } else {
+      toast.error(result.error);
+    }
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
@@ -46,27 +123,19 @@ export default function CustomersPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/customers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          credit_limit: form.credit_limit ? parseFloat(form.credit_limit) : undefined,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Customer created");
-        setDialogOpen(false);
-        setForm({ customer_name: "", customer_code: "", contact_person: "", email: "", phone: "", address: "", industry: "", tax_id: "", credit_limit: "" });
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create customer");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createCustomer({
+      ...form,
+      credit_limit: form.credit_limit ? parseFloat(form.credit_limit) : undefined,
+    });
+    if (result.success) {
+      toast.success("Customer created");
+      setDialogOpen(false);
+      setForm({ customer_name: "", customer_code: "", contact_person: "", email: "", phone: "", address: "", industry: "", tax_id: "", credit_limit: "" });
+      setCustomers((prev) => [result.customer, ...prev]);
+    } else {
+      toast.error(result.error);
+    }
+    setSaving(false);
   };
 
   const filtered = useMemo(() => {
@@ -90,15 +159,19 @@ export default function CustomersPage() {
   }, [customers]);
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="text-muted-foreground text-sm">Loading customers...</div>
-      </div>
-    );
+    return <CustomerListSkeleton />;
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
+      {/* AI Activity Indicator */}
+      {aiActive && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border-b border-indigo-100 text-indigo-700 text-sm animate-pulse">
+          <Sparkles size={14} className="animate-spin" />
+          <span>AI is controlling the interface...</span>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 overflow-auto pr-2">
         <div className="space-y-4 pb-4">
           {/* Header */}
@@ -155,7 +228,7 @@ export default function CustomersPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((c) => {
-                      const indColor = INDUSTRY_COLORS[c.industry] || INDUSTRY_COLORS.other;
+                      const indColor = INDUSTRY_COLORS[c.industry || ""] || INDUSTRY_COLORS.other;
                       return (
                         <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
@@ -205,23 +278,75 @@ export default function CustomersPage() {
       {/* Add Customer Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Add New Customer</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Add New Customer
+              {aiActive && <Sparkles size={16} className="text-indigo-500 animate-pulse" />}
+            </DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-sm font-medium">Customer Name *</label><Input required value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} /></div>
-              <div><label className="text-sm font-medium">Customer Code *</label><Input required value={form.customer_code} onChange={(e) => setForm({ ...form, customer_code: e.target.value })} /></div>
+              <div>
+                <label className="text-sm font-medium">Customer Name *</label>
+                <Input
+                  required
+                  value={form.customer_name}
+                  onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
+                  className={aiFilledField === "customer_name" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Customer Code *</label>
+                <Input
+                  required
+                  value={form.customer_code}
+                  onChange={(e) => setForm({ ...form, customer_code: e.target.value })}
+                  className={aiFilledField === "customer_code" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""}
+                />
+              </div>
             </div>
-            <div><label className="text-sm font-medium">Contact Person</label><Input value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} /></div>
+            <div>
+              <label className="text-sm font-medium">Contact Person</label>
+              <Input
+                value={form.contact_person}
+                onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
+                className={aiFilledField === "contact_person" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-sm font-medium">Email</label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              <div><label className="text-sm font-medium">Phone</label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+              <div>
+                <label className="text-sm font-medium">Email</label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className={aiFilledField === "email" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Phone</label>
+                <Input
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className={aiFilledField === "phone" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""}
+                />
+              </div>
             </div>
-            <div><label className="text-sm font-medium">Address</label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+            <div>
+              <label className="text-sm font-medium">Address</label>
+              <Input
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                className={aiFilledField === "address" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">Industry</label>
                 <select
-                  className="w-full h-10 rounded-md border border-input bg-white px-3 py-2 text-sm"
+                  className={`w-full h-10 rounded-md border border-input bg-white px-3 py-2 text-sm ${
+                    aiFilledField === "industry" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""
+                  }`}
                   value={form.industry}
                   onChange={(e) => setForm({ ...form, industry: e.target.value })}
                 >
@@ -233,11 +358,23 @@ export default function CustomersPage() {
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div><label className="text-sm font-medium">Tax ID (TRN)</label><Input value={form.tax_id} onChange={(e) => setForm({ ...form, tax_id: e.target.value })} /></div>
+              <div>
+                <label className="text-sm font-medium">Tax ID (TRN)</label>
+                <Input
+                  value={form.tax_id}
+                  onChange={(e) => setForm({ ...form, tax_id: e.target.value })}
+                  className={aiFilledField === "tax_id" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""}
+                />
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Credit Limit (AED)</label>
-              <Input type="number" value={form.credit_limit} onChange={(e) => setForm({ ...form, credit_limit: e.target.value })} />
+              <Input
+                type="number"
+                value={form.credit_limit}
+                onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
+                className={aiFilledField === "credit_limit" ? "ring-2 ring-indigo-400 border-indigo-400 transition-all duration-500" : ""}
+              />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
@@ -258,6 +395,46 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
         <span className="text-xs font-medium text-[#64748b] uppercase">{label}</span>
       </div>
       <p className="text-2xl font-bold text-[#0f172a]">{value}</p>
+    </div>
+  );
+}
+
+function CustomerListSkeleton() {
+  return (
+    <div className="flex flex-col h-[calc(100vh-5.5rem)]">
+      <div className="flex-1 min-h-0 overflow-auto pr-2">
+        <div className="space-y-4 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <Skeleton className="h-8 w-32 mb-2" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <Skeleton className="h-10 w-full" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-4 space-y-4">
+              {Array(5).fill(0).map((_, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-5 w-16" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

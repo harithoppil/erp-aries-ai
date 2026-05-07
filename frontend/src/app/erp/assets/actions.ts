@@ -1,0 +1,71 @@
+'use server';
+
+import { prisma } from '@/lib/prisma';
+import { assetstatus } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
+import { randomUUID } from 'crypto';
+
+export type ClientSafeAsset = {
+  id: string;
+  asset_name: string;
+  asset_code: string;
+  asset_category: string;
+  status: string;
+  location: string | null;
+  purchase_date: Date | null;
+  purchase_cost: number | null;
+  current_value: number | null;
+  depreciation_rate: number;
+  calibration_date: Date | null;
+  next_calibration_date: Date | null;
+  created_at: Date;
+};
+
+export async function listAssets(): Promise<
+  { success: true; assets: ClientSafeAsset[] } | { success: false; error: string }
+> {
+  try {
+    const assets = await prisma.assets.findMany({ orderBy: { created_at: 'desc' } });
+    return { success: true, assets: assets.map((a) => ({ ...a, status: String(a.status) })) };
+  } catch (error) {
+    console.error('Error fetching assets:', error);
+    return { success: false, error: 'Failed to fetch assets' };
+  }
+}
+
+export async function createAsset(data: {
+  asset_name: string;
+  asset_code: string;
+  asset_category: string;
+  location?: string;
+  purchase_date?: Date;
+  purchase_cost?: number;
+  current_value?: number;
+  depreciation_rate?: number;
+  calibration_date?: Date;
+  next_calibration_date?: Date;
+}) {
+  try {
+    const asset = await prisma.assets.create({
+      data: {
+        id: randomUUID(),
+        asset_name: data.asset_name,
+        asset_code: data.asset_code,
+        asset_category: data.asset_category,
+        status: assetstatus.AVAILABLE,
+        location: data.location || null,
+        purchase_date: data.purchase_date || null,
+        purchase_cost: data.purchase_cost || null,
+        current_value: data.current_value || null,
+        depreciation_rate: data.depreciation_rate || 0,
+        calibration_date: data.calibration_date || null,
+        next_calibration_date: data.next_calibration_date || null,
+      }
+    });
+    revalidatePath('/erp/assets');
+    return { success: true as const, asset: { ...asset, status: String(asset.status) } as ClientSafeAsset };
+  } catch (error: any) {
+    if (error.code === 'P2002') return { success: false as const, error: 'Asset code already exists' };
+    return { success: false as const, error: 'Failed to create asset' };
+  }
+}

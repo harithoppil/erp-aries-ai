@@ -110,6 +110,7 @@ class DocumentReadResponse(BaseModel):
     entity_id: str | None
     processing_status: str
     extracted_data: dict | None
+    markdown_content: str | None
     confidence_score: float | None
     error_message: str | None
     created_at: str
@@ -175,12 +176,37 @@ async def upload_document(
     await db.commit()
     await db.refresh(doc)
 
-    # Auto-process small images inline
-    if content_type.startswith("image/") and len(file_bytes) < 10_000_000:
+    # Pipeline: convert (text docs) → process (LLM) → complete
+    is_visual = content_type.startswith("image/") or content_type == "application/pdf"
+
+    if is_visual:
+        # Images/PDFs: native Gemini vision, skip MarkItDown
+        if len(file_bytes) < 10_000_000:
+            try:
+                if content_type.startswith("image/"):
+                    await _process_image(doc, file_bytes, db)
+                else:
+                    await _process_pdf(doc, file_bytes, db)
+            except Exception as e:
+                logger.error("Vision processing failed for %s: %s", doc.id, e)
+    else:
+        # Text-based docs: MarkItDown → Gemini text extraction
         try:
-            await _process_image(doc, file_bytes, db)
+            doc.processing_status = ProcessingStatus.CONVERTING
+            await db.commit()
+
+            markdown = await _convert_to_markdown_bytes(file_bytes, file.filename or "file")
+            doc.markdown_content = markdown
+            await db.commit()
+
+            # Send markdown to LLM for structured extraction
+            if len(markdown) > 50:
+                try:
+                    await _process_markdown(doc, markdown, db)
+                except Exception as e:
+                    logger.error("Markdown LLM processing failed for %s: %s", doc.id, e)
         except Exception as e:
-            logger.error("Inline processing failed for %s: %s", doc.id, e)
+            logger.warning("MarkItDown conversion failed for %s: %s", doc.id, e)
 
     await db.refresh(doc)
     return _to_response(doc)
@@ -425,12 +451,87 @@ async def _process_pdf(doc: UploadedDocument, pdf_bytes: bytes, db: AsyncSession
     await db.commit()
 
 
+async def _process_markdown(doc: UploadedDocument, markdown: str, db: AsyncSession):
+    """Process markdown text with Gemini structured output."""
+    from backend.app.services.gemini import GeminiService
+
+    doc.processing_status = ProcessingStatus.PROCESSING
+    await db.commit()
+
+    try:
+        gemini = GeminiService()
+
+        # Truncate very large markdown to fit context window
+        text = markdown[:100_000]
+
+        if doc.doc_type == DocType.INVOICE:
+            prompt = (
+                "You are given the markdown text extracted from an invoice document. "
+                "Extract all invoice information and return valid JSON following this schema exactly.\n\n"
+                f"--- DOCUMENT TEXT ---\n{text}\n--- END DOCUMENT ---"
+            )
+            schema = INVOICE_SCHEMA
+        else:
+            prompt = (
+                "You are given the markdown text extracted from a business document. "
+                "Classify the document type and extract key information. "
+                "Return valid JSON following the schema.\n\n"
+                f"--- DOCUMENT TEXT ---\n{text}\n--- END DOCUMENT ---"
+            )
+            schema = AUTO_DETECT_SCHEMA
+
+        result = gemini._generate(
+            model="gemini-3-flash-preview",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": schema,
+            },
+        )
+
+        extracted = json.loads(result.text)
+        doc.extracted_data = json.dumps(extracted)
+        doc.processing_status = ProcessingStatus.COMPLETED
+        doc.processed_at = datetime.now(timezone.utc)
+
+        if doc.doc_type != DocType.INVOICE and "document_type" in extracted:
+            doc.auto_detected_type = extracted["document_type"]
+            doc.confidence_score = extracted.get("confidence", 0.0)
+
+    except Exception as e:
+        logger.error("Markdown processing failed for %s: %s", doc.id, e, exc_info=True)
+        doc.processing_status = ProcessingStatus.FAILED
+        doc.error_message = str(e)[:2000]
+        doc.processed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+
+
 def _download_from_gcs(gcs_path: str) -> bytes:
     """Download file bytes from GCS."""
     from backend.app.services.gcs import _get_bucket
     bucket = _get_bucket()
     blob = bucket.blob(gcs_path)
     return blob.download_as_bytes()
+
+
+async def _convert_to_markdown_bytes(file_bytes: bytes, filename: str) -> str:
+    """Convert file bytes to markdown using MarkItDown (temp file pattern for safety)."""
+    import tempfile
+    from pathlib import Path
+    from markitdown import MarkItDown
+
+    md = MarkItDown()
+    suffix = Path(filename).suffix or ".bin"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(file_bytes)
+        tmp_path = tmp.name
+
+    try:
+        result = md.convert_local(tmp_path)
+        return result.text_content or ""
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 def _to_response(doc: UploadedDocument) -> DocumentReadResponse:
@@ -453,6 +554,7 @@ def _to_response(doc: UploadedDocument) -> DocumentReadResponse:
         entity_id=str(doc.entity_id) if doc.entity_id else None,
         processing_status=doc.processing_status.value if doc.processing_status else "pending",
         extracted_data=extracted,
+        markdown_content=doc.markdown_content,
         confidence_score=doc.confidence_score,
         error_message=doc.error_message,
         created_at=doc.created_at.isoformat() if doc.created_at else "",

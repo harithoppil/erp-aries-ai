@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { listSalesOrders, createSalesOrder } from "./actions";
 import { API_BASE, unwrapPaginated } from "@/lib/api";
 import { throttledFetch } from "@/lib/throttledFetch";
+import { usePageContext } from "@/hooks/usePageContext";
 import {
   Package, Search, Plus, X, DollarSign, Calendar, CheckCircle,
   Clock, Truck, FileText, XCircle, TrendingUp,
@@ -43,14 +45,20 @@ export default function SalesOrdersPage() {
   });
   const [items, setItems] = useState<SOItem[]>([{ description: "", quantity: "1", rate: "", item_code: "" }]);
 
+  // AI page context
+  const contextSummary = orders.length > 0
+    ? `Sales Orders page: ${orders.length} orders. Total value: AED ${orders.reduce((s, o) => s + (o.total || 0), 0).toLocaleString()}. Status: ${orders.filter(o => o.status === "DRAFT").length} draft, ${orders.filter(o => o.status === "TO_DELIVER").length} to deliver, ${orders.filter(o => o.status === "COMPLETED").length} completed.`
+    : "Sales Orders page: Loading...";
+  usePageContext(contextSummary);
+
   const load = async () => {
     try {
       const [oRes, cRes, qRes] = await Promise.all([
-        throttledFetch(`${API_BASE}/erp/sales-orders`),
+        listSalesOrders(),
         throttledFetch(`${API_BASE}/erp/customers`),
         throttledFetch(`${API_BASE}/erp/quotations`),
       ]);
-      if (oRes.ok) setOrders(unwrapPaginated(await oRes.json()));
+      if (oRes.success) setOrders(oRes.orders);
       if (cRes.ok) setCustomers(unwrapPaginated(await cRes.json()));
       if (qRes.ok) setQuotations(unwrapPaginated(await qRes.json()));
     } catch (e) { console.error(e); }
@@ -70,33 +78,31 @@ export default function SalesOrdersPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      const res = await throttledFetch(`${API_BASE}/erp/sales-orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          tax_rate: parseFloat(form.tax_rate),
-          items: items.filter((i) => i.description && i.rate).map((i) => ({
-            ...i,
-            quantity: parseInt(i.quantity) || 1,
-            rate: parseFloat(i.rate),
-          })),
-        }),
-      });
-      if (res.ok) {
-        toast.success("Sales order created");
-        setDialogOpen(false);
-        setForm({ customer_id: "", customer_name: "", project_type: "", quotation_id: "", tax_rate: "5", delivery_date: "", notes: "" });
-        setItems([{ description: "", quantity: "1", rate: "", item_code: "" }]);
-        load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || "Failed to create sales order");
-      }
-    } catch (e) {
-      toast.error("Network error");
-    } finally { setSaving(false); }
+    const result = await createSalesOrder({
+      customer_id: form.customer_id || undefined,
+      customer_name: form.customer_name,
+      project_type: form.project_type || undefined,
+      quotation_id: form.quotation_id || undefined,
+      tax_rate: parseFloat(form.tax_rate),
+      delivery_date: form.delivery_date ? new Date(form.delivery_date) : undefined,
+      notes: form.notes || undefined,
+      items: items.filter((i) => i.description && i.rate).map((i) => ({
+        description: i.description,
+        quantity: parseInt(i.quantity) || 1,
+        rate: parseFloat(i.rate),
+        item_code: i.item_code || undefined,
+      })),
+    });
+    if (result.success) {
+      toast.success("Sales order created");
+      setDialogOpen(false);
+      setForm({ customer_id: "", customer_name: "", project_type: "", quotation_id: "", tax_rate: "5", delivery_date: "", notes: "" });
+      setItems([{ description: "", quantity: "1", rate: "", item_code: "" }]);
+      load();
+    } else {
+      toast.error(result.error || "Failed to create sales order");
+    }
+    setSaving(false);
   };
 
   const filtered = useMemo(() => {

@@ -25,6 +25,7 @@ class DocType(str, enum.Enum):
 
 class ProcessingStatus(str, enum.Enum):
     PENDING = "pending"
+    CONVERTING = "converting"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -60,6 +61,9 @@ class UploadedDocument(Base):
     extracted_data: Mapped[str | None] = mapped_column(Text)  # JSON string of structured extraction
     confidence_score: Mapped[float | None] = mapped_column(Float)
     error_message: Mapped[str | None] = mapped_column(Text)
+
+    # MarkItDown conversion result
+    markdown_content: Mapped[str | None] = mapped_column(Text)
 
     # Optional: public URL for viewing (signed URL or public)
     thumbnail_url: Mapped[str | None] = mapped_column(String(1000))

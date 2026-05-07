@@ -23,8 +23,9 @@ interface DocRecord {
   auto_detected_type: string | null;
   entity_type: string | null;
   entity_id: string | null;
-  processing_status: "pending" | "processing" | "completed" | "failed";
+  processing_status: "pending" | "converting" | "processing" | "completed" | "failed";
   extracted_data: Record<string, any> | null;
+  markdown_content: string | null;
   confidence_score: number | null;
   error_message: string | null;
   created_at: string;
@@ -228,7 +229,13 @@ export default function DocumentViewerPage() {
               <span>·</span>
               <span>{formatFileSize(doc.file_size)}</span>
               <span>·</span>
-              <span className={`capitalize ${doc.processing_status === "completed" ? "text-green-600" : doc.processing_status === "failed" ? "text-red-500" : "text-amber-500"}`}>
+              <span className={`capitalize ${
+                doc.processing_status === "completed" ? "text-green-600" :
+                doc.processing_status === "failed" ? "text-red-500" :
+                doc.processing_status === "converting" ? "text-purple-500" :
+                doc.processing_status === "processing" ? "text-[#0ea5e9]" :
+                "text-amber-500"
+              }`}>
                 {doc.processing_status}
               </span>
             </div>
@@ -284,6 +291,12 @@ export default function DocumentViewerPage() {
                 className="w-full h-full rounded-lg border border-gray-200 bg-white"
                 title={doc.original_filename}
               />
+            ) : doc.markdown_content ? (
+              <div className="w-full max-w-3xl bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.markdown_content}</ReactMarkdown>
+                </div>
+              </div>
             ) : (
               <div className="flex flex-col items-center text-[#94a3b8]">
                 <FileText size={48} className="mb-4 opacity-40" />
@@ -413,6 +426,11 @@ export default function DocumentViewerPage() {
                       </pre>
                     </details>
                   </>
+                ) : doc.processing_status === "converting" ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-[#94a3b8]">
+                    <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-3" />
+                    <p className="text-sm">Converting document to text...</p>
+                  </div>
                 ) : doc.processing_status === "processing" ? (
                   <div className="flex flex-col items-center justify-center py-12 text-[#94a3b8]">
                     <Loader2 className="h-8 w-8 animate-spin text-[#0ea5e9] mb-3" />

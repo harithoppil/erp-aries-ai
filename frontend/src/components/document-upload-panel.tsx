@@ -14,7 +14,7 @@ interface DocRecord {
   auto_detected_type: string | null;
   entity_type: string | null;
   entity_id: string | null;
-  processing_status: "pending" | "processing" | "completed" | "failed";
+  processing_status: "pending" | "converting" | "processing" | "completed" | "failed";
   extracted_data: Record<string, any> | null;
   confidence_score: number | null;
   error_message: string | null;
@@ -24,6 +24,7 @@ interface DocRecord {
 
 const STATUS_CONFIG: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   pending: { icon: FileText, color: "text-amber", label: "Pending" },
+  converting: { icon: Loader2, color: "text-purple-500", label: "Converting" },
   processing: { icon: Loader2, color: "text-[#0ea5e9]", label: "Processing" },
   completed: { icon: CheckCircle, color: "text-emerald-500", label: "Completed" },
   failed: { icon: XCircle, color: "text-red-500", label: "Failed" },

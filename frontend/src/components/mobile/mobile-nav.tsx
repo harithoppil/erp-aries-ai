@@ -72,13 +72,11 @@ export function MobileTopBar() {
         </button>
 
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-          <SheetTrigger>
-            <button
-              aria-label="Open navigation menu"
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
+          <SheetTrigger
+            aria-label="Open navigation menu"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent"
+          >
+            <Menu className="h-4 w-4" />
           </SheetTrigger>
           <SheetContent side="right" className="w-64">
             <div className="flex items-center gap-2 border-b border-border pb-4">
