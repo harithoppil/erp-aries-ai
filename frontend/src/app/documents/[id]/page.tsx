@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { API_BASE } from "@/lib/api";
-import { throttledFetch } from "@/lib/throttledFetch";
+import { listPersonas, chatWithPersona, type ClientSafePersona } from "@/app/ai/actions";
 import {
   ArrowLeft, Bot, User, Send, FileText, Image as ImageIcon,
   CheckCircle, XCircle, Loader2, Eye, Sparkles,
@@ -30,15 +30,6 @@ interface DocRecord {
   error_message: string | null;
   created_at: string;
   processed_at: string | null;
-}
-
-interface Persona {
-  id: string;
-  nickname: string;
-  position: string;
-  category: string;
-  model: string;
-  enabled?: boolean;
 }
 
 interface ChatMessage {
@@ -69,7 +60,7 @@ export default function DocumentViewerPage() {
   const [zoom, setZoom] = useState(1);
 
   // AI chat state
-  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [personas, setPersonas] = useState<ClientSafePersona[]>([]);
   const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -98,11 +89,11 @@ export default function DocumentViewerPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await throttledFetch(`${API_BASE}/ai/personas`);
-        const data = await res.json();
-        const enabled = data.filter((p: Persona) => p.enabled !== false);
-        setPersonas(enabled);
-        if (enabled.length > 0) setSelectedPersona(enabled[0].id);
+        const result = await listPersonas({ enabled: true });
+        if (result.success) {
+          setPersonas(result.personas);
+          if (result.personas.length > 0) setSelectedPersona(result.personas[0].id);
+        }
       } catch (e) {
         console.error(e);
       }
@@ -149,19 +140,14 @@ export default function DocumentViewerPage() {
     ]);
 
     try {
-      const res = await throttledFetch(`${API_BASE}/ai/chat/${selectedPersona}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: fullMessage, channel: "web" }),
-      });
+      const chatResult = await chatWithPersona(selectedPersona, fullMessage);
 
-      if (!res.ok) throw new Error(`Chat failed: ${res.status}`);
-      const data = await res.json();
+      if (!chatResult.success) throw new Error(chatResult.error);
 
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? { ...m, content: data.content, streaming: false, id: data.message_id || assistantId }
+            ? { ...m, content: chatResult.content, streaming: false, id: chatResult.message_id || assistantId }
             : m
         )
       );

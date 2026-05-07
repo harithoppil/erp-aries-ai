@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { useActionDispatcher, parseActionMarkers } from "./useActionDispatcher";
 import { planUIActions, executeFunctionCalls, type FunctionCall } from "@/lib/gemini-client";
-import { API_BASE } from "@/lib/api";
+import { chatWithPersona } from "@/app/ai/actions";
 
 export interface ChatMessage {
   id: string;
@@ -77,30 +77,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().personasLoaded && get().personas.length > 0) return;
     set({ personaError: null });
     try {
-      const res = await fetch(`${API_BASE}/ai/personas`);
-      if (!res.ok) {
-        set({ personaError: `Backend returned ${res.status}` });
-        return;
-      }
-      const data: Persona[] = await res.json();
-      const enabled = data.filter((p: Persona) => p.enabled);
-      set({
-        personas: enabled,
-        activePersona: enabled[0]?.id || "",
-        personasLoaded: true,
-        personaError: null,
-      });
-      if (enabled[0]?.greeting) {
+      // Use Server Action for persona CRUD — hits Prisma directly
+      const { listPersonas } = await import("@/app/ai/actions");
+      const result = await listPersonas({ enabled: true });
+      if (result.success) {
+        const enabled = result.personas.map((p) => ({
+          id: p.id,
+          nickname: p.nickname,
+          position: p.position,
+          model: p.model,
+          greeting: p.greeting,
+          category: p.category,
+          enabled: p.enabled,
+        }));
         set({
-          messages: [
-            {
-              id: "greeting",
-              sender: "ai",
-              content: enabled[0].greeting,
-              timestamp: new Date().toISOString(),
-            },
-          ],
+          personas: enabled,
+          activePersona: enabled[0]?.id || "",
+          personasLoaded: true,
+          personaError: null,
         });
+        if (enabled[0]?.greeting) {
+          set({
+            messages: [
+              {
+                id: "greeting",
+                sender: "ai",
+                content: enabled[0].greeting,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          });
+        }
+      } else {
+        set({ personaError: result.error });
       }
     } catch (e: any) {
       console.error("[loadPersonas] Failed:", e?.message || e);
@@ -196,12 +205,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           })
         : Promise.resolve([] as FunctionCall[]);
 
-    // Track 2: Normal chat (reasoning + text response)
-    const chatPromise = fetch(`${API_BASE}/ai/chat/${personaId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: fullMessage, channel: "web" }),
-    });
+    // Track 2: Normal chat (reasoning + text response) — uses Server Action
+    const chatPromise = chatWithPersona(personaId, fullMessage);
 
     try {
       // Wait for UI plan (fast) and execute actions immediately
@@ -223,15 +228,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Wait for chat response (slow track)
     try {
-      const res = await chatPromise;
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.detail || `Chat failed: ${res.status}`);
+      const chatResult = await chatPromise;
+      if (!chatResult.success) {
+        throw new Error(chatResult.error);
       }
-      const data = await res.json();
 
       // Parse and execute any UI action markers in the response (fallback)
-      const rawContent = data.content || "I received your message but couldn't generate a response.";
+      const rawContent = chatResult.content || "I received your message but couldn't generate a response.";
       const { cleanText, actions } = parseActionMarkers(rawContent);
 
       // Execute any fallback action markers from slow track
@@ -240,7 +243,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       const aiMsg: ChatMessage = {
-        id: data.message_id || (Date.now() + 1).toString(),
+        id: chatResult.message_id || (Date.now() + 1).toString(),
         sender: "ai",
         content: cleanText,
         timestamp: new Date().toISOString(),

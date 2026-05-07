@@ -12,8 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useResponsive } from "@/hooks/use-responsive";
-import { throttledFetch } from "@/lib/throttledFetch";
-import { API_BASE } from "@/lib/api";
+import { listPersonas, chatWithPersona, type ClientSafePersona } from "@/app/ai/actions";
 import { toast } from "sonner";
 
 interface Message {
@@ -23,19 +22,6 @@ interface Message {
   created_at: string;
   model?: string;
   streaming?: boolean;
-}
-
-interface Persona {
-  id: string;
-  username: string;
-  nickname: string;
-  position: string;
-  category: string;
-  model: string;
-  greeting: string | null;
-  about: string | null;
-  allowed_tools: string[] | null;
-  enabled: boolean;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -54,7 +40,7 @@ const PERSONA_INITIALS: Record<string, string> = {
 
 export default function AIChatPage() {
   const { isMobile } = useResponsive();
-  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [personas, setPersonas] = useState<ClientSafePersona[]>([]);
   const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -68,16 +54,18 @@ export default function AIChatPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await throttledFetch(`${API_BASE}/ai/personas`);
-        const data = await res.json();
-        const enabled = data.filter((p: Persona) => p.enabled);
-        setPersonas(enabled);
-        if (enabled.length > 0) {
-          setSelectedPersona(enabled[0].id);
+        const result = await listPersonas({ enabled: true });
+        if (result.success) {
+          setPersonas(result.personas);
+          if (result.personas.length > 0) {
+            setSelectedPersona(result.personas[0].id);
+          }
+        } else {
+          toast.error(result.error);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to load personas:", e);
-        toast.error("Failed to load AI personas");
+        toast.error(e.message || "Failed to load AI personas");
       } finally {
         setLoading(false);
       }
@@ -139,24 +127,19 @@ export default function AIChatPage() {
     ]);
 
     try {
-      const res = await throttledFetch(`${API_BASE}/ai/chat/${selectedPersona}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.content, channel: "web" }),
-      });
+      const chatResult = await chatWithPersona(selectedPersona, userMsg.content);
 
-      if (!res.ok) throw new Error(`Chat request failed: ${res.status}`);
+      if (!chatResult.success) throw new Error(chatResult.error);
 
-      const data = await res.json();
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantId
             ? {
                 ...msg,
-                id: data.message_id || assistantId,
-                content: data.content,
+                id: chatResult.message_id || assistantId,
+                content: chatResult.content,
                 streaming: false,
-                model: data.model,
+                model: chatResult.model,
               }
             : msg
         )
