@@ -23,7 +23,7 @@ import {
   type RAGSearchRow,
   type RAGKeywordRow,
 } from '@/lib/rag-db';
-import { API_BASE } from '@/lib/api';
+import { API_BASE } from '@/lib/api-base';
 import type { RAGSearchResult, RAGStats } from '@/types/api';
 
 export type { RAGSearchResult } from '@/types/api';

@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { API_BASE } from '@/lib/api';
+import { API_BASE } from '@/lib/api-base';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 

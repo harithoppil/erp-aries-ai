@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { API_BASE } from '@/lib/api';
+import { API_BASE } from '@/lib/api-base';
 import { listInvoices, type ClientSafeInvoice } from '@/app/erp/accounts/actions';
 import { listPayments, type ClientSafePayment } from '@/app/erp/payments/actions';
 import { listProjects, type ClientSafeProject } from '@/app/erp/projects/actions';

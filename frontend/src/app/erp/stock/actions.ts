@@ -25,6 +25,24 @@ export type ClientSafeItem = {
   created_at: Date;
 };
 
+export type ClientSafeWarehouse = {
+  id: string;
+  warehouse_name: string;
+  warehouse_code: string;
+};
+
+export type ClientSafeStockEntry = {
+  id: string;
+  entry_type: string;
+  item_id: string;
+  quantity: number;
+  source_warehouse: string | null;
+  target_warehouse: string | null;
+  reference: string | null;
+  posting_date: Date;
+  created_at: Date;
+};
+
 export async function listItems(): Promise<
   { success: true; items: ClientSafeItem[] } | { success: false; error: string }
 > {
@@ -45,12 +63,46 @@ export async function listItems(): Promise<
   }
 }
 
-export async function listWarehouses() {
+export async function listWarehouses(): Promise<
+  { success: true; warehouses: ClientSafeWarehouse[] } | { success: false; error: string }
+> {
   try {
     const warehouses = await prisma.warehouses.findMany();
-    return { success: true as const, warehouses };
+    return {
+      success: true as const,
+      warehouses: warehouses.map((w) => ({
+        id: w.id,
+        warehouse_name: w.warehouse_name,
+        warehouse_code: w.warehouse_code,
+      })),
+    };
   } catch (error) {
     return { success: false as const, error: 'Failed to fetch warehouses' };
+  }
+}
+
+export async function listStockEntries(): Promise<
+  { success: true; entries: ClientSafeStockEntry[] } | { success: false; error: string }
+> {
+  try {
+    const entries = await prisma.stock_entries.findMany({ orderBy: { created_at: 'desc' } });
+    return {
+      success: true as const,
+      entries: entries.map((e) => ({
+        id: e.id,
+        entry_type: String(e.entry_type),
+        item_id: e.item_id,
+        quantity: e.quantity,
+        source_warehouse: e.source_warehouse,
+        target_warehouse: e.target_warehouse,
+        reference: e.reference,
+        posting_date: e.posting_date,
+        created_at: e.created_at,
+      })),
+    };
+  } catch (error) {
+    console.error('Error fetching stock entries:', error);
+    return { success: false as const, error: 'Failed to fetch stock entries' };
   }
 }
 

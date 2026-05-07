@@ -1,6 +1,6 @@
 'use server';
 
-import { API_BASE } from '@/lib/api';
+import { API_BASE } from '@/lib/api-base';
 import { revalidatePath } from 'next/cache';
 import type { EnquiryRead, EnquiryCreate, EnquiryUpdate, DocumentRead } from '@/types/api';
 
