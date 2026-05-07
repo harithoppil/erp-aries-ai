@@ -103,3 +103,39 @@ export async function addCertification(data: {
     return { success: false as const, error: 'Failed to add certification' };
   }
 }
+
+export type ClientSafeCertification = {
+  id: string;
+  personnel_id: string;
+  cert_type: string;
+  issuing_body: string | null;
+  issue_date: Date | null;
+  expiry_date: Date | null;
+  cert_number: string | null;
+  status: string;
+};
+
+export async function getComplianceAlerts(): Promise<
+  { success: true; alerts: ClientSafeCertification[] } | { success: false; error: string }
+> {
+  try {
+    const certs = await prisma.certifications.findMany({
+      where: { status: { in: [certstatus.EXPIRED, certstatus.EXPIRING_SOON] } },
+      orderBy: { expiry_date: 'asc' },
+      include: { personnel: { select: { id: true, first_name: true, last_name: true } } },
+    });
+    return { success: true, alerts: certs.map(c => ({
+      id: c.id,
+      personnel_id: c.personnel_id,
+      cert_type: c.cert_type,
+      issuing_body: c.issuing_body,
+      issue_date: c.issue_date,
+      expiry_date: c.expiry_date,
+      cert_number: c.cert_number,
+      status: String(c.status),
+    })) };
+  } catch (error) {
+    console.error('Error fetching compliance alerts:', error);
+    return { success: false, error: 'Failed to fetch compliance alerts' };
+  }
+}

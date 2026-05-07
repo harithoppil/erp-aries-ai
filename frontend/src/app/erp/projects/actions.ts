@@ -128,3 +128,44 @@ export async function createTask(data: {
     return { success: false as const, error: 'Failed to create task' };
   }
 }
+
+export async function assignPersonnel(
+  projectId: string,
+  personnelId: string,
+  role: string,
+): Promise<
+  { success: true; assigned: boolean; compliance_passed: boolean; issues: string[] } | { success: false; error: string }
+> {
+  try {
+    // Validate project
+    const project = await prisma.projects.findUnique({ where: { id: projectId } });
+    if (!project) return { success: false, error: 'Project not found' };
+
+    // Validate personnel
+    const person = await prisma.personnel.findUnique({ where: { id: personnelId } });
+    if (!person) return { success: false, error: 'Personnel not found' };
+
+    // Compliance check — find expired certs
+    const expiredCerts = await prisma.certifications.findMany({
+      where: { personnel_id: personnelId, status: { in: ['EXPIRED', 'expired'] } },
+    });
+    const issues = expiredCerts.map(c => `${c.cert_type} expired on ${c.expiry_date?.toISOString().split('T')[0] || 'N/A'}`);
+    const compliancePassed = issues.length === 0;
+
+    await prisma.project_assignments.create({
+      data: {
+        id: randomUUID(),
+        project_id: projectId,
+        personnel_id: personnelId,
+        role,
+        compliance_checked: true,
+        compliance_passed: compliancePassed,
+        compliance_issues: issues.length > 0 ? issues.join('; ') : null,
+      },
+    });
+    revalidatePath('/erp/projects');
+    return { success: true, assigned: true, compliance_passed: compliancePassed, issues };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to assign personnel' };
+  }
+}

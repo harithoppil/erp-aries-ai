@@ -170,3 +170,24 @@ export async function createStockEntry(data: {
     return { success: false as const, error: 'Failed to create stock entry' };
   }
 }
+
+export type ClientSafeBin = {
+  id: string;
+  item_id: string;
+  warehouse_id: string;
+  quantity: number;
+  valuation_rate: number;
+  stock_value: number;
+};
+
+export async function listBins(): Promise<
+  { success: true; bins: ClientSafeBin[] } | { success: false; error: string }
+> {
+  try {
+    const bins = await prisma.bins.findMany({ orderBy: { item_id: 'asc' } });
+    return { success: true, bins };
+  } catch (error) {
+    console.error('Error fetching bins:', error);
+    return { success: false, error: 'Failed to fetch stock levels' };
+  }
+}

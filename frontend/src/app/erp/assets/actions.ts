@@ -69,3 +69,23 @@ export async function createAsset(data: {
     return { success: false as const, error: 'Failed to create asset' };
   }
 }
+
+export async function listCalibrationDue(): Promise<
+  { success: true; assets: ClientSafeAsset[] } | { success: false; error: string }
+> {
+  try {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() + 30);
+    const assets = await prisma.assets.findMany({
+      where: {
+        next_calibration_date: { lte: cutoff },
+        status: { not: 'DECOMMISSIONED' },
+      },
+      orderBy: { next_calibration_date: 'asc' },
+    });
+    return { success: true, assets: assets.map(a => ({ ...a, status: String(a.status) })) };
+  } catch (error) {
+    console.error('Error fetching calibration due:', error);
+    return { success: false, error: 'Failed to fetch calibration due assets' };
+  }
+}

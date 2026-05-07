@@ -100,3 +100,48 @@ export async function createSupplier(data: {
     return { success: false as const, error: 'Failed to create supplier' };
   }
 }
+
+export async function createPurchaseOrder(data: {
+  supplier_id: string;
+  project_id?: string;
+  expected_delivery?: string;
+  notes?: string;
+  items: { description: string; quantity: number; rate: number; item_code?: string }[];
+}) {
+  try {
+    const poNumber = `PO-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const subtotal = data.items.reduce((s, i) => s + i.quantity * i.rate, 0);
+    const taxAmount = subtotal * 0.05;
+    const total = subtotal + taxAmount;
+
+    const po = await prisma.purchase_orders.create({
+      data: {
+        id: randomUUID(),
+        po_number: poNumber,
+        supplier_id: data.supplier_id,
+        project_id: data.project_id || null,
+        expected_delivery: data.expected_delivery ? new Date(data.expected_delivery) : null,
+        subtotal,
+        tax_amount: taxAmount,
+        total,
+        notes: data.notes || null,
+        po_items: {
+          create: data.items.map(i => ({
+            id: randomUUID(),
+            item_code: i.item_code || null,
+            description: i.description,
+            quantity: i.quantity,
+            rate: i.rate,
+            amount: i.quantity * i.rate,
+          })),
+        },
+      },
+      include: { po_items: true },
+    });
+    revalidatePath('/erp/procurement');
+    return { success: true as const, order: po };
+  } catch (error: any) {
+    if (error.code === 'P2002') return { success: false as const, error: 'PO number already exists' };
+    return { success: false as const, error: error.message || 'Failed to create purchase order' };
+  }
+}
