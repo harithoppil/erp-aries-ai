@@ -15,7 +15,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { API_BASE } from '@/lib/api';
+import { API_BASE } from '@/lib/api-base';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
