@@ -169,3 +169,120 @@ export async function assignPersonnel(
     return { success: false, error: error.message || 'Failed to assign personnel' };
   }
 }
+
+// ── Project Mutations ──────────────────────────────────────────────────────
+
+export async function updateProjectStatus(id: string, status: projectstatus) {
+  try {
+    const record = await prisma.projects.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/projects');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[projects] updateProjectStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update project status' };
+  }
+}
+
+export async function updateProject(
+  id: string,
+  data: Partial<{
+    project_name: string;
+    project_type: string;
+    customer_name: string;
+    project_location: string;
+    vessel_name: string;
+    estimated_cost: number;
+    day_rate: number;
+    expected_start: Date;
+    expected_end: Date;
+    notes: string;
+  }>
+) {
+  try {
+    const record = await prisma.projects.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/projects');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[projects] updateProject failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update project' };
+  }
+}
+
+export async function deleteProject(id: string) {
+  try {
+    await prisma.projects.update({
+      where: { id },
+      data: { status: projectstatus.CANCELLED },
+    });
+    revalidatePath('/erp/projects');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[projects] deleteProject failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete project' };
+  }
+}
+
+// ── Task Mutations ─────────────────────────────────────────────────────────
+
+export async function updateTaskStatus(id: string, status: taskstatus) {
+  try {
+    const record = await prisma.tasks.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/projects');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[projects] updateTaskStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update task status' };
+  }
+}
+
+export async function updateTask(
+  id: string,
+  data: Partial<{ subject: string; description: string; assigned_to: string; start_date: Date; end_date: Date; progress: number }>
+) {
+  try {
+    const record = await prisma.tasks.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/projects');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[projects] updateTask failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update task' };
+  }
+}
+
+export async function deleteTask(id: string) {
+  try {
+    await prisma.tasks.delete({ where: { id } });
+    revalidatePath('/erp/projects');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[projects] deleteTask failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete task' };
+  }
+}
+
+// ── Project Assignment Mutations ───────────────────────────────────────────
+
+export async function unassignPersonnel(projectId: string, personnelId: string) {
+  try {
+    await prisma.project_assignments.deleteMany({
+      where: { project_id: projectId, personnel_id: personnelId },
+    });
+    revalidatePath('/erp/projects');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[projects] unassignPersonnel failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to unassign personnel' };
+  }
+}

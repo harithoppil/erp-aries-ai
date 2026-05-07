@@ -72,3 +72,75 @@ export async function createJournalEntry(data: {
     return { success: false as const, error: error.message || 'Failed to create journal entry' };
   }
 }
+
+// ── Journal Entry Mutations ───────────────────────────────────────────────
+
+export async function updateJournalEntryStatus(id: string, status: 'draft' | 'submitted' | 'cancelled') {
+  try {
+    const record = await prisma.journal_entries.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/journal-entries');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[journal-entries] updateJournalEntryStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update journal entry status' };
+  }
+}
+
+export async function updateJournalEntry(
+  id: string,
+  data: Partial<{
+    account: string;
+    entry_type: string;
+    amount: number;
+    party_type: string;
+    party_name: string;
+    reference: string;
+    notes: string;
+  }>
+) {
+  try {
+    // Only allow updates on DRAFT entries
+    const existing = await prisma.journal_entries.findUnique({ where: { id }, select: { status: true } });
+    if (!existing) return { success: false, error: 'Journal entry not found' };
+    if (existing.status !== 'draft') return { success: false, error: 'Only DRAFT entries can be updated' };
+
+    const updateData: Record<string, unknown> = { ...data };
+    if (data.entry_type) {
+      updateData.entry_type = data.entry_type.toLowerCase() === 'debit' ? journalentrytype.DEBIT : journalentrytype.CREDIT;
+      updateData.total_debit = data.entry_type.toLowerCase() === 'debit' && data.amount ? data.amount : undefined;
+      updateData.total_credit = data.entry_type.toLowerCase() === 'credit' && data.amount ? data.amount : undefined;
+    }
+
+    const record = await prisma.journal_entries.update({
+      where: { id },
+      data: updateData,
+    });
+    revalidatePath('/erp/journal-entries');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[journal-entries] updateJournalEntry failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update journal entry' };
+  }
+}
+
+export async function deleteJournalEntry(id: string) {
+  try {
+    // Only allow cancellation of DRAFT entries
+    const existing = await prisma.journal_entries.findUnique({ where: { id }, select: { status: true } });
+    if (!existing) return { success: false, error: 'Journal entry not found' };
+    if (existing.status !== 'draft') return { success: false, error: 'Only DRAFT entries can be cancelled' };
+
+    await prisma.journal_entries.update({
+      where: { id },
+      data: { status: 'cancelled' },
+    });
+    revalidatePath('/erp/journal-entries');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[journal-entries] deleteJournalEntry failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete journal entry' };
+  }
+}

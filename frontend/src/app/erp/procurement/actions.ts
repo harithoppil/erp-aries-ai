@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { postatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 
@@ -120,7 +121,7 @@ export async function createPurchaseOrder(data: {
         po_number: poNumber,
         supplier_id: data.supplier_id,
         project_id: data.project_id || null,
-        status: 'DRAFT',
+        status: postatus.DRAFT,
         currency: 'AED',
         expected_delivery: data.expected_delivery ? new Date(data.expected_delivery) : null,
         subtotal,
@@ -145,5 +146,82 @@ export async function createPurchaseOrder(data: {
   } catch (error: any) {
     if (error.code === 'P2002') return { success: false as const, error: 'PO number already exists' };
     return { success: false as const, error: error.message || 'Failed to create purchase order' };
+  }
+}
+
+// ── Purchase Order Mutations ───────────────────────────────────────────────
+
+export async function updatePurchaseOrderStatus(id: string, status: postatus) {
+  try {
+    const record = await prisma.purchase_orders.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/procurement');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[procurement] updatePurchaseOrderStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update purchase order status' };
+  }
+}
+
+export async function updatePurchaseOrder(
+  id: string,
+  data: Partial<{ supplier_id: string; project_id: string; expected_delivery: Date; notes: string }>
+) {
+  try {
+    const record = await prisma.purchase_orders.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/procurement');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[procurement] updatePurchaseOrder failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update purchase order' };
+  }
+}
+
+export async function deletePurchaseOrder(id: string) {
+  try {
+    await prisma.purchase_orders.update({
+      where: { id },
+      data: { status: postatus.CANCELLED },
+    });
+    revalidatePath('/erp/procurement');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[procurement] deletePurchaseOrder failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete purchase order' };
+  }
+}
+
+// ── Supplier Mutations ─────────────────────────────────────────────────────
+
+export async function updateSupplier(
+  id: string,
+  data: Partial<{ supplier_name: string; contact_person: string; email: string; phone: string; address: string; category: string; rating: number }>
+) {
+  try {
+    const record = await prisma.suppliers.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/procurement');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[procurement] updateSupplier failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update supplier' };
+  }
+}
+
+export async function deleteSupplier(id: string) {
+  try {
+    await prisma.suppliers.delete({ where: { id } });
+    revalidatePath('/erp/procurement');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[procurement] deleteSupplier failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete supplier' };
   }
 }

@@ -114,3 +114,59 @@ export async function createCustomer(
     return { success: false, error: 'Failed to create customer' };
   }
 }
+
+// ── Customer Mutations ─────────────────────────────────────────────────────
+
+export async function updateCustomer(
+  id: string,
+  data: Partial<{
+    customer_name: string;
+    contact_person: string;
+    email: string;
+    phone: string;
+    address: string;
+    industry: string;
+    tax_id: string;
+    credit_limit: number;
+  }>
+) {
+  try {
+    const record = await prisma.customers.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/customers');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[customers] updateCustomer failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update customer' };
+  }
+}
+
+export async function updateCustomerStatus(id: string, status: 'active' | 'inactive' | 'suspended') {
+  try {
+    const record = await prisma.customers.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/customers');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[customers] updateCustomerStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update customer status' };
+  }
+}
+
+export async function deleteCustomer(id: string) {
+  try {
+    await prisma.customers.update({
+      where: { id },
+      data: { status: 'inactive' },
+    });
+    revalidatePath('/erp/customers');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[customers] deleteCustomer failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete customer' };
+  }
+}

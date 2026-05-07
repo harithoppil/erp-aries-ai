@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { listPayments, createPayment, type ClientSafePayment } from "./actions";
 import { listInvoices, type ClientSafeInvoice } from "@/app/erp/accounts/actions";
 import { usePageContext } from "@/hooks/usePageContext";
@@ -15,6 +16,7 @@ import {
 import { toast } from "sonner";
 
 export default function PaymentsClient({ initialPayments, initialInvoices }: { initialPayments: ClientSafePayment[]; initialInvoices: ClientSafeInvoice[] }) {
+  const router = useRouter();
   const [payments, setPayments] = useState<ClientSafePayment[]>(initialPayments);
   const [invoices, setInvoices] = useState<ClientSafeInvoice[]>(initialInvoices);
   const [search, setSearch] = useState("");
@@ -141,7 +143,7 @@ export default function PaymentsClient({ initialPayments, initialInvoices }: { i
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((p) => (
-                      <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={p.id} onClick={() => router.push(`/erp/payments/${p.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-[#64748b]">
                           {p.posting_date ? new Date(p.posting_date).toLocaleDateString() : "—"}
                         </td>

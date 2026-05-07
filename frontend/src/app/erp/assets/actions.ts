@@ -89,3 +89,64 @@ export async function listCalibrationDue(): Promise<
     return { success: false, error: 'Failed to fetch calibration due assets' };
   }
 }
+
+// ── Asset Mutations ────────────────────────────────────────────────────────
+
+export async function updateAssetStatus(id: string, status: assetstatus) {
+  try {
+    const record = await prisma.assets.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/assets');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[assets] updateAssetStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update asset status' };
+  }
+}
+
+export async function updateAsset(
+  id: string,
+  data: Partial<{
+    asset_name: string;
+    asset_category: string;
+    location: string;
+    purchase_cost: number;
+    current_value: number;
+    depreciation_rate: number;
+    calibration_date: Date;
+    next_calibration_date: Date;
+    calibration_certificate: string;
+    certification_body: string;
+    assigned_to_project: string;
+    assigned_to_personnel: string;
+    notes: string;
+  }>
+) {
+  try {
+    const record = await prisma.assets.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/assets');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[assets] updateAsset failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update asset' };
+  }
+}
+
+export async function deleteAsset(id: string) {
+  try {
+    await prisma.assets.update({
+      where: { id },
+      data: { status: assetstatus.DECOMMISSIONED },
+    });
+    revalidatePath('/erp/assets');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[assets] deleteAsset failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete asset' };
+  }
+}

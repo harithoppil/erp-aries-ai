@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { listSalesOrders, createSalesOrder, type ClientSafeSalesOrder } from "./actions";
 import { listCustomers, type ClientSafeCustomer } from "@/app/erp/customers/actions";
 import { listQuotations, type ClientSafeQuotation } from "@/app/erp/quotations/actions";
@@ -32,6 +33,7 @@ interface SOItem {
 }
 
 export default function SalesOrdersClient({ initialOrders }: { initialOrders: ClientSafeSalesOrder[] }) {
+  const router = useRouter();
   const [orders, setOrders] = useState<ClientSafeSalesOrder[]>(initialOrders);
   const [customers, setCustomers] = useState<ClientSafeCustomer[]>([]);
   const [quotations, setQuotations] = useState<ClientSafeQuotation[]>([]);
@@ -182,7 +184,7 @@ export default function SalesOrdersClient({ initialOrders }: { initialOrders: Cl
                       const cfg = STATUS_CONFIG[o.status] || STATUS_CONFIG.draft;
                       const StatusIcon = cfg.icon;
                       return (
-                        <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                        <tr key={o.id} onClick={() => router.push(`/erp/sales-orders/${o.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{o.order_number}</p>
                             {o.notes && <p className="text-xs text-[#94a3b8] truncate max-w-[200px]">{o.notes}</p>}

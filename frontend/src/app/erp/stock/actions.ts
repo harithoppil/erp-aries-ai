@@ -191,3 +191,43 @@ export async function listBins(): Promise<
     return { success: false, error: 'Failed to fetch stock levels' };
   }
 }
+
+// ── Item Mutations ─────────────────────────────────────────────────────────
+
+export async function updateItem(
+  id: string,
+  data: Partial<{
+    item_name: string;
+    item_group: string;
+    description: string;
+    unit: string;
+    standard_rate: number;
+    min_order_qty: number;
+    safety_stock: number;
+  }>
+) {
+  try {
+    const updateData: Record<string, unknown> = { ...data };
+    if (data.item_group) updateData.item_group = data.item_group as itemgroup;
+    const record = await prisma.items.update({
+      where: { id },
+      data: updateData,
+    });
+    revalidatePath('/erp/stock');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[stock] updateItem failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update item' };
+  }
+}
+
+export async function deleteItem(id: string) {
+  try {
+    await prisma.items.delete({ where: { id } });
+    revalidatePath('/erp/stock');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[stock] deleteItem failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete item' };
+  }
+}

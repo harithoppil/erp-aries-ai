@@ -93,3 +93,50 @@ export async function createQuotation(data: {
     return { success: false as const, error: 'Failed to create quotation' };
   }
 }
+
+// ── Quotation Mutations ────────────────────────────────────────────────────
+
+export async function updateQuotationStatus(id: string, status: quotationstatus) {
+  try {
+    const record = await prisma.quotations.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/quotations');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[quotations] updateQuotationStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update quotation status' };
+  }
+}
+
+export async function updateQuotation(
+  id: string,
+  data: Partial<{ customer_name: string; project_type: string; valid_until: Date; tax_rate: number; notes: string }>
+) {
+  try {
+    const record = await prisma.quotations.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/quotations');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[quotations] updateQuotation failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update quotation' };
+  }
+}
+
+export async function deleteQuotation(id: string) {
+  try {
+    await prisma.quotations.update({
+      where: { id },
+      data: { status: quotationstatus.REJECTED },
+    });
+    revalidatePath('/erp/quotations');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[quotations] deleteQuotation failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete quotation' };
+  }
+}

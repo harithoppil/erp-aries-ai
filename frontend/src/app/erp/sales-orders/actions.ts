@@ -96,3 +96,50 @@ export async function createSalesOrder(data: {
     return { success: false as const, error: 'Failed to create sales order' };
   }
 }
+
+// ── Sales Order Mutations ──────────────────────────────────────────────────
+
+export async function updateSalesOrderStatus(id: string, status: salesorderstatus) {
+  try {
+    const record = await prisma.sales_orders.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/sales-orders');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[sales-orders] updateSalesOrderStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update sales order status' };
+  }
+}
+
+export async function updateSalesOrder(
+  id: string,
+  data: Partial<{ customer_name: string; project_type: string; delivery_date: Date; tax_rate: number; notes: string }>
+) {
+  try {
+    const record = await prisma.sales_orders.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/sales-orders');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[sales-orders] updateSalesOrder failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update sales order' };
+  }
+}
+
+export async function deleteSalesOrder(id: string) {
+  try {
+    await prisma.sales_orders.update({
+      where: { id },
+      data: { status: salesorderstatus.CANCELLED },
+    });
+    revalidatePath('/erp/sales-orders');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[sales-orders] deleteSalesOrder failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete sales order' };
+  }
+}

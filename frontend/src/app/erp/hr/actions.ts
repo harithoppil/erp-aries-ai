@@ -139,3 +139,95 @@ export async function getComplianceAlerts(): Promise<
     return { success: false, error: 'Failed to fetch compliance alerts' };
   }
 }
+
+// ── Personnel Mutations ────────────────────────────────────────────────────
+
+export async function updatePersonnelStatus(id: string, status: personnelstatus) {
+  try {
+    const record = await prisma.personnel.update({
+      where: { id },
+      data: { status },
+    });
+    revalidatePath('/erp/hr');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[hr] updatePersonnelStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update personnel status' };
+  }
+}
+
+export async function updatePersonnel(
+  id: string,
+  data: Partial<{
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    designation: string;
+    department: string;
+    day_rate: number;
+  }>
+) {
+  try {
+    const record = await prisma.personnel.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/hr');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[hr] updatePersonnel failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update personnel' };
+  }
+}
+
+export async function deletePersonnel(id: string) {
+  try {
+    await prisma.personnel.update({
+      where: { id },
+      data: { status: personnelstatus.INACTIVE },
+    });
+    revalidatePath('/erp/hr');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[hr] deletePersonnel failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete personnel' };
+  }
+}
+
+// ── Certification Mutations ────────────────────────────────────────────────
+
+export async function updateCertification(
+  id: string,
+  data: Partial<{
+    cert_type: string;
+    cert_number: string;
+    issuing_body: string;
+    issue_date: Date;
+    expiry_date: Date;
+    status: certstatus;
+  }>
+) {
+  try {
+    const record = await prisma.certifications.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/hr');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[hr] updateCertification failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update certification' };
+  }
+}
+
+export async function deleteCertification(id: string) {
+  try {
+    await prisma.certifications.delete({ where: { id } });
+    revalidatePath('/erp/hr');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[hr] deleteCertification failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete certification' };
+  }
+}

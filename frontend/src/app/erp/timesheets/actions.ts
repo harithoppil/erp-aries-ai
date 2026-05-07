@@ -55,3 +55,39 @@ export async function createTimesheet(data: {
     return { success: false as const, error: 'Failed to create timesheet entry' };
   }
 }
+
+// ── Timesheet Mutations ───────────────────────────────────────────────────
+
+export async function updateTimesheet(
+  id: string,
+  data: Partial<{
+    hours: number;
+    activity_type: string;
+    description: string;
+    billable: boolean;
+    date: Date;
+  }>
+) {
+  try {
+    const record = await prisma.timesheets.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/timesheets');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[timesheets] updateTimesheet failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update timesheet' };
+  }
+}
+
+export async function deleteTimesheet(id: string) {
+  try {
+    await prisma.timesheets.delete({ where: { id } });
+    revalidatePath('/erp/timesheets');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[timesheets] deleteTimesheet failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete timesheet' };
+  }
+}

@@ -56,3 +56,39 @@ export async function createPayment(data: {
     return { success: false as const, error: 'Failed to record payment' };
   }
 }
+
+// ── Payment Mutations ──────────────────────────────────────────────────────
+
+export async function updatePayment(
+  id: string,
+  data: Partial<{
+    amount: number;
+    reference_number: string;
+    reference_date: Date;
+    party_name: string;
+    payment_type: string;
+  }>
+) {
+  try {
+    const record = await prisma.payment_entries.update({
+      where: { id },
+      data,
+    });
+    revalidatePath('/erp/payments');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[payments] updatePayment failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update payment' };
+  }
+}
+
+export async function deletePayment(id: string) {
+  try {
+    await prisma.payment_entries.delete({ where: { id } });
+    revalidatePath('/erp/payments');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[payments] deletePayment failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete payment' };
+  }
+}

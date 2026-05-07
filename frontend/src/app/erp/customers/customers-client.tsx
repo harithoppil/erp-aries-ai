@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   createCustomer,
   type ClientSafeCustomer,
@@ -33,6 +34,7 @@ interface CustomersClientProps {
 }
 
 export default function CustomersClient({ initialCustomers }: CustomersClientProps) {
+  const router = useRouter();
   const [customers, setCustomers] = useState<ClientSafeCustomer[]>(initialCustomers);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -224,7 +226,7 @@ export default function CustomersClient({ initialCustomers }: CustomersClientPro
                     {filtered.map((c) => {
                       const indColor = INDUSTRY_COLORS[c.industry || ""] || INDUSTRY_COLORS.other;
                       return (
-                        <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                        <tr key={c.id} onClick={() => router.push(`/erp/customers/${c.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{c.customer_name}</p>
                             {c.address && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { listQuotations, createQuotation, type ClientSafeQuotation } from "./actions";
 import { listCustomers, type ClientSafeCustomer } from "@/app/erp/customers/actions";
 import { usePageContext } from "@/hooks/usePageContext";
@@ -31,6 +32,7 @@ interface QItem {
 }
 
 export default function QuotationsClient({ initialQuotations }: { initialQuotations: ClientSafeQuotation[] }) {
+  const router = useRouter();
   const [quotations, setQuotations] = useState<ClientSafeQuotation[]>(initialQuotations);
   const [customers, setCustomers] = useState<ClientSafeCustomer[]>([]);
   const [search, setSearch] = useState("");
@@ -177,7 +179,7 @@ export default function QuotationsClient({ initialQuotations }: { initialQuotati
                       const cfg = STATUS_CONFIG[q.status] || STATUS_CONFIG.draft;
                       const StatusIcon = cfg.icon;
                       return (
-                        <tr key={q.id} className="hover:bg-gray-50 transition-colors">
+                        <tr key={q.id} onClick={() => router.push(`/erp/quotations/${q.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{q.quotation_number}</p>
                             {q.notes && <p className="text-xs text-[#94a3b8] truncate max-w-[200px]">{q.notes}</p>}

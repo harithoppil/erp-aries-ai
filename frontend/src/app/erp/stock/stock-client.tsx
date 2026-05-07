@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { listItems, listWarehouses, listStockEntries, createStockEntry, type ClientSafeItem, type ClientSafeWarehouse, type ClientSafeStockEntry } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
@@ -38,6 +39,7 @@ interface StockClientProps {
 }
 
 export default function StockClient({ initialItems, initialWarehouses, initialEntries }: StockClientProps) {
+  const router = useRouter();
   const [items, setItems] = useState<ClientSafeItem[]>(initialItems);
   const [warehouses, setWarehouses] = useState<ClientSafeWarehouse[]>(initialWarehouses);
   const [entries, setEntries] = useState<ClientSafeStockEntry[]>(initialEntries);
@@ -214,7 +216,7 @@ export default function StockClient({ initialItems, initialWarehouses, initialEn
                     {filtered.map((i) => {
                       const catColor = CATEGORY_COLORS[i.item_group] || "bg-gray-100 text-gray-700 border-gray-200";
                       return (
-                        <tr key={i.id} className="hover:bg-gray-50 transition-colors">
+                        <tr key={i.id} onClick={() => router.push(`/erp/stock/${i.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{i.item_name}</p>
                             <p className="text-xs text-[#94a3b8]">{i.description || "—"}</p>

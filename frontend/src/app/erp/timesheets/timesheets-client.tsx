@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { listTimesheets, createTimesheet, type ClientSafeTimesheet } from "./actions";
 import { listProjects, type ClientSafeProject } from "@/app/erp/projects/actions";
 import { listPersonnel, type ClientSafePersonnel } from "@/app/erp/hr/actions";
@@ -16,6 +17,7 @@ import {
 import { toast } from "sonner";
 
 export default function TimesheetsClient({ initialTimesheets }: { initialTimesheets: ClientSafeTimesheet[] }) {
+  const router = useRouter();
   const [timesheets, setTimesheets] = useState<ClientSafeTimesheet[]>(initialTimesheets);
   const [projects, setProjects] = useState<ClientSafeProject[]>([]);
   const [personnel, setPersonnel] = useState<ClientSafePersonnel[]>([]);
@@ -155,7 +157,7 @@ export default function TimesheetsClient({ initialTimesheets }: { initialTimeshe
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((t) => (
-                      <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={t.id} onClick={() => router.push(`/erp/timesheets/${t.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-[#64748b]">
                           {t.date ? new Date(t.date).toLocaleDateString() : "—"}
                         </td>

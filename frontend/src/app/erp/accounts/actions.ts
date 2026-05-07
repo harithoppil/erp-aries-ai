@@ -249,3 +249,70 @@ export async function getAccountTree(): Promise<
     return { success: false, error: error?.message || 'Failed to fetch account tree' };
   }
 }
+
+// ── Invoice Mutations ──────────────────────────────────────────────────────
+
+export async function updateInvoiceStatus(id: string, status: salesinvoicestatus) {
+  try {
+    const updateData: { status: salesinvoicestatus; paid_amount?: number; outstanding_amount?: number } = { status };
+    if (status === salesinvoicestatus.PAID) {
+      const invoice = await prisma.sales_invoices.findUnique({ where: { id }, select: { total: true } });
+      if (invoice) {
+        updateData.paid_amount = invoice.total;
+        updateData.outstanding_amount = 0;
+      }
+    }
+    const record = await prisma.sales_invoices.update({
+      where: { id },
+      data: updateData,
+    });
+    revalidatePath('/erp/accounts');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[accounts] updateInvoiceStatus failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update invoice status' };
+  }
+}
+
+export async function updateInvoice(
+  id: string,
+  data: Partial<{ customer_name: string; customer_email: string; tax_rate: number; due_date_days: number }>
+) {
+  try {
+    const updateData: Record<string, unknown> = {};
+    if (data.customer_name !== undefined) updateData.customer_name = data.customer_name;
+    if (data.customer_email !== undefined) updateData.customer_email = data.customer_email;
+    if (data.tax_rate !== undefined) updateData.tax_rate = data.tax_rate;
+    if (data.due_date_days !== undefined) {
+      const current = await prisma.sales_invoices.findUnique({ where: { id }, select: { posting_date: true } });
+      if (current) {
+        const dueDate = new Date(current.posting_date);
+        dueDate.setDate(dueDate.getDate() + data.due_date_days);
+        updateData.due_date = dueDate;
+      }
+    }
+    const record = await prisma.sales_invoices.update({
+      where: { id },
+      data: updateData,
+    });
+    revalidatePath('/erp/accounts');
+    return { success: true, data: record };
+  } catch (error: any) {
+    console.error('[accounts] updateInvoice failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to update invoice' };
+  }
+}
+
+export async function deleteInvoice(id: string) {
+  try {
+    await prisma.sales_invoices.update({
+      where: { id },
+      data: { status: salesinvoicestatus.CANCELLED },
+    });
+    revalidatePath('/erp/accounts');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[accounts] deleteInvoice failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to delete invoice' };
+  }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { listJournalEntries, createJournalEntry, type ClientSafeJournalEntry } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
@@ -15,6 +16,7 @@ import {
 import { toast } from "sonner";
 
 export default function JournalEntriesClient({ initialEntries }: { initialEntries: ClientSafeJournalEntry[] }) {
+  const router = useRouter();
   const [entries, setEntries] = useState<ClientSafeJournalEntry[]>(initialEntries);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -140,7 +142,7 @@ export default function JournalEntriesClient({ initialEntries }: { initialEntrie
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((e) => (
-                      <tr key={e.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={e.id} onClick={() => router.push(`/erp/journal-entries/${e.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{e.entry_number}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 text-[#64748b]">
