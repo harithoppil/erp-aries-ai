@@ -1,5 +1,5 @@
-import { listWorkflows, type WorkflowRead } from "./actions";
-import WorkflowsClient from "./workflows-client";
+import { listWorkflows, type WorkflowRead } from "@/app/pipeline/actions";
+import WorkflowsClient from "@/app/pipeline/workflows-client";
 
 export default async function PipelinePage() {
   let initialWorkflows: WorkflowRead[] = [];

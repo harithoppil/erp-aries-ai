@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listSuppliers, listPurchaseOrders, createSupplier, type ClientSafeSupplier, type ClientSafePurchaseOrder } from "./actions";
+import { listSuppliers, listPurchaseOrders, createSupplier, type ClientSafeSupplier, type ClientSafePurchaseOrder } from "@/app/erp/procurement/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   ShoppingCart, Search, Truck, FileText, Plus, Download,

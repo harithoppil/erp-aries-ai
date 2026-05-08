@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   createCustomer,
   type ClientSafeCustomer,
-} from "./actions";
+} from "@/app/erp/customers/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import { useAppStore } from "@/store/useAppStore";
 import {
@@ -146,7 +146,7 @@ export default function CustomersClient({ initialCustomers }: CustomersClientPro
   }, [uiActionActive]);
 
   const load = async () => {
-    const { listCustomers } = await import("./actions");
+    const { listCustomers } = await import("@/app/erp/customers/actions");
     const result = await listCustomers();
     if (result.success) {
       setCustomers(result.customers);

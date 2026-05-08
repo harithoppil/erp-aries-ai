@@ -1,5 +1,5 @@
-import { listSuppliers, listPurchaseOrders, type ClientSafeSupplier, type ClientSafePurchaseOrder } from "./actions";
-import ProcurementClient from "./procurement-client";
+import { listSuppliers, listPurchaseOrders, type ClientSafeSupplier, type ClientSafePurchaseOrder } from "@/app/erp/procurement/actions";
+import ProcurementClient from "@/app/erp/procurement/procurement-client";
 
 export default async function ProcurementPage() {
   const [sRes, poRes] = await Promise.all([listSuppliers(), listPurchaseOrders()]);

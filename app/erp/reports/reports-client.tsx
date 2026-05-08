@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { type ReportsSummary } from "./actions";
+import { type ReportsSummary } from "@/app/erp/reports/actions";
 import {
   BarChart3, DollarSign, Users, FolderKanban, Package,
   Wrench, TrendingUp, TrendingDown, Clock, AlertTriangle,

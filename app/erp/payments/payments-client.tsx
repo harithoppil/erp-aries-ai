@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listPayments, createPayment, type ClientSafePayment } from "./actions";
+import { listPayments, createPayment, type ClientSafePayment } from "@/app/erp/payments/actions";
 import { listInvoices, type ClientSafeInvoice } from "@/app/erp/accounts/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {

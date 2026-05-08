@@ -25,7 +25,7 @@
  */
 
 import { API_BASE } from "@/lib/api";
-import { getAdapter, type AIProvider, type FunctionCallResult } from "./ai-tool-adapters";
+import { getAdapter, type AIProvider, type FunctionCallResult } from "@/lib/ai-tool-adapters";
 import type { UIAction } from "@/store/useActionDispatcher";
 
 /** A function call returned by any AI provider (unified format) */

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createEnquiry } from "../actions";
+import { createEnquiry } from "@/app/enquiries/actions";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-responsive";

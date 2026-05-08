@@ -4,10 +4,10 @@
  * Pipeline: raw Buffer → detect type → converter → HTML/text → turndown → markdown
  * ═══════════════════════════════════════════════════════════ */
 
-import { type StreamInfo, type Converter, type ConvertResult, type ConvertOptions } from "./types";
-import { UnsupportedFormatError, ConversionError } from "./exceptions";
-import { buildStreamInfoGuesses } from "./stream-info";
-import { normalizeWhitespace } from "./turndown";
+import { type StreamInfo, type Converter, type ConvertResult, type ConvertOptions } from "@/lib/markitdown/types";
+import { UnsupportedFormatError, ConversionError } from "@/lib/markitdown/exceptions";
+import { buildStreamInfoGuesses } from "@/lib/markitdown/stream-info";
+import { normalizeWhitespace } from "@/lib/markitdown/turndown";
 
 /* ── Built-in converters (import lazily to avoid loading unused deps) ── */
 
@@ -24,16 +24,16 @@ async function getBuiltinConverters(): Promise<Converter[]> {
     { createMsgConverter },
     { createPlainTextConverter },
   ] = await Promise.all([
-    import("./converters/pdf"),
-    import("./converters/docx"),
-    import("./converters/xlsx"),
-    import("./converters/xlsx"),
-    import("./converters/html"),
-    import("./converters/image"),
-    import("./converters/csv"),
-    import("./converters/zip"),
-    import("./converters/msg"),
-    import("./converters/text"),
+    import("@/lib/markitdown/converters/pdf"),
+    import("@/lib/markitdown/converters/docx"),
+    import("@/lib/markitdown/converters/xlsx"),
+    import("@/lib/markitdown/converters/xlsx"),
+    import("@/lib/markitdown/converters/html"),
+    import("@/lib/markitdown/converters/image"),
+    import("@/lib/markitdown/converters/csv"),
+    import("@/lib/markitdown/converters/zip"),
+    import("@/lib/markitdown/converters/msg"),
+    import("@/lib/markitdown/converters/text"),
   ]);
 
   return [

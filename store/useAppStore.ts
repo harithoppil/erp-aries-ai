@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { useActionDispatcher, parseActionMarkers } from "./useActionDispatcher";
+import { useActionDispatcher, parseActionMarkers } from "@/store/useActionDispatcher";
 import { planUIActions, executeFunctionCalls, type FunctionCall } from "@/lib/gemini-client";
 import { chatWithPersona } from "@/app/ai/actions";
 

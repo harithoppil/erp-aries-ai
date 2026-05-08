@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listAssets, createAsset, type ClientSafeAsset } from "./actions";
+import { listAssets, createAsset, type ClientSafeAsset } from "@/app/erp/assets/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Wrench, CheckCircle, AlertTriangle, XCircle,

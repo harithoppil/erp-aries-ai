@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getTrialBalance, type TBAccount } from "../actions";
+import { getTrialBalance, type TBAccount } from "@/app/erp/reports/actions";
 import { Scale, Calendar, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

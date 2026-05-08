@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listSalesOrders, createSalesOrder, type ClientSafeSalesOrder } from "./actions";
+import { listSalesOrders, createSalesOrder, type ClientSafeSalesOrder } from "@/app/erp/sales-orders/actions";
 import { listCustomers, type ClientSafeCustomer } from "@/app/erp/customers/actions";
 import { listQuotations, type ClientSafeQuotation } from "@/app/erp/quotations/actions";
 import { usePageContext } from "@/hooks/usePageContext";

@@ -7,7 +7,7 @@
  */
 
 import { execute, query } from '@/lib/db-sql';
-import { EMBEDDING_DIM } from './rag-embed';
+import { EMBEDDING_DIM } from '@/lib/rag-embed';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 

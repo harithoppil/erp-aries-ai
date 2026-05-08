@@ -1,5 +1,5 @@
-import { getGeneralLedger, type GLEntry } from "../actions";
-import GeneralLedgerClient from "./general-ledger-client";
+import { getGeneralLedger, type GLEntry } from "@/app/erp/reports/actions";
+import GeneralLedgerClient from "@/app/erp/reports/general-ledger/general-ledger-client";
 
 export default async function GeneralLedgerPage() {
   const result = await getGeneralLedger({ from_date: `${new Date().getFullYear()}-01-01`, to_date: `${new Date().getFullYear()}-12-31` });

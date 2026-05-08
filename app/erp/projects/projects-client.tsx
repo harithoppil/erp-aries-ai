@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listProjects, listTasks, createProject, createTask, type ClientSafeProject, type ClientSafeTask } from "./actions";
+import { listProjects, listTasks, createProject, createTask, type ClientSafeProject, type ClientSafeTask } from "@/app/erp/projects/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   FolderKanban, CheckCircle, Clock, PauseCircle, Search,

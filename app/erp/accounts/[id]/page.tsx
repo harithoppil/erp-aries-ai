@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import InvoiceDetailClient from './invoice-detail-client';
+import InvoiceDetailClient from '@/app/erp/accounts/[id]/invoice-detail-client';
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listAccounts, listInvoices, createInvoice, type ClientSafeAccount, type ClientSafeInvoice } from "./actions";
+import { listAccounts, listInvoices, createInvoice, type ClientSafeAccount, type ClientSafeInvoice } from "@/app/erp/accounts/actions";
 import {
   DollarSign, FileText, TrendingUp, TrendingDown,
   Search, Wallet, Plus, X, Download,

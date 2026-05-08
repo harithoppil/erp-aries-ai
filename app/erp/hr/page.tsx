@@ -1,5 +1,5 @@
-import { listPersonnel, type ClientSafePersonnel } from "./actions";
-import HRClient from "./hr-client";
+import { listPersonnel, type ClientSafePersonnel } from "@/app/erp/hr/actions";
+import HRClient from "@/app/erp/hr/hr-client";
 
 export default async function HRPage() {
   const result = await listPersonnel();

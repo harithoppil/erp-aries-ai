@@ -7,7 +7,7 @@ import {
   updateConnector,
   deleteConnector,
   type ClientSafeConnector,
-} from "./actions";
+} from "@/app/channels/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Radio,

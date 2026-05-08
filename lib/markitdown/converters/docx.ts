@@ -2,8 +2,8 @@
  * DOCX Converter — mammoth → HTML → turndown
  * ═══════════════════════════════════════════════════════════ */
 
-import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "../types";
-import { createTurndown } from "../turndown";
+import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
+import { createTurndown } from "@/lib/markitdown/turndown";
 
 export function createDocxConverter(): Converter {
   return {

@@ -3,8 +3,8 @@
  * ═══════════════════════════════════════════════════════════ */
 
 import * as cheerio from "cheerio";
-import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "../types";
-import { createTurndown } from "../turndown";
+import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
+import { createTurndown } from "@/lib/markitdown/turndown";
 
 export function createHtmlConverter(): Converter {
   return {

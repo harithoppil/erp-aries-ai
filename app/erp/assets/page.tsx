@@ -1,5 +1,5 @@
-import { listAssets, type ClientSafeAsset } from "./actions";
-import AssetsClient from "./assets-client";
+import { listAssets, type ClientSafeAsset } from "@/app/erp/assets/actions";
+import AssetsClient from "@/app/erp/assets/assets-client";
 
 export default async function AssetsPage() {
   const result = await listAssets();

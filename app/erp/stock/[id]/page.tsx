@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import StockDetailClient from './stock-detail-client';
+import StockDetailClient from '@/app/erp/stock/[id]/stock-detail-client';
 
 export default async function StockDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

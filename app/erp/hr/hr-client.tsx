@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { createPersonnel, type ClientSafePersonnel } from "./actions";
+import { createPersonnel, type ClientSafePersonnel } from "@/app/erp/hr/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Users, CheckCircle, AlertTriangle, XCircle,
@@ -122,7 +122,7 @@ export default function HRClient({ initialPersonnel }: HRClientProps) {
   usePageContext(contextSummary);
 
   const load = async () => {
-    const { listPersonnel } = await import("./actions");
+    const { listPersonnel } = await import("@/app/erp/hr/actions");
     try {
       const result = await listPersonnel();
       if (result.success) setPersonnel(result.personnel);

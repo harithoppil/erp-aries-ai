@@ -4,7 +4,7 @@
 
 import chardet from "chardet";
 import iconv from "iconv-lite";
-import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "../types";
+import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
 
 export function createPlainTextConverter(): Converter {
   return {

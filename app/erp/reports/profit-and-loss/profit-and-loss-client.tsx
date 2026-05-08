@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getProfitAndLoss, type PLData, type PLSection } from "../actions";
+import { getProfitAndLoss, type PLData, type PLSection } from "@/app/erp/reports/actions";
 import { TrendingDown, Calendar, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getGeneralLedger, type GLEntry } from "../actions";
+import { getGeneralLedger, type GLEntry } from "@/app/erp/reports/actions";
 import { ScrollText, Calendar, Search, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

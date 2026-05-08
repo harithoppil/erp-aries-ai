@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { listWikiPages, getWikiPage, searchWiki, createWikiPage, updateWikiPage, deleteWikiPage, type WikiPageRead, type WikiSearchResult } from "./actions";
+import { listWikiPages, getWikiPage, searchWiki, createWikiPage, updateWikiPage, deleteWikiPage, type WikiPageRead, type WikiSearchResult } from "@/app/wiki/actions";
 import { ragSearch, type RAGSearchResult } from "@/app/actions/rag";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

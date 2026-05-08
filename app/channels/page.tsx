@@ -1,5 +1,5 @@
-import { listConnectors, type ClientSafeConnector } from "./actions";
-import ChannelsClient from "./channels-client";
+import { listConnectors, type ClientSafeConnector } from "@/app/channels/actions";
+import ChannelsClient from "@/app/channels/channels-client";
 
 export default async function ChannelsPage() {
   const res = await listConnectors();

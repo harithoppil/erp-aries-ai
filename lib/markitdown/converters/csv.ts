@@ -5,7 +5,7 @@
 import { parse } from "csv-parse/sync";
 import chardet from "chardet";
 import iconv from "iconv-lite";
-import type { Converter, ConvertResult, StreamInfo } from "../types";
+import type { Converter, ConvertResult, StreamInfo } from "@/lib/markitdown/types";
 
 const FALLBACK_ENCODINGS = [
   "utf-8",

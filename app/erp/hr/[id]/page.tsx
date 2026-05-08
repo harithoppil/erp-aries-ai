@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import PersonnelDetailClient from './personnel-detail-client';
+import PersonnelDetailClient from '@/app/erp/hr/[id]/personnel-detail-client';
 
 export default async function PersonnelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

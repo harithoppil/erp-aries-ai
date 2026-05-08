@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import ProjectDetailClient from './project-detail-client';
+import ProjectDetailClient from '@/app/erp/projects/[id]/project-detail-client';
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

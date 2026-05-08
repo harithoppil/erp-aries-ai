@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import QuotationDetailClient from './quotation-detail-client';
+import QuotationDetailClient from '@/app/erp/quotations/[id]/quotation-detail-client';
 
 export default async function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

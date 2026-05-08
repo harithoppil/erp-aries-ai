@@ -1,5 +1,5 @@
-import { listItems, listWarehouses, listStockEntries, type ClientSafeItem } from "./actions";
-import StockClient from "./stock-client";
+import { listItems, listWarehouses, listStockEntries, type ClientSafeItem } from "@/app/erp/stock/actions";
+import StockClient from "@/app/erp/stock/stock-client";
 
 export default async function StockPage() {
   const [iRes, wRes, eRes] = await Promise.all([

@@ -2,7 +2,7 @@
  * XLSX / XLS Converter — exceljs → markdown tables
  * ═══════════════════════════════════════════════════════════ */
 
-import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "../types";
+import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
 
 function rowsToMarkdown(rows: unknown[][]): string {
   if (rows.length === 0) return "";

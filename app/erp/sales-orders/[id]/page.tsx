@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import SalesOrderDetailClient from './sales-order-detail-client';
+import SalesOrderDetailClient from '@/app/erp/sales-orders/[id]/sales-order-detail-client';
 
 export default async function SalesOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

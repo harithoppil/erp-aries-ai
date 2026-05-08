@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listJournalEntries, createJournalEntry, type ClientSafeJournalEntry } from "./actions";
+import { listJournalEntries, createJournalEntry, type ClientSafeJournalEntry } from "@/app/erp/journal-entries/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   BookOpen, Search, Plus, ArrowDownLeft, ArrowUpRight,

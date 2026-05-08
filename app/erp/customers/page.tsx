@@ -1,5 +1,5 @@
-import { listCustomers, type ClientSafeCustomer } from "./actions";
-import CustomersClient from "./customers-client";
+import { listCustomers, type ClientSafeCustomer } from "@/app/erp/customers/actions";
+import CustomersClient from "@/app/erp/customers/customers-client";
 
 export default async function CustomersPage() {
   const result = await listCustomers();

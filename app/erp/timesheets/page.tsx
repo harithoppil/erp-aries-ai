@@ -1,5 +1,5 @@
-import { listTimesheets, type ClientSafeTimesheet } from "./actions";
-import TimesheetsClient from "./timesheets-client";
+import { listTimesheets, type ClientSafeTimesheet } from "@/app/erp/timesheets/actions";
+import TimesheetsClient from "@/app/erp/timesheets/timesheets-client";
 
 export default async function TimesheetsPage() {
   const result = await listTimesheets();

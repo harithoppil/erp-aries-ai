@@ -2,7 +2,7 @@
  * Image Converter — EXIF metadata + Gemini vision caption
  * ═══════════════════════════════════════════════════════════ */
 
-import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "../types";
+import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
 
 export function createImageConverter(): Converter {
   return {

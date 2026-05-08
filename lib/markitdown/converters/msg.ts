@@ -2,8 +2,8 @@
  * Outlook MSG Converter — @kenjiuno/msgreader
  * ═══════════════════════════════════════════════════════════ */
 
-import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "../types";
-import { MissingDependencyError } from "../exceptions";
+import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
+import { MissingDependencyError } from "@/lib/markitdown/exceptions";
 
 interface MsgFileData {
   senderName?: string;

@@ -1,5 +1,5 @@
-import { getAccountTree, type AccountTreeNode } from "../accounts/actions";
-import ChartOfAccountsClient from "./chart-of-accounts-client";
+import { getAccountTree, type AccountTreeNode } from "@/app/erp/accounts/actions";
+import ChartOfAccountsClient from "@/app/erp/chart-of-accounts/chart-of-accounts-client";
 
 export default async function ChartOfAccountsPage() {
   const result = await getAccountTree();

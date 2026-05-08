@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import AssetDetailClient from './asset-detail-client';
+import AssetDetailClient from '@/app/erp/assets/[id]/asset-detail-client';
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

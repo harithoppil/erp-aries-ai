@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR, { mutate } from "swr";
-import { throttledFetch } from "./throttledFetch";
+import { throttledFetch } from "@/lib/throttledFetch";
 import type {
   EnquiryRead,
   EnquiryCreate,

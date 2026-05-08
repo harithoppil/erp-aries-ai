@@ -2,7 +2,7 @@
  * Stream Info — File type detection (Magika + mime + ext)
  * ═══════════════════════════════════════════════════════════ */
 
-import { type StreamInfo } from "./types";
+import { type StreamInfo } from "@/lib/markitdown/types";
 
 let magikaInstance: any = null;
 

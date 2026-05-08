@@ -1,5 +1,5 @@
-import { listProjects, listTasks, type ClientSafeProject, type ClientSafeTask } from "./actions";
-import ProjectsClient from "./projects-client";
+import { listProjects, listTasks, type ClientSafeProject, type ClientSafeTask } from "@/app/erp/projects/actions";
+import ProjectsClient from "@/app/erp/projects/projects-client";
 
 export default async function ProjectsPage() {
   const [pRes, tRes] = await Promise.all([listProjects(), listTasks()]);

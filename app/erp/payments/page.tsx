@@ -1,6 +1,6 @@
-import { listPayments, type ClientSafePayment } from "./actions";
+import { listPayments, type ClientSafePayment } from "@/app/erp/payments/actions";
 import { listInvoices, type ClientSafeInvoice } from "@/app/erp/accounts/actions";
-import PaymentsClient from "./payments-client";
+import PaymentsClient from "@/app/erp/payments/payments-client";
 
 export default async function PaymentsPage() {
   const [pRes, iRes] = await Promise.all([listPayments(), listInvoices()]);

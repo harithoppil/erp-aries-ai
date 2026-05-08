@@ -1,5 +1,5 @@
-import { listAccounts, listInvoices, type ClientSafeAccount, type ClientSafeInvoice } from "./actions";
-import AccountsClient from "./accounts-client";
+import { listAccounts, listInvoices, type ClientSafeAccount, type ClientSafeInvoice } from "@/app/erp/accounts/actions";
+import AccountsClient from "@/app/erp/accounts/accounts-client";
 
 export default async function AccountsPage() {
   const [accResult, invResult] = await Promise.all([

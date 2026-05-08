@@ -1,5 +1,5 @@
-import { getBalanceSheet, type BSData } from "../actions";
-import BalanceSheetClient from "./balance-sheet-client";
+import { getBalanceSheet, type BSData } from "@/app/erp/reports/actions";
+import BalanceSheetClient from "@/app/erp/reports/balance-sheet/balance-sheet-client";
 
 export default async function BalanceSheetPage() {
   const today = new Date().toISOString().split("T")[0];

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import './globals.css';
+import '@/app/globals.css';
 import { AppLayout } from '@/components/app-layout';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/sonner';

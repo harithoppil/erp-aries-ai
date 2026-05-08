@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-responsive";
-import { listEnquiries, type ClientSafeEnquiry } from "./actions";
+import { listEnquiries, type ClientSafeEnquiry } from "@/app/enquiries/actions";
 import { STATUS_COLORS } from "@/types/api";
 import Link from "next/link";
 import { Plus } from "lucide-react";

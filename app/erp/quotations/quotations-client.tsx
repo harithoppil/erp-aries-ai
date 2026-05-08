@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listQuotations, createQuotation, type ClientSafeQuotation } from "./actions";
+import { listQuotations, createQuotation, type ClientSafeQuotation } from "@/app/erp/quotations/actions";
 import { listCustomers, type ClientSafeCustomer } from "@/app/erp/customers/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {

@@ -3,8 +3,8 @@
  * ═══════════════════════════════════════════════════════════ */
 
 import AdmZip from "adm-zip";
-import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "../types";
-import { UnsupportedFormatError, ConversionError } from "../exceptions";
+import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
+import { UnsupportedFormatError, ConversionError } from "@/lib/markitdown/exceptions";
 
 export function createZipConverter(): Converter {
   return {

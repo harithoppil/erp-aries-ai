@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import PODetailClient from './po-detail-client';
+import PODetailClient from '@/app/erp/procurement/[id]/po-detail-client';
 
 export default async function PODetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

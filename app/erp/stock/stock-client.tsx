@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listItems, listWarehouses, listStockEntries, createStockEntry, type ClientSafeItem, type ClientSafeWarehouse, type ClientSafeStockEntry } from "./actions";
+import { listItems, listWarehouses, listStockEntries, createStockEntry, type ClientSafeItem, type ClientSafeWarehouse, type ClientSafeStockEntry } from "@/app/erp/stock/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Package, CheckCircle, AlertTriangle, ShieldAlert,

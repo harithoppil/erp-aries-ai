@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getBalanceSheet, type BSData, type BSSection } from "../actions";
+import { getBalanceSheet, type BSData, type BSSection } from "@/app/erp/reports/actions";
 import { TrendingUp, Calendar, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

@@ -5,7 +5,7 @@ import {
   listMaterialRequests,
   createMaterialRequest,
   type ClientSafeMaterialRequest,
-} from "./actions";
+} from "@/app/erp/material-requests/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   ClipboardList,

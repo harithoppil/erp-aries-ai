@@ -16,13 +16,13 @@ import FontFamily from "@tiptap/extension-font-family";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 
-import { getNotebook, updateNotebook, type NotebookRead } from "../../actions";
+import { getNotebook, updateNotebook, type NotebookRead } from "@/app/notebooks/actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   ArrowLeft, Save, Loader2, Bot, Minus, Plus, RotateCcw,
 } from "lucide-react";
-import { EditorToolbar } from "./toolbar";
+import { EditorToolbar } from "@/app/notebooks/editor/[id]/toolbar";
 
 export default function NotebookEditorPage() {
   const { id } = useParams<{ id: string }>();

@@ -2,7 +2,7 @@
  * PDF Converter — unpdf (server-safe pdfjs-dist wrapper)
  * ═══════════════════════════════════════════════════════════ */
 
-import type { Converter, ConvertResult, StreamInfo } from "../types";
+import type { Converter, ConvertResult, StreamInfo } from "@/lib/markitdown/types";
 
 export function createPdfConverter(): Converter {
   return {

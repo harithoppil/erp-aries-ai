@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { listNotebooks, createNotebook, deleteNotebook, type NotebookRead } from "./actions";
+import { listNotebooks, createNotebook, deleteNotebook, type NotebookRead } from "@/app/notebooks/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

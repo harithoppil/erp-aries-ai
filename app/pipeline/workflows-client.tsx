@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import type { WorkflowRead, ExecutionRead } from "./actions";
+import type { WorkflowRead, ExecutionRead } from "@/app/pipeline/actions";
 
 // ── Reference Architecture (original static infographic) ────────────────────
 
@@ -156,7 +156,7 @@ function WorkflowCard({
   const loadExecutions = useCallback(async () => {
     setLoadingExec(true);
     try {
-      const { listExecutions } = await import("./actions");
+      const { listExecutions } = await import("@/app/pipeline/actions");
       const result = await listExecutions(workflow.id);
       if (result.success) {
         setExecutions(result.executions);
@@ -290,7 +290,7 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
 
   const refreshWorkflows = useCallback(async () => {
     try {
-      const { listWorkflows } = await import("./actions");
+      const { listWorkflows } = await import("@/app/pipeline/actions");
       const result = await listWorkflows();
       if (result.success) {
         setWorkflows(result.workflows);
@@ -307,7 +307,7 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const { createWorkflow } = await import("./actions");
+      const { createWorkflow } = await import("@/app/pipeline/actions");
       const result = await createWorkflow({
         name: newName.trim(),
         description: newDesc.trim() || undefined,
@@ -331,7 +331,7 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
   const handleExecute = useCallback(async (workflowId: string) => {
     setExecuting(workflowId);
     try {
-      const { executeWorkflow } = await import("./actions");
+      const { executeWorkflow } = await import("@/app/pipeline/actions");
       const result = await executeWorkflow(workflowId);
       if (result.success) {
         toast.success("Workflow execution started");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { type AccountTreeNode } from "../accounts/actions";
+import { type AccountTreeNode } from "@/app/erp/accounts/actions";
 import { TreePine, ChevronRight, ChevronDown, Search, Folder, FileText, SearchX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
