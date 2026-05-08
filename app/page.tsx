@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { useEnquiries } from "@/lib/api";
-import { EnquiryRead, STATUS_COLORS } from "@/types/api";
+import { useMemo, useState, useEffect } from "react";
+import { listEnquiries, type ClientSafeEnquiry } from "@/app/enquiries/actions";
+import { STATUS_COLORS } from "@/types/api";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
@@ -71,11 +71,11 @@ function StatCard({
 }
 
 /* ═══ Heatmap Calendar — GitHub-style contribution graph ═══ */
-function HeatmapCalendar({ enquiries }: { enquiries: EnquiryRead[] }) {
+function HeatmapCalendar({ enquiries }: { enquiries: ClientSafeEnquiry[] }) {
   // Group enquiries by date
   const dateMap = new Map<string, number>();
   enquiries.forEach((e) => {
-    const date = e.created_at?.split("T")[0] || "";
+    const date = (e.created_at instanceof Date ? e.created_at.toISOString() : String(e.created_at))?.split("T")[0] || "";
     if (date) {
       dateMap.set(date, (dateMap.get(date) || 0) + 1);
     }
@@ -129,7 +129,20 @@ function HeatmapCalendar({ enquiries }: { enquiries: EnquiryRead[] }) {
 
 export default function Dashboard() {
   const { isMobile } = useResponsive();
-  const { data: enquiries, error, isLoading } = useEnquiries();
+  const [enquiries, setEnquiries] = useState<ClientSafeEnquiry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listEnquiries().then((result) => {
+      if (result.success) {
+        setEnquiries(result.enquiries);
+      } else {
+        setError(result.error);
+      }
+      setIsLoading(false);
+    });
+  }, []);
 
   const stats = useMemo(() => ({
     total: enquiries?.length ?? 0,
@@ -333,7 +346,7 @@ export default function Dashboard() {
               </div>
             ) : error ? (
               <div className="p-8 text-center text-destructive text-sm">
-                Failed to load: {error.message}
+                Failed to load: {error}
               </div>
             ) : !enquiries?.length ? (
               <div className="p-8 text-center text-muted-foreground text-sm">
@@ -344,7 +357,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="divide-y divide-border/50">
-                {enquiries.slice(0, 8).map((e: EnquiryRead, i: number) => (
+                {enquiries.slice(0, 8).map((e: ClientSafeEnquiry, i: number) => (
                   <motion.div
                     key={e.id}
                     initial={{ opacity: 0, x: -8 }}
@@ -363,7 +376,7 @@ export default function Dashboard() {
                       </div>
                       <Badge
                         variant="outline"
-                        className={`ml-2 shrink-0 text-[10px] ${STATUS_COLORS[e.status] || ""}`}
+                        className={`ml-2 shrink-0 text-[10px] ${STATUS_COLORS[e.status as keyof typeof STATUS_COLORS] || ""}`}
                       >
                         {e.status.replace(/_/g, " ")}
                       </Badge>

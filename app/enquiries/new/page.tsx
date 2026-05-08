@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createEnquiry } from "@/lib/api";
+import { createEnquiry } from "../actions";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-responsive";
-import type { EnquiryCreate } from "@/types/api";
+import type { EnquiryCreate } from "@/types/api"; // kept for form compatibility
 
 export default function NewEnquiryPage() {
   const isMobile = useIsMobile();
@@ -24,8 +24,12 @@ export default function NewEnquiryPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const enquiry = await createEnquiry(form);
-      router.push(`/enquiries/${enquiry.id}`);
+      const result = await createEnquiry({ ...form, client_email: form.client_email || undefined, industry: form.industry || undefined, subdivision: form.subdivision || undefined });
+      if (result.success) {
+        router.push(`/enquiries/${result.enquiry.id}`);
+      } else {
+        toast.error(result.error);
+      }
     } catch (err) {
       toast.error("Failed to create enquiry: " + (err as Error).message);
     } finally {

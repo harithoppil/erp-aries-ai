@@ -1,43 +1,25 @@
 'use server';
 
-import { API_BASE } from '@/lib/api-base';
+import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { randomUUID } from 'crypto';
 
 export interface NotebookRead {
   id: string;
   title: string;
   content: string | null;
   metadata_json: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
-export type NotebookListResponse =
-  | { success: true; notebooks: NotebookRead[] }
-  | { success: false; error: string };
-
-export type NotebookDetailResponse =
-  | { success: true; notebook: NotebookRead }
-  | { success: false; error: string };
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    const msg = typeof err.detail === 'string'
-      ? err.detail
-      : JSON.stringify(err.detail || err);
-    throw new Error(msg || 'API Error');
-  }
-  return res.json();
-}
-
-export async function listNotebooks(): Promise<NotebookListResponse> {
+export async function listNotebooks(): Promise<
+  { success: true; notebooks: NotebookRead[] } | { success: false; error: string }
+> {
   try {
-    const notebooks = await apiFetch<NotebookRead[]>('/notebooks/');
+    const notebooks = await prisma.notebooks.findMany({
+      orderBy: { updated_at: 'desc' },
+    });
     return { success: true, notebooks };
   } catch (error: any) {
     console.error('[notebooks] listNotebooks failed:', error?.message);
@@ -45,9 +27,12 @@ export async function listNotebooks(): Promise<NotebookListResponse> {
   }
 }
 
-export async function getNotebook(id: string): Promise<NotebookDetailResponse> {
+export async function getNotebook(id: string): Promise<
+  { success: true; notebook: NotebookRead } | { success: false; error: string }
+> {
   try {
-    const notebook = await apiFetch<NotebookRead>(`/notebooks/${id}`);
+    const notebook = await prisma.notebooks.findUnique({ where: { id } });
+    if (!notebook) return { success: false, error: 'Notebook not found' };
     return { success: true, notebook };
   } catch (error: any) {
     console.error('[notebooks] getNotebook failed:', error?.message);
@@ -55,11 +40,16 @@ export async function getNotebook(id: string): Promise<NotebookDetailResponse> {
   }
 }
 
-export async function createNotebook(data: { title?: string; content?: string }): Promise<NotebookDetailResponse> {
+export async function createNotebook(data: { title?: string; content?: string }): Promise<
+  { success: true; notebook: NotebookRead } | { success: false; error: string }
+> {
   try {
-    const notebook = await apiFetch<NotebookRead>('/notebooks/', {
-      method: 'POST',
-      body: JSON.stringify(data),
+    const notebook = await prisma.notebooks.create({
+      data: {
+        id: randomUUID(),
+        title: data.title || 'Untitled Notebook',
+        content: data.content || null,
+      },
     });
     revalidatePath('/notebooks');
     return { success: true, notebook };
@@ -69,11 +59,13 @@ export async function createNotebook(data: { title?: string; content?: string })
   }
 }
 
-export async function updateNotebook(id: string, data: Partial<{ title: string; content: string; metadata_json: string }>): Promise<NotebookDetailResponse> {
+export async function updateNotebook(id: string, data: Partial<{ title: string; content: string; metadata_json: string }>): Promise<
+  { success: true; notebook: NotebookRead } | { success: false; error: string }
+> {
   try {
-    const notebook = await apiFetch<NotebookRead>(`/notebooks/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
+    const notebook = await prisma.notebooks.update({
+      where: { id },
+      data,
     });
     revalidatePath('/notebooks');
     revalidatePath(`/notebooks/editor/${id}`);
@@ -84,9 +76,11 @@ export async function updateNotebook(id: string, data: Partial<{ title: string; 
   }
 }
 
-export async function deleteNotebook(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function deleteNotebook(id: string): Promise<
+  { success: true } | { success: false; error: string }
+> {
   try {
-    await apiFetch<void>(`/notebooks/${id}`, { method: 'DELETE' });
+    await prisma.notebooks.delete({ where: { id } });
     revalidatePath('/notebooks');
     return { success: true };
   } catch (error: any) {

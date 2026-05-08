@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-responsive";
-import { getEnquiry, runPipeline, approveEnquiry, executeEnquiry, listEnquiryDocuments, uploadDocument } from "@/app/enquiries/actions";
-import { EnquiryRead, STATUS_COLORS, DocumentRead } from "@/types/api";
+import { getEnquiry, runPipeline, approveEnquiry, executeEnquiry, listEnquiryDocuments, uploadDocument, type ClientSafeEnquiry, type ClientSafeDocument } from "@/app/enquiries/actions";
+import { STATUS_COLORS } from "@/types/api";
 import { ArrowLeft, Play, CheckCircle, Upload, Zap, FileText, Loader2, Image } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,13 +14,13 @@ export default function EnquiryDetailPage() {
   const isMobile = useIsMobile();
   const { id } = useParams();
   const router = useRouter();
-  const [enquiry, setEnquiry] = useState<EnquiryRead | null>(null);
+  const [enquiry, setEnquiry] = useState<ClientSafeEnquiry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pipelineResult, setPipelineResult] = useState<Record<string, unknown> | null>(null);
   const [executionResult, setExecutionResult] = useState<{ executions: ExecutionItem[] } | null>(null);
   const [acting, setActing] = useState(false);
-  const [documents, setDocuments] = useState<DocumentRead[]>([]);
+  const [documents, setDocuments] = useState<ClientSafeDocument[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
 
   const loadEnquiry = useCallback(async () => {
@@ -128,7 +128,7 @@ export default function EnquiryDetailPage() {
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold">{enquiry.client_name}</h2>
-          <p className="text-sm text-muted-foreground">{enquiry.enquiry_number || "No enquiry number"} · <span className={STATUS_COLORS[enquiry.status]}>{enquiry.status.replace(/_/g, " ")}</span></p>
+          <p className="text-sm text-muted-foreground">{enquiry.enquiry_number || "No enquiry number"} · <span className={STATUS_COLORS[enquiry.status as keyof typeof STATUS_COLORS]}>{enquiry.status.replace(/_/g, " ")}</span></p>
         </div>
         <div className="flex gap-2">
           {canRunPipeline && <button onClick={handleRunPipeline} disabled={acting} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"><Play className="h-4 w-4" /> Run AI Pipeline</button>}

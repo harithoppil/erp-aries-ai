@@ -333,15 +333,41 @@ export async function getConversationMessages(conversationId: string): Promise<
 }
 
 // ── UI Token (for direct Gemini API calls from client) ────────────────────
+// Mints OAuth access token locally using GCA_KEY service account — no Python needed.
+
+let cachedToken: { token: string; expiresAt: number } | null = null;
 
 export async function getGeminiToken(): Promise<
   { success: true; token: string } | { success: false; error: string }
 > {
   try {
-    const res = await fetch(`${API_BASE}/ai/token`);
-    if (!res.ok) throw new Error('Failed to get token');
-    const data = await res.json();
-    return { success: true, token: data.token || data.access_token || '' };
+    // Return cached token if valid for at least 5 more minutes
+    if (cachedToken && cachedToken.expiresAt > Date.now() + 5 * 60 * 1000) {
+      return { success: true, token: cachedToken.token };
+    }
+
+    const { GoogleAuth } = await import('google-auth-library');
+    const keyJson = process.env.GCA_KEY || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+    if (!keyJson) {
+      throw new Error('GCA_KEY or GOOGLE_APPLICATION_CREDENTIALS_JSON env var not set');
+    }
+
+    const parsedKey = typeof keyJson === 'string' ? JSON.parse(keyJson) : keyJson;
+    const auth = new GoogleAuth({
+      credentials: parsedKey,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    });
+
+    const client = await auth.getClient();
+    const { token } = await client.getAccessToken();
+    if (!token) throw new Error('No access token returned');
+
+    cachedToken = {
+      token,
+      expiresAt: Date.now() + 3600 * 1000, // ~1 hour
+    };
+
+    return { success: true, token };
   } catch (error: any) {
     console.error('[ai] getGeminiToken failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to get Gemini token' };

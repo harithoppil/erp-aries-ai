@@ -1,14 +1,28 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-responsive";
-import { useEnquiries } from "@/lib/api";
-import { EnquiryRead, STATUS_COLORS } from "@/types/api";
+import { listEnquiries, type ClientSafeEnquiry } from "./actions";
+import { STATUS_COLORS } from "@/types/api";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
 export default function EnquiriesPage() {
   const isMobile = useIsMobile();
-  const { data: enquiries, error, isLoading } = useEnquiries();
+  const [enquiries, setEnquiries] = useState<ClientSafeEnquiry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listEnquiries().then((result) => {
+      if (result.success) {
+        setEnquiries(result.enquiries);
+      } else {
+        setError(result.error);
+      }
+      setIsLoading(false);
+    });
+  }, []);
 
   return (
     <div>
@@ -22,19 +36,19 @@ export default function EnquiriesPage() {
       {isLoading ? (
         <div className="py-12 text-center text-muted-foreground">Loading...</div>
       ) : error ? (
-        <div className="py-12 text-center text-red-500">{error.message}</div>
-      ) : !enquiries?.length ? (
+        <div className="py-12 text-center text-red-500">{error}</div>
+      ) : !enquiries.length ? (
         <div className="py-12 text-center text-muted-foreground">
           No enquiries yet.{" "}
           <Link href="/enquiries/new" className="text-primary underline">Create one</Link>
         </div>
       ) : isMobile ? (
         <div className="space-y-3">
-          {enquiries.map((e: EnquiryRead) => (
+          {enquiries.map((e) => (
             <Link key={e.id} href={`/enquiries/${e.id}`} className="block rounded-lg border bg-card p-3">
               <div className="flex items-center justify-between">
                 <p className="font-medium">{e.client_name}</p>
-                <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[e.status]}`}>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[e.status as keyof typeof STATUS_COLORS] || ""}`}>
                   {e.status.replace(/_/g, " ")}
                 </span>
               </div>
@@ -55,7 +69,7 @@ export default function EnquiriesPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {enquiries.map((e: EnquiryRead) => (
+              {enquiries.map((e) => (
                 <tr key={e.id} className="hover:bg-muted/50">
                   <td className="px-4 py-3">
                     <Link href={`/enquiries/${e.id}`} className="font-medium text-primary hover:underline">{e.client_name}</Link>
@@ -63,7 +77,7 @@ export default function EnquiriesPage() {
                   <td className="px-4 py-3 text-foreground">{e.industry || "—"}</td>
                   <td className="px-4 py-3 text-foreground">{e.channel}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[e.status]}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[e.status as keyof typeof STATUS_COLORS] || ""}`}>
                       {e.status.replace(/_/g, " ")}
                     </span>
                   </td>

@@ -16,7 +16,7 @@ import FontFamily from "@tiptap/extension-font-family";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 
-import { getNotebook, updateNotebook, type NotebookRead } from "@/lib/api";
+import { getNotebook, updateNotebook, type NotebookRead } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -65,10 +65,14 @@ export default function NotebookEditorPage() {
 
   useEffect(() => {
     if (!id) return;
-    getNotebook(id).then((n) => {
-      setNotebook(n);
-      setTitle(n.title);
-      editor?.commands.setContent(n.content || "<p></p>");
+    getNotebook(id).then((result) => {
+      if (result.success) {
+        setNotebook(result.notebook);
+        setTitle(result.notebook.title);
+        editor?.commands.setContent(result.notebook.content || "<p></p>");
+      } else {
+        toast.error(result.error);
+      }
     }).catch(() => toast.error("Failed to load notebook"));
   }, [id, editor]);
 
@@ -76,12 +80,16 @@ export default function NotebookEditorPage() {
     if (!id || !editor) return;
     setSaving(true);
     try {
-      const updated = await updateNotebook(id, {
+      const result = await updateNotebook(id, {
         title,
         content: editor.getHTML(),
       });
-      setNotebook(updated);
-      toast.success("Saved");
+      if (result.success) {
+        setNotebook(result.notebook);
+        toast.success("Saved");
+      } else {
+        toast.error(result.error);
+      }
     } catch (e) {
       toast.error("Failed to save");
     } finally {

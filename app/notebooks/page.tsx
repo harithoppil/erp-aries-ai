@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { listNotebooks, createNotebook, deleteNotebook, type NotebookRead } from "@/lib/api";
+import { listNotebooks, createNotebook, deleteNotebook, type NotebookRead } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,8 +34,12 @@ export default function NotebooksPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await listNotebooks();
-      setNotebooks(data);
+      const result = await listNotebooks();
+      if (result.success) {
+        setNotebooks(result.notebooks);
+      } else {
+        toast.error(result.error);
+      }
     } catch (e) {
       console.error(e);
       toast.error("Failed to load notebooks");
@@ -52,10 +56,14 @@ export default function NotebooksPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const notebook = await createNotebook({ title: newTitle || "Untitled document" });
-      setDialogOpen(false);
-      setNewTitle("");
-      router.push(`/notebooks/editor/${notebook.id}`);
+      const result = await createNotebook({ title: newTitle || "Untitled document" });
+      if (result.success) {
+        setDialogOpen(false);
+        setNewTitle("");
+        router.push(`/notebooks/editor/${result.notebook.id}`);
+      } else {
+        toast.error(result.error);
+      }
     } catch (e) {
       toast.error("Failed to create notebook");
     } finally {
@@ -79,8 +87,8 @@ export default function NotebooksPage() {
     n.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
+  const formatDate = (iso: string | Date) => {
+    const d = iso instanceof Date ? iso : new Date(iso);
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   };
 
