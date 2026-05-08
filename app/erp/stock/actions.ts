@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { itemgroup, stockvaluationmethod, stockentrytype } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export type ClientSafeItem = {
   id: string;
@@ -122,7 +122,7 @@ export async function createItem(data: {
   try {
     const item = await prisma.items.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         item_code: data.item_code,
         item_name: data.item_name,
         item_group: data.item_group as itemgroup,
@@ -155,7 +155,7 @@ export async function createStockEntry(data: {
   try {
     const entry = await prisma.stock_entries.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         item_id: data.item_id,
         source_warehouse: data.source_warehouse || null,
         target_warehouse: data.target_warehouse || null,

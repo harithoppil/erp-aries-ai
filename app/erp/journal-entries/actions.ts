@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { journalentrytype } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export type ClientSafeJournalEntry = {
   id: string;
@@ -49,7 +49,7 @@ export async function createJournalEntry(data: {
     const amount = data.amount;
     const entry = await prisma.journal_entries.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         entry_number: entryNumber,
         account: data.account,
         entry_type: data.entry_type.toLowerCase() === 'debit' ? journalentrytype.DEBIT : journalentrytype.CREDIT,

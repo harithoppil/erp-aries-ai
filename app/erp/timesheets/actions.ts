@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export type ClientSafeTimesheet = {
   id: string;
@@ -39,7 +39,7 @@ export async function createTimesheet(data: {
   try {
     const timesheet = await prisma.timesheets.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         project_id: data.project_id,
         personnel_id: data.personnel_id,
         date: data.date,

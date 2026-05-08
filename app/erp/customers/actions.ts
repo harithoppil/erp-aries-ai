@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 import { createCustomerSchema } from '@/lib/validators';
 
 export type ClientSafeCustomer = {
@@ -99,7 +99,7 @@ export async function createCustomer(
   try {
     const customer = await prisma.customers.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         customer_name: validated.customer_name,
         customer_code: validated.customer_code,
         contact_person: validated.contact_person || null,

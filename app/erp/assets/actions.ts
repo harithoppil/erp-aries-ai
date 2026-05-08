@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { assetstatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 import { createAssetSchema } from '@/lib/validators';
 
 export type ClientSafeAsset = {
@@ -76,7 +76,7 @@ export async function createAsset(data: {
   try {
     const asset = await prisma.assets.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         asset_name: validated.asset_name,
         asset_code: validated.asset_code,
         asset_category: validated.asset_category,

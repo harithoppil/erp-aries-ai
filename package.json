@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "bun --bun next dev",
+    "build": "bun --bun next build",
+    "start": "bun --bun next start",
     "lint": "eslint",
-    "seed:auth": "npx tsx prisma/seed-auth.ts",
-    "db:push": "npx prisma db push",
-    "db:migrate": "npx prisma migrate dev",
-    "db:generate": "npx prisma generate"
+    "seed:auth": "bun run prisma/seed-auth.ts",
+    "db:push": "bunx --bun prisma db push",
+    "db:migrate": "bunx --bun prisma migrate dev",
+    "db:generate": "bunx --bun prisma generate"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -40,7 +40,6 @@
     "@tiptap/react": "^3.22.5",
     "@tiptap/starter-kit": "^3.22.5",
     "adm-zip": "^0.5.17",
-    "bcryptjs": "^3.0.3",
     "chardet": "^2.1.1",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
@@ -84,7 +83,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/adm-zip": "^0.5.8",
-    "@types/bcryptjs": "^3.0.0",
+    "@types/bun": "^1.3.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

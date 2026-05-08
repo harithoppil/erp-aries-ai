@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 
 import { salesinvoicestatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export type ClientSafeAccount = {
   id: string;
@@ -124,7 +124,7 @@ export async function createInvoice(data: {
     const invoice = await prisma.$transaction(async (tx) => {
       const inv = await tx.sales_invoices.create({
         data: {
-          id: randomUUID(),
+          id: generateId(),
           invoice_number: invoiceNumber,
           customer_name: data.customer_name,
           customer_email: data.customer_email || null,
@@ -144,7 +144,7 @@ export async function createInvoice(data: {
       for (const item of data.items) {
         await tx.invoice_items.create({
           data: {
-            id: randomUUID(),
+            id: generateId(),
             invoice_id: inv.id,
             item_code: item.item_code || null,
             description: item.description,

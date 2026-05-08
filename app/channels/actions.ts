@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export type ClientSafeConnector = {
   id: string;
@@ -69,7 +69,7 @@ export async function createConnector(data: {
   try {
     const connector = await prisma.channel_connectors.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         channel_type: data.channel_type,
         name: data.name,
         config: data.config ?? null,

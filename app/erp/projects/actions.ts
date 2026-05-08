@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { projectstatus, taskstatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 import { createProjectSchema } from '@/lib/validators';
 
 export type ClientSafeProject = {
@@ -110,7 +110,7 @@ export async function createProject(data: {
     const projectCode = `PRJ-${Date.now().toString().slice(-6)}`;
     const project = await prisma.projects.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         project_code: projectCode,
         project_name: validated.project_name,
         project_type: validated.project_type,
@@ -146,7 +146,7 @@ export async function createTask(data: {
   try {
     const task = await prisma.tasks.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         project_id: data.project_id,
         subject: data.subject,
         description: data.description || null,
@@ -189,7 +189,7 @@ export async function assignPersonnel(
 
     await prisma.project_assignments.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         project_id: projectId,
         personnel_id: personnelId,
         role,

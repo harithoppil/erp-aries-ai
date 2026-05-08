@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { quotationstatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 import { createQuotationSchema } from '@/lib/validators';
 
 export type ClientSafeQuotation = {
@@ -76,7 +76,7 @@ export async function createQuotation(data: {
     const quotation = await prisma.$transaction(async (tx) => {
       const qt = await tx.quotations.create({
         data: {
-          id: randomUUID(),
+          id: generateId(),
           quotation_number: quotationNumber,
           customer_id: data.customer_id || null,
           customer_name: validated.customer_name,
@@ -95,7 +95,7 @@ export async function createQuotation(data: {
       for (const item of validated.items) {
         await tx.quotation_items.create({
           data: {
-            id: randomUUID(),
+            id: generateId(),
             quotation_id: qt.id,
             item_code: item.item_code || null,
             description: item.description,

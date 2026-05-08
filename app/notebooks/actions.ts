@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export interface NotebookRead {
   id: string;
@@ -46,7 +46,7 @@ export async function createNotebook(data: { title?: string; content?: string })
   try {
     const notebook = await prisma.notebooks.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         title: data.title || 'Untitled Notebook',
         content: data.content || null,
       },

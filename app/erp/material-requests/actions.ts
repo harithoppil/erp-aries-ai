@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export type ClientSafeMaterialRequest = {
   id: string;
@@ -34,10 +34,10 @@ export async function createMaterialRequest(data: {
   { success: true; request: ClientSafeMaterialRequest } | { success: false; error: string }
 > {
   try {
-    const requestNumber = `MR-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const requestNumber = generateShortCode("MR");
     const request = await prisma.material_requests.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         request_number: requestNumber,
         project_id: data.project_id || null,
         requested_by: data.requested_by,

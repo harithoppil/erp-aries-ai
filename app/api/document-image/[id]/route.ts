@@ -20,10 +20,14 @@ export async function GET(
       );
     }
 
-    const data = await res.arrayBuffer();
+    // Stream the response body directly — zero-copy, no memory buffering
+    // Previously: await res.arrayBuffer() → NextResponse(data) which buffers
+    // the entire file into memory. For large PDFs with concurrent users this
+    // would spike Node.js heap. Streaming via ReadableStream allows constant
+    // memory regardless of file size (backpressure handled automatically).
     const contentType = res.headers.get("content-type") || "application/octet-stream";
 
-    return new NextResponse(data, {
+    return new NextResponse(res.body, {
       status: 200,
       headers: {
         "Content-Type": contentType,

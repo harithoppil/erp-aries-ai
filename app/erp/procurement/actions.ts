@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { postatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 import { createPurchaseOrderSchema } from '@/lib/validators';
 
 export type ClientSafeSupplier = {
@@ -120,7 +120,7 @@ export async function createSupplier(data: {
 }) {
   try {
     const supplier = await prisma.suppliers.create({
-      data: { id: randomUUID(), ...data, rating: data.rating || null }
+      data: { id: generateId(), ...data, rating: data.rating || null }
     });
     revalidatePath('/erp/procurement');
     return { success: true as const, supplier: { ...supplier } as ClientSafeSupplier };
@@ -145,14 +145,14 @@ export async function createPurchaseOrder(data: {
   const validated = parsed.data;
 
   try {
-    const poNumber = `PO-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const poNumber = generateShortCode("PO");
     const subtotal = validated.items.reduce((s, i) => s + i.quantity * i.rate, 0);
     const taxAmount = subtotal * 0.05;
     const total = subtotal + taxAmount;
 
     const po = await prisma.purchase_orders.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         po_number: poNumber,
         supplier_id: validated.supplier_id,
         project_id: validated.project_id || null,
@@ -165,7 +165,7 @@ export async function createPurchaseOrder(data: {
         notes: validated.notes || null,
         po_items: {
           create: validated.items.map(i => ({
-            id: randomUUID(),
+            id: generateId(),
             item_code: i.item_code || null,
             description: i.description,
             quantity: i.quantity,

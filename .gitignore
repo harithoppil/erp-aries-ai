@@ -15,8 +15,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Python build artifacts (not our Next.js lib/ directory)
+# lib/ and lib64/ only appear inside Python packages, not at repo root
 parts/
 sdist/
 var/

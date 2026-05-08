@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 import { createPaymentSchema } from '@/lib/validators';
 
 export type ClientSafePayment = {
@@ -62,7 +62,7 @@ export async function createPayment(data: {
   try {
     const payment = await prisma.payment_entries.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         invoice_id: validated.invoice_id || null,
         amount: validated.amount,
         currency: 'AED',

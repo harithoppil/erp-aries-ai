@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { API_BASE } from '@/lib/api-base';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -120,7 +120,7 @@ export async function createPersona(data: {
   try {
     const persona = await prisma.ai_personas.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         username: data.username,
         nickname: data.nickname,
         position: data.position,
@@ -253,7 +253,7 @@ export async function seedPersonas(): Promise<
     for (const data of builtIn) {
       const existing = await prisma.ai_personas.findUnique({ where: { username: data.username } });
       if (!existing) {
-        await prisma.ai_personas.create({ data: { id: randomUUID(), ...data } });
+        await prisma.ai_personas.create({ data: { id: generateId(), ...data } });
         seeded++;
       }
     }

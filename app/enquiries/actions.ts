@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { enquirystatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export type EnquiryStatus = enquirystatus;
 
@@ -111,7 +111,7 @@ export async function createEnquiry(data: {
     const enquiryNumber = `ENQ-${Date.now().toString().slice(-6)}`;
     const enquiry = await prisma.enquiries.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         enquiry_number: enquiryNumber,
         client_name: data.client_name,
         client_email: data.client_email || null,

@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { query } from '@/lib/db-sql';
 import { listInvoices, type ClientSafeInvoice } from '@/app/erp/accounts/actions';
 import { listPayments, type ClientSafePayment } from '@/app/erp/payments/actions';
 import { listProjects, type ClientSafeProject } from '@/app/erp/projects/actions';
@@ -132,7 +133,7 @@ export async function getGeneralLedger(params: {
     const whereClause = conditions.join(' AND ');
 
     // Fetch entries with running balance (window function)
-    const entries = await prisma.$queryRawUnsafe<Array<{
+    const entries = await query<{
       id: string;
       posting_date: Date;
       account_id: string | null;
@@ -145,7 +146,7 @@ export async function getGeneralLedger(params: {
       balance: number;
       cost_center: string | null;
       remarks: string | null;
-    }>>(`
+    }>(`
       SELECT
         ge.id,
         ge.posting_date,
@@ -163,18 +164,18 @@ export async function getGeneralLedger(params: {
       WHERE ${whereClause}
       ORDER BY ge.posting_date, ge.voucher_no, ge.created_at
       LIMIT 500
-    `, ...queryParams);
+    `, queryParams);
 
     // Calculate totals
-    const totalResult = await prisma.$queryRawUnsafe<Array<{
+    const totalResult = await query<{
       total_debit: number;
       total_credit: number;
-    }>>(`
+    }>(`
       SELECT COALESCE(SUM(ge.debit), 0) as total_debit,
              COALESCE(SUM(ge.credit), 0) as total_credit
       FROM gl_entries ge
       WHERE ${whereClause}
-    `, ...queryParams);
+    `, queryParams);
 
     const totals = totalResult[0] || { total_debit: 0, total_credit: 0 };
 
@@ -246,16 +247,16 @@ export async function getTrialBalance(params: {
     });
 
     // 2. Get opening balances (before from_date)
-    const opening = await prisma.$queryRawUnsafe<Array<{
+    const opening = await query<{
       account_id: string;
       debit: number;
       credit: number;
-    }>>(`
+    }>(`
       SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
       FROM gl_entries
       WHERE posting_date < $1::timestamptz AND is_cancelled = false
       GROUP BY account_id
-    `, fromDate);
+    `, [fromDate]);
 
     const openingMap = new Map<string, { debit: number; credit: number }>();
     for (const r of opening) {
@@ -263,16 +264,16 @@ export async function getTrialBalance(params: {
     }
 
     // 3. Get period movements (from_date to to_date)
-    const period = await prisma.$queryRawUnsafe<Array<{
+    const period = await query<{
       account_id: string;
       debit: number;
       credit: number;
-    }>>(`
+    }>(`
       SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
       FROM gl_entries
       WHERE posting_date >= $1::timestamptz AND posting_date <= $2::timestamptz AND is_cancelled = false
       GROUP BY account_id
-    `, fromDate, toDate);
+    `, [fromDate, toDate]);
 
     const periodMap = new Map<string, { debit: number; credit: number }>();
     for (const r of period) {
@@ -363,16 +364,16 @@ export async function getBalanceSheet(params: {
     });
 
     // 2. Get balances up to as_of_date
-    const balances = await prisma.$queryRawUnsafe<Array<{
+    const balances = await query<{
       account_id: string;
       debit: number;
       credit: number;
-    }>>(`
+    }>(`
       SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
       FROM gl_entries
       WHERE posting_date <= $1::timestamptz AND is_cancelled = false
       GROUP BY account_id
-    `, asOfDate);
+    `, [asOfDate]);
 
     const balanceMap = new Map<string, number>();
     for (const r of balances) {
@@ -474,16 +475,16 @@ export async function getProfitAndLoss(params: {
     });
 
     // 2. Get period balances — note: P&L uses credit - debit (opposite of BS)
-    const balances = await prisma.$queryRawUnsafe<Array<{
+    const balances = await query<{
       account_id: string;
       debit: number;
       credit: number;
-    }>>(`
+    }>(`
       SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
       FROM gl_entries
       WHERE posting_date >= $1::timestamptz AND posting_date <= $2::timestamptz AND is_cancelled = false
       GROUP BY account_id
-    `, fromDate, toDate);
+    `, [fromDate, toDate]);
 
     const balanceMap = new Map<string, number>();
     for (const r of balances) {

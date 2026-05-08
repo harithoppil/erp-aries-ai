@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { salesorderstatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 
 export type ClientSafeSalesOrder = {
   id: string;
@@ -69,7 +69,7 @@ export async function createSalesOrder(data: {
     const order = await prisma.$transaction(async (tx) => {
       const so = await tx.sales_orders.create({
         data: {
-          id: randomUUID(),
+          id: generateId(),
           order_number: orderNumber,
           customer_id: data.customer_id || null,
           customer_name: data.customer_name,
@@ -89,7 +89,7 @@ export async function createSalesOrder(data: {
       for (const item of data.items) {
         await tx.sales_order_items.create({
           data: {
-            id: randomUUID(),
+            id: generateId(),
             sales_order_id: so.id,
             item_code: item.item_code || null,
             description: item.description,

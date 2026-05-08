@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "../lib/password";
 
 const prisma = new PrismaClient();
 
@@ -15,7 +15,7 @@ async function main() {
   if (existing) {
     console.log("Admin user already exists, skipping.");
   } else {
-    const passwordHash = await bcrypt.hash("admin123", 12);
+    const passwordHash = await hashPassword("admin123");
 
     await prisma.users.create({
       data: {
@@ -38,7 +38,7 @@ async function main() {
   });
 
   if (!existingManager) {
-    const passwordHash = await bcrypt.hash("manager123", 12);
+    const passwordHash = await hashPassword("manager123");
 
     await prisma.users.create({
       data: {

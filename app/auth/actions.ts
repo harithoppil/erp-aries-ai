@@ -1,7 +1,7 @@
 "use server";
 
 import { SignJWT, jwtVerify } from "jose";
-import bcrypt from "bcryptjs";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
@@ -74,7 +74,7 @@ export async function loginAction({
   }
 
   // Verify password
-  const passwordValid = await bcrypt.compare(password, user.password_hash);
+  const passwordValid = await verifyPassword(password, user.password_hash);
   if (!passwordValid) {
     return { success: false, error: "Invalid email or password" };
   }
@@ -149,7 +149,7 @@ export async function signupAction({
   }
 
   // Hash password
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
 
   // Create user
   const user = await prisma.users.create({
@@ -280,7 +280,7 @@ export async function seedAdminUser(): Promise<ActionResult> {
     return { success: true, error: "Admin user already exists" };
   }
 
-  const passwordHash = await bcrypt.hash("admin123", 12);
+  const passwordHash = await hashPassword("admin123");
 
   await prisma.users.create({
     data: {

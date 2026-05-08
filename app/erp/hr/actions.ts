@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { personnelstatus, certstatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { generateId, generateShortCode } from '@/lib/uuid';
 import { createPersonnelSchema } from '@/lib/validators';
 
 export type ClientSafePersonnel = {
@@ -47,7 +47,7 @@ export async function createPersonnel(data: {
   try {
     const person = await prisma.personnel.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         employee_id: data.employee_id,
         first_name: data.first_name,
         last_name: data.last_name,
@@ -88,7 +88,7 @@ export async function addCertification(data: {
   try {
     const cert = await prisma.certifications.create({
       data: {
-        id: randomUUID(),
+        id: generateId(),
         personnel_id: data.personnel_id,
         cert_type: data.cert_type,
         issuing_body: data.issuing_body || null,
