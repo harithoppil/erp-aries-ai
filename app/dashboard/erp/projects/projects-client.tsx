@@ -374,7 +374,7 @@ export default function ProjectsClient({ initialProjects, initialTasks }: Projec
                     {filtered.map((p) => {
                       const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.planning;
                       const StatusIcon = cfg.icon;
-                      const typeColor = TYPE_COLORS[p.project_type] || "bg-gray-100 text-gray-700 border-gray-200";
+                      const typeColor = TYPE_COLORS[p.project_type ?? ""] || "bg-gray-100 text-gray-700 border-gray-200";
                       return (
                         <tr key={p.id} onClick={() => router.push(`/dashboard/erp/projects/${p.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">

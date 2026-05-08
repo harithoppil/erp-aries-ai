@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = "postgresql://postgres:Arieserp1!@aries-erp-ai.postgres.database.azure.com:5432/postgres?sslmode=require"
+  schemas  = ["public", "app"]
 }
 
 model accounts {
@@ -26,6 +28,7 @@ model accounts {
   created_at          DateTime              @default(now()) @db.Timestamptz(6)
   gl_entries          gl_entries[]
   journal_entry_lines journal_entry_lines[]
+  @@schema("public")
 }
 
 model ai_conversations {
@@ -42,6 +45,7 @@ model ai_conversations {
   @@index([channel], map: "ix_ai_conversations_channel")
   @@index([persona_id], map: "ix_ai_conversations_persona_id")
   @@index([user_id], map: "ix_ai_conversations_user_id")
+  @@schema("public")
 }
 
 model ai_messages {
@@ -58,6 +62,7 @@ model ai_messages {
 
   @@index([conversation_id], map: "ix_ai_messages_conversation_id")
   @@index([created_at], map: "ix_ai_messages_created_at")
+  @@schema("public")
 }
 
 model ai_personas {
@@ -81,6 +86,7 @@ model ai_personas {
   updated_at            DateTime             @default(now()) @db.Timestamptz(6)
   ai_conversations      ai_conversations[]
   channel_connectors    channel_connectors[]
+  @@schema("public")
 }
 
 model assets {
@@ -112,6 +118,7 @@ model assets {
   @@index([assigned_to_personnel], map: "ix_assets_assigned_to_personnel")
   @@index([assigned_to_project], map: "ix_assets_assigned_to_project")
   @@index([warehouse_id], map: "ix_assets_warehouse_id")
+  @@schema("public")
 }
 
 model audit_log {
@@ -123,6 +130,7 @@ model audit_log {
   node       String?   @db.VarChar(50)
   created_at DateTime  @default(now()) @db.Timestamptz(6)
   enquiries  enquiries @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model bins {
@@ -138,6 +146,7 @@ model bins {
 
   @@index([item_id], map: "ix_bins_item_id")
   @@index([warehouse_id], map: "ix_bins_warehouse_id")
+  @@schema("public")
 }
 
 model certifications {
@@ -153,6 +162,7 @@ model certifications {
 
   @@index([personnel_id], map: "ix_certifications_personnel_id")
   @@index([status], map: "ix_certifications_status")
+  @@schema("public")
 }
 
 model channel_connectors {
@@ -165,6 +175,7 @@ model channel_connectors {
   default_persona_id String?      @db.Uuid
   created_at         DateTime     @default(now()) @db.Timestamptz(6)
   ai_personas        ai_personas? @relation(fields: [default_persona_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model customers {
@@ -182,6 +193,7 @@ model customers {
   created_at     DateTime       @default(now()) @db.Timestamptz(6)
   quotations     quotations[]
   sales_orders   sales_orders[]
+  @@schema("public")
 }
 
 model documents {
@@ -195,6 +207,7 @@ model documents {
   processing_status String    @db.VarChar(50)
   created_at        DateTime  @default(now()) @db.Timestamptz(6)
   enquiries         enquiries @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model enquiries {
@@ -225,6 +238,7 @@ model enquiries {
   workflow_executions workflow_executions[]
 
   @@index([status], map: "ix_enquiries_status")
+  @@schema("public")
 }
 
 model invoice_items {
@@ -236,6 +250,7 @@ model invoice_items {
   rate           Float
   amount         Float
   sales_invoices sales_invoices @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model items {
@@ -254,6 +269,7 @@ model items {
   created_at       DateTime             @default(now()) @db.Timestamptz(6)
   bins             bins[]
   stock_entries    stock_entries[]
+  @@schema("public")
 }
 
 model journal_entries {
@@ -275,6 +291,7 @@ model journal_entries {
   created_at          DateTime              @default(now()) @db.Timestamptz(6)
   subsidiaries        subsidiaries?         @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   journal_entry_lines journal_entry_lines[]
+  @@schema("public")
 }
 
 model maintenance_records {
@@ -287,6 +304,7 @@ model maintenance_records {
   next_due_date    DateTime? @db.Timestamptz(6)
   cost             Float
   assets           assets    @relation(fields: [asset_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model material_requests {
@@ -298,6 +316,7 @@ model material_requests {
   status         String    @db.VarChar(50)
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
   projects       projects? @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model node_executions {
@@ -314,6 +333,7 @@ model node_executions {
   workflow_executions workflow_executions @relation(fields: [execution_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([execution_id], map: "ix_node_executions_execution_id")
+  @@schema("public")
 }
 
 model notebooks {
@@ -323,6 +343,7 @@ model notebooks {
   metadata_json String?
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
+  @@schema("public")
 }
 
 model payment_entries {
@@ -337,6 +358,7 @@ model payment_entries {
   reference_date   DateTime?       @db.Timestamptz(6)
   posting_date     DateTime        @default(now()) @db.Timestamptz(6)
   sales_invoices   sales_invoices? @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model personnel {
@@ -356,6 +378,7 @@ model personnel {
   certifications      certifications[]
   project_assignments project_assignments[]
   timesheets          timesheets[]
+  @@schema("public")
 }
 
 model po_items {
@@ -367,6 +390,7 @@ model po_items {
   rate            Float
   amount          Float
   purchase_orders purchase_orders @relation(fields: [po_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model project_assignments {
@@ -382,6 +406,7 @@ model project_assignments {
 
   @@index([personnel_id], map: "ix_project_assignments_personnel_id")
   @@index([project_id], map: "ix_project_assignments_project_id")
+  @@schema("public")
 }
 
 model projects {
@@ -414,6 +439,7 @@ model projects {
   purchase_orders     purchase_orders[]
   tasks               tasks[]
   timesheets          timesheets[]
+  @@schema("public")
 }
 
 model purchase_orders {
@@ -433,6 +459,7 @@ model purchase_orders {
   po_items          po_items[]
   projects          projects?  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   suppliers         suppliers  @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model quality_inspections {
@@ -445,6 +472,7 @@ model quality_inspections {
   inspected_by      String   @db.VarChar(255)
   inspection_date   DateTime @default(now()) @db.Timestamptz(6)
   created_at        DateTime @default(now()) @db.Timestamptz(6)
+  @@schema("public")
 }
 
 model quotation_items {
@@ -456,6 +484,7 @@ model quotation_items {
   rate         Float
   amount       Float
   quotations   quotations @relation(fields: [quotation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model quotations {
@@ -478,6 +507,7 @@ model quotations {
   customers        customers?        @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   enquiries        enquiries?        @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   sales_orders     sales_orders[]
+  @@schema("public")
 }
 
 model sales_invoices {
@@ -502,6 +532,7 @@ model sales_invoices {
   payment_entries    payment_entries[]
   uploaded_documents uploaded_documents? @relation(fields: [document_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   enquiries          enquiries?          @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model sales_order_items {
@@ -514,6 +545,7 @@ model sales_order_items {
   amount         Float
   delivered_qty  Int
   sales_orders   sales_orders @relation(fields: [sales_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model sales_orders {
@@ -535,6 +567,7 @@ model sales_orders {
   sales_order_items sales_order_items[]
   customers         customers?          @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quotations        quotations?         @relation(fields: [quotation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model stock_entries {
@@ -555,6 +588,7 @@ model stock_entries {
   warehouses_stock_entries_target_warehouseTowarehouses warehouses?    @relation("stock_entries_target_warehouseTowarehouses", fields: [target_warehouse], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([item_id], map: "ix_stock_entries_item_id")
+  @@schema("public")
 }
 
 model suppliers {
@@ -571,6 +605,7 @@ model suppliers {
   created_at         DateTime            @default(now()) @db.Timestamptz(6)
   purchase_orders    purchase_orders[]
   uploaded_documents uploaded_documents? @relation(fields: [document_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model tasks {
@@ -586,6 +621,7 @@ model tasks {
   projects    projects   @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([project_id], map: "ix_tasks_project_id")
+  @@schema("public")
 }
 
 model tax_categories {
@@ -593,6 +629,7 @@ model tax_categories {
   name        String  @unique @db.VarChar(100)
   rate        Float
   description String?
+  @@schema("public")
 }
 
 model timesheets {
@@ -608,6 +645,7 @@ model timesheets {
   projects      projects  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([project_id], map: "ix_timesheets_project_id")
+  @@schema("public")
 }
 
 model ui_dashboards {
@@ -619,6 +657,7 @@ model ui_dashboards {
   is_active          Boolean
   created_at         DateTime @default(now()) @db.Timestamptz(6)
   updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  @@schema("public")
 }
 
 model uploaded_documents {
@@ -641,6 +680,7 @@ model uploaded_documents {
   processed_at       DateTime?        @db.Timestamptz(6)
   sales_invoices     sales_invoices[]
   suppliers          suppliers[]
+  @@schema("public")
 }
 
 model warehouses {
@@ -655,6 +695,7 @@ model warehouses {
   bins                                                     bins[]
   stock_entries_stock_entries_source_warehouseTowarehouses stock_entries[] @relation("stock_entries_source_warehouseTowarehouses")
   stock_entries_stock_entries_target_warehouseTowarehouses stock_entries[] @relation("stock_entries_target_warehouseTowarehouses")
+  @@schema("public")
 }
 
 model workflow_edges {
@@ -666,6 +707,7 @@ model workflow_edges {
   workflows       workflows @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([workflow_id], map: "ix_workflow_edges_workflow_id")
+  @@schema("public")
 }
 
 model workflow_executions {
@@ -683,6 +725,7 @@ model workflow_executions {
 
   @@index([enquiry_id], map: "ix_workflow_executions_enquiry_id")
   @@index([workflow_id], map: "ix_workflow_executions_workflow_id")
+  @@schema("public")
 }
 
 model workflow_nodes {
@@ -698,6 +741,7 @@ model workflow_nodes {
   workflows   workflows @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([workflow_id], map: "ix_workflow_nodes_workflow_id")
+  @@schema("public")
 }
 
 model workflows {
@@ -712,6 +756,7 @@ model workflows {
   workflow_edges      workflow_edges[]
   workflow_executions workflow_executions[]
   workflow_nodes      workflow_nodes[]
+  @@schema("public")
 }
 
 model cost_centers {
@@ -726,6 +771,7 @@ model cost_centers {
   rgt                Int
   created_at         DateTime      @default(now()) @db.Timestamptz(6)
   subsidiaries       subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model fiscal_years {
@@ -738,6 +784,7 @@ model fiscal_years {
   subsidiary_id   String?       @db.Uuid
   created_at      DateTime      @default(now()) @db.Timestamptz(6)
   subsidiaries    subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model gl_entries {
@@ -769,6 +816,7 @@ model gl_entries {
   subsidiaries               subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([account_id], map: "ix_gl_entries_account_id")
+  @@schema("public")
 }
 
 model journal_entry_lines {
@@ -790,6 +838,7 @@ model journal_entry_lines {
   projects         projects?       @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([journal_entry_id], map: "ix_journal_entry_lines_journal_entry_id")
+  @@schema("public")
 }
 
 model subsidiaries {
@@ -812,6 +861,7 @@ model subsidiaries {
   fiscal_years               fiscal_years[]
   gl_entries                 gl_entries[]
   journal_entries            journal_entries[]
+  @@schema("public")
 }
 
 enum accounttype {
@@ -822,6 +872,7 @@ enum accounttype {
   EQUITY
   RECEIVABLE
   PAYABLE
+  @@schema("public")
 }
 
 enum assetstatus {
@@ -830,6 +881,7 @@ enum assetstatus {
   UNDER_MAINTENANCE
   CALIBRATION_DUE
   DECOMMISSIONED
+  @@schema("public")
 }
 
 enum certstatus {
@@ -837,6 +889,7 @@ enum certstatus {
   EXPIRING_SOON
   EXPIRED
   SUSPENDED
+  @@schema("public")
 }
 
 enum doctype {
@@ -846,6 +899,7 @@ enum doctype {
   CERTIFICATE
   REPORT
   OTHER
+  @@schema("public")
 }
 
 enum enquirystatus {
@@ -860,6 +914,7 @@ enum enquirystatus {
   EXECUTING
   COMPLETED
   REJECTED
+  @@schema("public")
 }
 
 enum itemgroup {
@@ -868,11 +923,13 @@ enum itemgroup {
   SERVICE
   RAW_MATERIAL
   SPARE_PART
+  @@schema("public")
 }
 
 enum journalentrytype {
   DEBIT
   CREDIT
+  @@schema("public")
 }
 
 enum personnelstatus {
@@ -880,6 +937,7 @@ enum personnelstatus {
   ON_PROJECT
   ON_LEAVE
   INACTIVE
+  @@schema("public")
 }
 
 enum postatus {
@@ -888,6 +946,7 @@ enum postatus {
   APPROVED
   RECEIVED
   CANCELLED
+  @@schema("public")
 }
 
 enum processingstatus {
@@ -895,6 +954,7 @@ enum processingstatus {
   PROCESSING
   COMPLETED
   FAILED
+  @@schema("public")
 }
 
 enum projectstatus {
@@ -903,6 +963,7 @@ enum projectstatus {
   ON_HOLD
   COMPLETED
   CANCELLED
+  @@schema("public")
 }
 
 enum quotationstatus {
@@ -911,6 +972,7 @@ enum quotationstatus {
   ACCEPTED
   REJECTED
   EXPIRED
+  @@schema("public")
 }
 
 enum salesinvoicestatus {
@@ -919,6 +981,7 @@ enum salesinvoicestatus {
   PAID
   CANCELLED
   OVERDUE
+  @@schema("public")
 }
 
 enum salesorderstatus {
@@ -927,6 +990,7 @@ enum salesorderstatus {
   TO_BILL
   COMPLETED
   CANCELLED
+  @@schema("public")
 }
 
 enum stockentrytype {
@@ -934,11 +998,13 @@ enum stockentrytype {
   DELIVERY
   TRANSFER
   MANUFACTURE
+  @@schema("public")
 }
 
 enum stockvaluationmethod {
   FIFO
   MOVING_AVERAGE
+  @@schema("public")
 }
 
 enum taskstatus {
@@ -946,6 +1012,7 @@ enum taskstatus {
   IN_PROGRESS
   REVIEW
   DONE
+  @@schema("public")
 }
 
 // ── RAG / pgvector ─────────────────────────────────────────────────────────
@@ -970,6 +1037,7 @@ model rag_chunks {
   @@index([source_path], name: "idx_rag_chunks_source")
   @@index([modality], name: "idx_rag_chunks_modality")
   @@map("rag_chunks")
+  @@schema("public")
 }
 
 // ── Auth / Users ─────────────────────────────────────────────────────────
@@ -990,6 +1058,7 @@ model users {
   updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   sessions        sessions[]
+  @@schema("public")
 }
 
 model sessions {
@@ -1003,4 +1072,847 @@ model sessions {
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
 
   users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@schema("public")
+}
+
+// ── ERPNext Buying Models (app schema) ─────────────────────────────
+
+model PurchaseOrder {
+  id                              String                    @id @db.Uuid @default(uuid())
+  name                            String                    @unique @db.VarChar(100)
+  docstatus                       Int                       @default(0)
+  naming_series                   String?                   @db.VarChar(100)
+  title                           String?                   @db.VarChar(200)
+  supplier                        String                    @db.VarChar(200)
+  supplier_name                   String?                   @db.VarChar(200)
+  supplier_address                String?                   @db.VarChar(200)
+  supplier_group                  String?                   @db.VarChar(200)
+  company                         String                    @db.VarChar(200)
+  transaction_date                DateTime                  @db.Timestamptz(6)
+  schedule_date                   DateTime?                 @db.Timestamptz(6)
+  currency                        String                    @db.VarChar(3)
+  conversion_rate                 Decimal                   @db.Decimal(18, 6) @default(1)
+  buying_price_list               String?                   @db.VarChar(200)
+  price_list_currency             String?                   @db.VarChar(3)
+  plc_conversion_rate             Decimal                   @db.Decimal(18, 6) @default(1)
+  is_subcontracted                Boolean                   @default(false)
+  is_internal_supplier            Boolean                   @default(false)
+  represents_company              String?                   @db.VarChar(200)
+  status                          String                    @default("Draft") @db.VarChar(50)
+  advance_payment_status          String                    @default("Not Initiated") @db.VarChar(50)
+  per_billed                      Decimal                   @db.Decimal(18, 2) @default(0)
+  per_received                    Decimal                   @db.Decimal(18, 2) @default(0)
+  total                           Decimal                   @db.Decimal(18, 2) @default(0)
+  base_total                      Decimal                   @db.Decimal(18, 2) @default(0)
+  net_total                       Decimal                   @db.Decimal(18, 2) @default(0)
+  base_net_total                  Decimal                   @db.Decimal(18, 2) @default(0)
+  total_taxes_and_charges         Decimal                   @db.Decimal(18, 2) @default(0)
+  base_total_taxes_and_charges    Decimal                   @db.Decimal(18, 2) @default(0)
+  grand_total                     Decimal                   @db.Decimal(18, 2) @default(0)
+  base_grand_total                Decimal                   @db.Decimal(18, 2) @default(0)
+  rounded_total                   Decimal                   @db.Decimal(18, 2) @default(0)
+  base_rounded_total              Decimal                   @db.Decimal(18, 2) @default(0)
+  rounding_adjustment             Decimal                   @db.Decimal(18, 2) @default(0)
+  base_rounding_adjustment        Decimal                   @db.Decimal(18, 2) @default(0)
+  discount_amount                 Decimal                   @db.Decimal(18, 2) @default(0)
+  base_discount_amount            Decimal                   @db.Decimal(18, 2) @default(0)
+  additional_discount_percentage  Decimal                   @db.Decimal(18, 2) @default(0)
+  apply_discount_on               String?                   @db.VarChar(50)
+  has_unit_price_items            Boolean                   @default(false)
+  disable_rounded_total           Boolean                   @default(false)
+  total_qty                       Decimal                   @db.Decimal(18, 2) @default(0)
+  total_net_weight                Decimal                   @db.Decimal(18, 2) @default(0)
+  taxes_and_charges_added         Decimal                   @db.Decimal(18, 2) @default(0)
+  taxes_and_charges_deducted      Decimal                   @db.Decimal(18, 2) @default(0)
+  base_taxes_and_charges_added    Decimal                   @db.Decimal(18, 2) @default(0)
+  base_taxes_and_charges_deducted Decimal                   @db.Decimal(18, 2) @default(0)
+  shipping_rule                   String?                   @db.VarChar(200)
+  tax_category                    String?                   @db.VarChar(200)
+  taxes_and_charges               String?                   @db.VarChar(200)
+  cost_center                     String?                   @db.VarChar(200)
+  project                         String?                   @db.VarChar(200)
+  set_warehouse                   String?                   @db.VarChar(200)
+  set_from_warehouse              String?                   @db.VarChar(200)
+  set_reserve_warehouse           String?                   @db.VarChar(200)
+  supplier_warehouse              String?                   @db.VarChar(200)
+  billing_address                 String?                   @db.VarChar(200)
+  shipping_address                String?                   @db.VarChar(200)
+  dispatch_address                String?                   @db.VarChar(200)
+  contact_person                  String?                   @db.VarChar(200)
+  contact_email                   String?                   @db.Text
+  contact_mobile                  String?                   @db.Text
+  contact_display                 String?                   @db.Text
+  order_confirmation_no           String?                   @db.VarChar(100)
+  order_confirmation_date         DateTime?                 @db.Timestamptz(6)
+  from_date                       DateTime?                 @db.Timestamptz(6)
+  to_date                         DateTime?                 @db.Timestamptz(6)
+  tc_name                         String?                   @db.VarChar(200)
+  terms                           String?                   @db.Text
+  payment_terms_template          String?                   @db.VarChar(200)
+  letter_head                     String?                   @db.VarChar(200)
+  select_print_heading            String?                   @db.VarChar(200)
+  language                        String?                   @db.VarChar(50)
+  incoterm                        String?                   @db.VarChar(200)
+  named_place                     String?                   @db.VarChar(200)
+  group_same_items                Boolean                   @default(false)
+  ignore_pricing_rule             Boolean                   @default(false)
+  inter_company_order_reference   String?                   @db.VarChar(200)
+  ref_sq                          String?                   @db.VarChar(200)
+  customer                        String?                   @db.VarChar(200)
+  customer_name                   String?                   @db.VarChar(200)
+  customer_contact_person         String?                   @db.VarChar(200)
+  customer_contact_email          String?                   @db.Text
+  customer_contact_mobile         String?                   @db.Text
+  customer_contact_display        String?                   @db.Text
+  amended_from                    String?                   @db.VarChar(200)
+  auto_repeat                     String?                   @db.VarChar(200)
+  items                           PurchaseOrderItem[]
+  taxes                           PurchaseOrderTax[]
+  payment_schedule                PurchaseOrderPaymentSchedule[]
+
+  @@schema("app")
+}
+
+model PurchaseOrderItem {
+  id                               String        @id @db.Uuid @default(uuid())
+  parent_id                        String        @db.Uuid
+  name                             String        @unique @db.VarChar(100)
+  idx                              Int
+  item_code                        String?       @db.VarChar(100)
+  item_name                        String?       @db.VarChar(255)
+  description                      String?       @db.Text
+  qty                              Decimal       @db.Decimal(18, 2) @default(0)
+  rate                             Decimal       @db.Decimal(18, 2) @default(0)
+  amount                           Decimal       @db.Decimal(18, 2) @default(0)
+  stock_qty                        Decimal       @db.Decimal(18, 2) @default(0)
+  received_qty                     Decimal       @db.Decimal(18, 2) @default(0)
+  billed_amt                       Decimal       @db.Decimal(18, 2) @default(0)
+  conversion_factor                Decimal       @db.Decimal(18, 6) @default(1)
+  uom                              String?       @db.VarChar(20)
+  stock_uom                        String?       @db.VarChar(20)
+  warehouse                        String?       @db.VarChar(200)
+  schedule_date                    DateTime?     @db.Timestamptz(6)
+  material_request                 String?       @db.VarChar(200)
+  material_request_item            String?       @db.VarChar(200)
+  sales_order                      String?       @db.VarChar(200)
+  sales_order_item                 String?       @db.VarChar(200)
+  production_plan                  String?       @db.VarChar(200)
+  production_plan_sub_assembly_item String?      @db.VarChar(200)
+  supplier_quotation               String?       @db.VarChar(200)
+  supplier_quotation_item          String?       @db.VarChar(200)
+  delivered_by_supplier            Boolean       @default(false)
+  fg_item                          String?       @db.VarChar(100)
+  fg_item_qty                      Decimal       @db.Decimal(18, 2) @default(0)
+  bom                              String?       @db.VarChar(200)
+  subcontracted_qty                Decimal       @db.Decimal(18, 2) @default(0)
+  cost_center                      String?       @db.VarChar(200)
+  project                          String?       @db.VarChar(200)
+  job_card                         String?       @db.VarChar(200)
+  base_price_list_rate             Decimal       @db.Decimal(18, 2) @default(0)
+  discount_percentage              Decimal       @db.Decimal(18, 2) @default(0)
+  base_rate                        Decimal       @db.Decimal(18, 2) @default(0)
+  price_list_rate                  Decimal       @db.Decimal(18, 2) @default(0)
+  last_purchase_rate               Decimal       @db.Decimal(18, 2) @default(0)
+  net_rate                         Decimal       @db.Decimal(18, 2) @default(0)
+  net_amount                       Decimal       @db.Decimal(18, 2) @default(0)
+  base_net_rate                    Decimal       @db.Decimal(18, 2) @default(0)
+  base_net_amount                  Decimal       @db.Decimal(18, 2) @default(0)
+
+  parent PurchaseOrder @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+model PurchaseOrderTax {
+  id                               String        @id @db.Uuid @default(uuid())
+  parent_id                        String        @db.Uuid
+  idx                              Int
+  charge_type                      String        @db.VarChar(50)
+  account_head                     String        @db.VarChar(200)
+  rate                             Decimal       @db.Decimal(18, 2) @default(0)
+  tax_amount                       Decimal       @db.Decimal(18, 2) @default(0)
+  category                         String?       @db.VarChar(50)
+  add_deduct_tax                   String?       @db.VarChar(10)
+  included_in_print_rate           Boolean       @default(false)
+  row_id                           Int?
+  total                            Decimal       @db.Decimal(18, 2) @default(0)
+  tax_amount_after_discount_amount Decimal       @db.Decimal(18, 2) @default(0)
+
+  parent PurchaseOrder @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+model PurchaseOrderPaymentSchedule {
+  id              String        @id @db.Uuid @default(uuid())
+  parent_id       String        @db.Uuid
+  idx             Int
+  payment_term    String?       @db.VarChar(200)
+  description     String?       @db.Text
+  due_date        DateTime?     @db.Timestamptz(6)
+  invoice_portion Decimal       @db.Decimal(18, 2) @default(0)
+  discount        Decimal       @db.Decimal(18, 2) @default(0)
+  discount_type   String?       @db.VarChar(20)
+  payment_amount  Decimal       @db.Decimal(18, 2) @default(0)
+  outstanding     Decimal       @db.Decimal(18, 2) @default(0)
+  mode_of_payment String?       @db.VarChar(200)
+
+  parent PurchaseOrder @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+model Supplier {
+  id                                                  String   @id @db.Uuid @default(uuid())
+  name                                                String   @unique @db.VarChar(200)
+  docstatus                                           Int      @default(0)
+  naming_series                                       String?  @db.VarChar(100)
+  supplier_name                                       String   @db.VarChar(255)
+  supplier_group                                      String?  @db.VarChar(200)
+  supplier_type                                       String?  @db.VarChar(50)
+  country                                             String?  @db.VarChar(100)
+  default_currency                                    String?  @db.VarChar(3)
+  default_price_list                                  String?  @db.VarChar(200)
+  default_bank_account                                String?  @db.VarChar(200)
+  payment_terms                                       String?  @db.VarChar(200)
+  tax_category                                        String?  @db.VarChar(200)
+  tax_id                                              String?  @db.VarChar(50)
+  tax_withholding_category                            String?  @db.VarChar(200)
+  tax_withholding_group                               String?  @db.VarChar(200)
+  website                                             String?  @db.VarChar(255)
+  supplier_details                                    String?  @db.Text
+  image                                               String?  @db.VarChar(500)
+  disabled                                            Boolean  @default(false)
+  is_internal_supplier                                Boolean  @default(false)
+  represents_company                                  String?  @db.VarChar(200)
+  is_frozen                                           Boolean  @default(false)
+  on_hold                                             Boolean  @default(false)
+  hold_type                                           String?  @db.VarChar(50)
+  release_date                                        DateTime? @db.Timestamptz(6)
+  prevent_pos                                         Boolean  @default(false)
+  prevent_rfqs                                        Boolean  @default(false)
+  warn_pos                                            Boolean  @default(false)
+  warn_rfqs                                           Boolean  @default(false)
+  allow_purchase_invoice_creation_without_purchase_order     Boolean @default(false)
+  allow_purchase_invoice_creation_without_purchase_receipt   Boolean @default(false)
+  is_transporter                                      Boolean  @default(false)
+  language                                            String?  @db.VarChar(50)
+  gender                                              String?  @db.VarChar(50)
+  email_id                                            String?  @db.VarChar(255)
+  mobile_no                                           String?  @db.VarChar(50)
+  primary_address                                     String?  @db.Text
+  supplier_primary_address                            String?  @db.VarChar(200)
+  supplier_primary_contact                            String?  @db.VarChar(200)
+  accounts                                            SupplierPartyAccount[]
+  companies                                           SupplierAllowedCompany[]
+  customer_numbers                                    SupplierCustomerNumber[]
+  portal_users                                        SupplierPortalUser[]
+
+  @@schema("app")
+}
+
+model SupplierPartyAccount {
+  id        String   @id @db.Uuid @default(uuid())
+  parent_id String   @db.Uuid
+  company   String   @db.VarChar(200)
+  account   String   @db.VarChar(200)
+
+  parent Supplier @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+model SupplierAllowedCompany {
+  id        String   @id @db.Uuid @default(uuid())
+  parent_id String   @db.Uuid
+  company   String   @db.VarChar(200)
+
+  parent Supplier @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+model SupplierCustomerNumber {
+  id              String   @id @db.Uuid @default(uuid())
+  parent_id       String   @db.Uuid
+  customer        String   @db.VarChar(200)
+  customer_name   String?  @db.VarChar(255)
+  customer_number String?  @db.VarChar(100)
+
+  parent Supplier @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+model SupplierPortalUser {
+  id        String   @id @db.Uuid @default(uuid())
+  parent_id String   @db.Uuid
+  user      String   @db.VarChar(255)
+
+  parent Supplier @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+model RequestForQuotation {
+  id                    String                    @id @db.Uuid @default(uuid())
+  name                  String                    @unique @db.VarChar(100)
+  docstatus             Int                       @default(0)
+  naming_series         String?                   @db.VarChar(100)
+  title                 String?                   @db.VarChar(200)
+  subject               String                    @db.VarChar(255)
+  company               String                    @db.VarChar(200)
+  currency              String?                   @db.VarChar(3)
+  transaction_date      DateTime                  @db.Timestamptz(6)
+  schedule_date         DateTime?                 @db.Timestamptz(6)
+  status                String                    @default("Draft") @db.VarChar(50)
+  has_unit_price_items  Boolean                   @default(false)
+  vendor                String?                   @db.VarChar(200)
+  opportunity           String?                   @db.VarChar(200)
+  incoterm              String?                   @db.VarChar(200)
+  named_place           String?                   @db.VarChar(200)
+  letter_head           String?                   @db.VarChar(200)
+  select_print_heading  String?                   @db.VarChar(200)
+  billing_address       String?                   @db.VarChar(200)
+  shipping_address      String?                   @db.VarChar(200)
+  billing_address_display  String?                @db.Text
+  shipping_address_display String?                @db.Text
+  terms                 String?                   @db.Text
+  tc_name               String?                   @db.VarChar(200)
+  message_for_supplier  String?                   @db.Text
+  mfs_html              String?                   @db.Text
+  use_html              Boolean                   @default(false)
+  email_template        String?                   @db.VarChar(200)
+  send_attached_files   Boolean                   @default(false)
+  send_document_print   Boolean                   @default(false)
+  amended_from          String?                   @db.VarChar(200)
+  items                 RequestForQuotationItem[]
+  suppliers             RequestForQuotationSupplier[]
+
+  @@schema("app")
+}
+
+model RequestForQuotationItem {
+  id                    String   @id @db.Uuid @default(uuid())
+  parent_id             String   @db.Uuid
+  name                  String   @unique @db.VarChar(100)
+  idx                   Int
+  item_code             String?  @db.VarChar(100)
+  item_name             String?  @db.VarChar(255)
+  description           String?  @db.Text
+  qty                   Decimal  @db.Decimal(18, 2) @default(0)
+  uom                   String?  @db.VarChar(20)
+  stock_uom             String?  @db.VarChar(20)
+  stock_qty             Decimal  @db.Decimal(18, 2) @default(0)
+  conversion_factor     Decimal  @db.Decimal(18, 6) @default(1)
+  warehouse             String?  @db.VarChar(200)
+  schedule_date         DateTime? @db.Timestamptz(6)
+  material_request      String?  @db.VarChar(200)
+  material_request_item String?  @db.VarChar(200)
+  sales_order           String?  @db.VarChar(200)
+  supplier_part_no      String?  @db.VarChar(100)
+  project               String?  @db.VarChar(200)
+  brand                 String?  @db.VarChar(200)
+
+  parent RequestForQuotation @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+model RequestForQuotationSupplier {
+  id           String   @id @db.Uuid @default(uuid())
+  parent_id    String   @db.Uuid
+  idx          Int
+  supplier     String   @db.VarChar(200)
+  supplier_name String? @db.VarChar(255)
+  contact      String?  @db.VarChar(200)
+  email_id     String?  @db.VarChar(255)
+  send_email   Boolean  @default(false)
+  email_sent   Boolean  @default(false)
+  quote_status String?  @db.VarChar(50)
+
+  parent RequestForQuotation @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+// ── Manufacturing & Setup (ported from ERPNext) ───────────────────
+
+model WorkOrder {
+  id                                      String   @id @default(uuid()) @db.Uuid
+  name                                    String   @unique @db.VarChar(140)
+  naming_series                           String?  @db.VarChar(140)
+  production_item                         String   @db.VarChar(140)
+  item_name                               String?  @db.VarChar(140)
+  description                             String?  @db.Text
+  stock_uom                               String?  @db.VarChar(140)
+  bom_no                                  String?  @db.VarChar(140)
+  qty                                     Decimal @default(0) @db.Decimal(18, 6)
+  process_loss_qty                        Decimal @default(0) @db.Decimal(18, 6)
+  produced_qty                            Decimal @default(0) @db.Decimal(18, 6)
+  disassembled_qty                        Decimal @default(0) @db.Decimal(18, 6)
+  material_transferred_for_manufacturing  Decimal @default(0) @db.Decimal(18, 6)
+  additional_transferred_qty              Decimal @default(0) @db.Decimal(18, 6)
+  max_producible_qty                      Decimal @default(0) @db.Decimal(18, 6)
+  sales_order                             String?  @db.VarChar(140)
+  sales_order_item                        String?  @db.VarChar(140)
+  project                                 String?  @db.VarChar(140)
+  company                                 String   @db.VarChar(140)
+  status                                  String   @db.VarChar(140)
+  docstatus                               Int      @default(0)
+  skip_transfer                           Boolean @default(false)
+  from_wip_warehouse                      Boolean @default(false)
+  use_multi_level_bom                     Boolean @default(false)
+  track_semi_finished_goods               Boolean @default(false)
+  transfer_material_against               String?  @db.VarChar(140)
+  wip_warehouse                           String?  @db.VarChar(140)
+  fg_warehouse                            String?  @db.VarChar(140)
+  scrap_warehouse                         String?  @db.VarChar(140)
+  source_warehouse                        String?  @db.VarChar(140)
+  planned_start_date                      DateTime? @db.Timestamp(6)
+  planned_end_date                        DateTime? @db.Timestamp(6)
+  actual_start_date                       DateTime? @db.Timestamp(6)
+  actual_end_date                         DateTime? @db.Timestamp(6)
+  expected_delivery_date                  DateTime? @db.Date
+  lead_time                               Decimal @default(0) @db.Decimal(18, 6)
+  planned_operating_cost                  Decimal @default(0) @db.Decimal(18, 2)
+  actual_operating_cost                   Decimal @default(0) @db.Decimal(18, 2)
+  additional_operating_cost               Decimal @default(0) @db.Decimal(18, 2)
+  corrective_operation_cost               Decimal @default(0) @db.Decimal(18, 2)
+  total_operating_cost                    Decimal @default(0) @db.Decimal(18, 2)
+  has_serial_no                           Boolean @default(false)
+  has_batch_no                            Boolean @default(false)
+  batch_size                              Decimal @default(0) @db.Decimal(18, 6)
+  reserve_stock                           Boolean @default(false)
+  allow_alternative_item                  Boolean @default(false)
+  update_consumed_material_cost_in_project Boolean @default(false)
+  production_plan                         String?  @db.VarChar(140)
+  production_plan_item                    String?  @db.VarChar(140)
+  production_plan_sub_assembly_item       String?  @db.VarChar(140)
+  material_request                        String?  @db.VarChar(140)
+  material_request_item                   String?  @db.VarChar(140)
+  subcontracting_inward_order             String?  @db.VarChar(140)
+  subcontracting_inward_order_item        String?  @db.VarChar(140)
+  product_bundle_item                     String?  @db.VarChar(140)
+  mps                                     String?  @db.VarChar(140)
+
+  operations                              WorkOrderOperation[]
+  requiredItems                           WorkOrderItem[]
+
+  @@schema("app")
+}
+
+// ── Address ──────────────────────────────────────────────────────────
+
+
+model WorkOrderItem {
+  id                              String   @id @default(uuid()) @db.Uuid
+  name                            String?  @unique @db.VarChar(140)
+  idx                             Int      @default(0)
+  item_code                       String   @db.VarChar(140)
+  item_name                       String?  @db.VarChar(140)
+  description                     String?  @db.Text
+  operation                       String?  @db.VarChar(140)
+  operation_row_id                Int?     @default(0)
+  source_warehouse                String?  @db.VarChar(140)
+  required_qty                    Decimal @default(0) @db.Decimal(18, 6)
+  stock_uom                       String?  @db.VarChar(140)
+  rate                            Decimal @default(0) @db.Decimal(18, 9)
+  amount                          Decimal @default(0) @db.Decimal(18, 2)
+  transferred_qty                 Decimal @default(0) @db.Decimal(18, 6)
+  consumed_qty                    Decimal @default(0) @db.Decimal(18, 6)
+  returned_qty                    Decimal @default(0) @db.Decimal(18, 6)
+  available_qty_at_source_warehouse Decimal @default(0) @db.Decimal(18, 6)
+  available_qty_at_wip_warehouse  Decimal @default(0) @db.Decimal(18, 6)
+  stock_reserved_qty              Decimal @default(0) @db.Decimal(18, 6)
+  allow_alternative_item          Boolean @default(false)
+  include_item_in_manufacturing   Boolean @default(false)
+  is_additional_item              Boolean @default(false)
+  is_customer_provided_item       Boolean @default(false)
+  voucher_detail_reference        String?  @db.VarChar(140)
+
+  workOrderId                     String   @db.Uuid
+  workOrder                       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+// ── Work Order Operation ───────────────────────────────────────────
+
+
+model WorkOrderOperation {
+  id                              String   @id @default(uuid()) @db.Uuid
+  name                            String?  @unique @db.VarChar(140)
+  idx                             Int      @default(0)
+  operation                       String   @db.VarChar(140)
+  description                     String?  @db.Text
+  workstation                     String?  @db.VarChar(140)
+  workstation_type                String?  @db.VarChar(140)
+  bom                             String?  @db.VarChar(140)
+  bom_no                          String?  @db.VarChar(140)
+  finished_good                   String?  @db.VarChar(140)
+  is_subcontracted                Boolean @default(false)
+  skip_material_transfer          Boolean @default(false)
+  backflush_from_wip_warehouse    Boolean @default(false)
+  source_warehouse                String?  @db.VarChar(140)
+  wip_warehouse                   String?  @db.VarChar(140)
+  fg_warehouse                    String?  @db.VarChar(140)
+  hour_rate                       Decimal @default(0) @db.Decimal(18, 9)
+  time_in_mins                    Decimal @default(0) @db.Decimal(18, 6)
+  batch_size                      Decimal @default(0) @db.Decimal(18, 6)
+  sequence_id                     Int?     @default(0)
+  fixed_time                      Boolean @default(false)
+  set_cost_based_on_bom_qty       Boolean @default(false)
+  quality_inspection_required     Boolean @default(false)
+  planned_start_time              DateTime? @db.Timestamp(6)
+  planned_end_time                DateTime? @db.Timestamp(6)
+  actual_start_time               DateTime? @db.Timestamp(6)
+  actual_end_time                 DateTime? @db.Timestamp(6)
+  actual_operation_time           Decimal @default(0) @db.Decimal(18, 6)
+  planned_operating_cost          Decimal @default(0) @db.Decimal(18, 2)
+  actual_operating_cost           Decimal @default(0) @db.Decimal(18, 2)
+  completed_qty                   Decimal @default(0) @db.Decimal(18, 6)
+  process_loss_qty                Decimal @default(0) @db.Decimal(18, 6)
+  status                          String   @default("Pending") @db.VarChar(140)
+
+  workOrderId                     String   @db.Uuid
+  workOrder                       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+// ── BOM ──────────────────────────────────────────────────────────────
+
+
+model BOM {
+  id                                      String   @id @default(uuid()) @db.Uuid
+  name                                    String   @unique @db.VarChar(140)
+  item                                    String   @db.VarChar(140)
+  item_name                               String?  @db.VarChar(140)
+  description                             String?  @db.Text
+  uom                                     String?  @db.VarChar(140)
+  stock_uom                               String?  @db.VarChar(140)
+  quantity                                Decimal @default(0) @db.Decimal(18, 6)
+  company                                 String   @db.VarChar(140)
+  currency                                String   @db.VarChar(140)
+  conversion_rate                         Decimal @default(1) @db.Decimal(18, 9)
+  price_list_currency                     String?  @db.VarChar(140)
+  plc_conversion_rate                     Decimal @default(1) @db.Decimal(18, 9)
+  rm_cost_as_per                          String?  @db.VarChar(140)
+  buying_price_list                       String?  @db.VarChar(140)
+  with_operations                         Boolean @default(false)
+  track_semi_finished_goods               Boolean @default(false)
+  transfer_material_against               String?  @db.VarChar(140)
+  routing                                 String?  @db.VarChar(140)
+  operating_cost                          Decimal @default(0) @db.Decimal(18, 2)
+  base_operating_cost                     Decimal @default(0) @db.Decimal(18, 2)
+  raw_material_cost                       Decimal @default(0) @db.Decimal(18, 2)
+  base_raw_material_cost                  Decimal @default(0) @db.Decimal(18, 2)
+  secondary_items_cost                    Decimal @default(0) @db.Decimal(18, 2)
+  base_secondary_items_cost               Decimal @default(0) @db.Decimal(18, 2)
+  total_cost                              Decimal @default(0) @db.Decimal(18, 2)
+  base_total_cost                         Decimal @default(0) @db.Decimal(18, 2)
+  cost_allocation_per                     Decimal @default(100) @db.Decimal(18, 6)
+  cost_allocation                         Decimal @default(0) @db.Decimal(18, 2)
+  process_loss_percentage                 Decimal @default(0) @db.Decimal(18, 6)
+  process_loss_qty                        Decimal @default(0) @db.Decimal(18, 6)
+  is_active                               Boolean @default(false)
+  is_default                              Boolean @default(false)
+  is_phantom_bom                          Boolean @default(false)
+  allow_alternative_item                  Boolean @default(false)
+  set_rate_of_sub_assembly_item_based_on_bom Boolean @default(false)
+  fg_based_operating_cost                 Boolean @default(false)
+  operating_cost_per_bom_quantity         Decimal @default(0) @db.Decimal(18, 2)
+  inspection_required                     Boolean @default(false)
+  quality_inspection_template             String?  @db.VarChar(140)
+  default_source_warehouse                String?  @db.VarChar(140)
+  default_target_warehouse                String?  @db.VarChar(140)
+  backflush_based_on                      String?  @db.VarChar(140)
+  project                                 String?  @db.VarChar(140)
+  show_in_website                         Boolean @default(false)
+  route                                   String?  @db.Text
+  website_image                           String?  @db.VarChar(140)
+  thumbnail                               String?  @db.VarChar(140)
+  web_long_description                    String?  @db.Text
+  show_items                              Boolean @default(false)
+  show_operations                         Boolean @default(false)
+  has_variants                            Boolean @default(false)
+  bom_creator                             String?  @db.VarChar(140)
+  bom_creator_item                        String?  @db.VarChar(140)
+  amended_from                            String?  @db.VarChar(140)
+  docstatus                               Int      @default(0)
+
+  items                                   BOMItem[]
+  operations                              BOMOperation[]
+  explodedItems                           BOMExplosionItem[]
+  secondaryItems                          BOMSecondaryItem[]
+
+  @@schema("app")
+}
+
+// ── BOM Item ─────────────────────────────────────────────────────────
+
+
+model BOMItem {
+  id                              String   @id @default(uuid()) @db.Uuid
+  name                            String?  @unique @db.VarChar(140)
+  idx                             Int      @default(0)
+  item_code                       String   @db.VarChar(140)
+  item_name                       String?  @db.VarChar(140)
+  bom_no                          String?  @db.VarChar(140)
+  operation                       String?  @db.VarChar(140)
+  operation_row_id                Int?     @default(0)
+  do_not_explode                  Boolean @default(false)
+  source_warehouse                String?  @db.VarChar(140)
+  allow_alternative_item          Boolean @default(false)
+  is_stock_item                   Boolean @default(false)
+  description                     String?  @db.Text
+  image                           String?  @db.VarChar(140)
+  qty                             Decimal @default(0) @db.Decimal(18, 6)
+  uom                             String?  @db.VarChar(140)
+  stock_qty                       Decimal @default(0) @db.Decimal(18, 6)
+  stock_uom                       String?  @db.VarChar(140)
+  conversion_factor               Decimal @default(1) @db.Decimal(18, 9)
+  rate                            Decimal @default(0) @db.Decimal(18, 9)
+  base_rate                       Decimal @default(0) @db.Decimal(18, 9)
+  amount                          Decimal @default(0) @db.Decimal(18, 2)
+  base_amount                     Decimal @default(0) @db.Decimal(18, 2)
+  qty_consumed_per_unit           Decimal @default(0) @db.Decimal(18, 9)
+  has_variants                    Boolean @default(false)
+  include_item_in_manufacturing   Boolean @default(false)
+  original_item                   String?  @db.VarChar(140)
+  sourced_by_supplier             Boolean @default(false)
+  is_sub_assembly_item            Boolean @default(false)
+  is_phantom_item                 Boolean @default(false)
+
+  bomId                           String   @db.Uuid
+  bom                             BOM @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+// ── BOM Operation ────────────────────────────────────────────────────
+
+
+model BOMOperation {
+  id                              String   @id @default(uuid()) @db.Uuid
+  name                            String?  @unique @db.VarChar(140)
+  idx                             Int      @default(0)
+  operation                       String   @db.VarChar(140)
+  description                     String?  @db.Text
+  workstation                     String?  @db.VarChar(140)
+  workstation_type                String?  @db.VarChar(140)
+  time_in_mins                    Decimal @default(0) @db.Decimal(18, 6)
+  hour_rate                       Decimal @default(0) @db.Decimal(18, 9)
+  base_hour_rate                  Decimal @default(0) @db.Decimal(18, 9)
+  operating_cost                  Decimal @default(0) @db.Decimal(18, 2)
+  base_operating_cost             Decimal @default(0) @db.Decimal(18, 2)
+  batch_size                      Int      @default(1)
+  cost_per_unit                   Decimal @default(0) @db.Decimal(18, 9)
+  base_cost_per_unit              Decimal @default(0) @db.Decimal(18, 9)
+  sequence_id                     Int?     @default(0)
+  fixed_time                      Boolean @default(false)
+  set_cost_based_on_bom_qty       Boolean @default(false)
+  finished_good                   String?  @db.VarChar(140)
+  finished_good_qty               Decimal @default(0) @db.Decimal(18, 6)
+  bom_no                          String?  @db.VarChar(140)
+  is_subcontracted                Boolean @default(false)
+  is_final_finished_good          Boolean @default(false)
+  skip_material_transfer          Boolean @default(false)
+  backflush_from_wip_warehouse    Boolean @default(false)
+  source_warehouse                String?  @db.VarChar(140)
+  wip_warehouse                   String?  @db.VarChar(140)
+  fg_warehouse                    String?  @db.VarChar(140)
+  quality_inspection_required     Boolean @default(false)
+
+  bomId                           String   @db.Uuid
+  bom                             BOM @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+// ── BOM Explosion Item ───────────────────────────────────────────────
+
+
+model BOMExplosionItem {
+  id                              String   @id @default(uuid()) @db.Uuid
+  name                            String?  @unique @db.VarChar(140)
+  item_code                       String   @db.VarChar(140)
+  item_name                       String?  @db.VarChar(140)
+  source_warehouse                String?  @db.VarChar(140)
+  operation                       String?  @db.VarChar(140)
+  description                     String?  @db.Text
+  image                           String?  @db.VarChar(140)
+  stock_qty                       Decimal @default(0) @db.Decimal(18, 6)
+  stock_uom                       String?  @db.VarChar(140)
+  rate                            Decimal @default(0) @db.Decimal(18, 9)
+  amount                          Decimal @default(0) @db.Decimal(18, 2)
+  qty_consumed_per_unit           Decimal @default(0) @db.Decimal(18, 9)
+  include_item_in_manufacturing   Boolean @default(false)
+  sourced_by_supplier             Boolean @default(false)
+  is_sub_assembly_item            Boolean @default(false)
+
+  bomId                           String   @db.Uuid
+  bom                             BOM @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+// ── BOM Secondary Item ───────────────────────────────────────────────
+
+
+model BOMSecondaryItem {
+  id                              String   @id @default(uuid()) @db.Uuid
+  name                            String?  @unique @db.VarChar(140)
+  idx                             Int      @default(0)
+  type                            String?  @db.VarChar(140)
+  item_code                       String   @db.VarChar(140)
+  item_name                       String?  @db.VarChar(140)
+  uom                             String?  @db.VarChar(140)
+  stock_uom                       String?  @db.VarChar(140)
+  qty                             Decimal @default(0) @db.Decimal(18, 6)
+  stock_qty                       Decimal @default(0) @db.Decimal(18, 6)
+  conversion_factor               Decimal @default(1) @db.Decimal(18, 9)
+  cost_allocation_per             Decimal @default(0) @db.Decimal(18, 6)
+  process_loss_per                Decimal @default(0) @db.Decimal(18, 6)
+  process_loss_qty                Decimal @default(0) @db.Decimal(18, 6)
+  cost                            Decimal @default(0) @db.Decimal(18, 2)
+  base_cost                       Decimal @default(0) @db.Decimal(18, 2)
+  rate                            Decimal @default(0) @db.Decimal(18, 9)
+  description                     String?  @db.Text
+  image                           String?  @db.VarChar(140)
+  is_legacy                       Boolean @default(false)
+
+  bomId                           String   @db.Uuid
+  bom                             BOM @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+
+// ── Company ──────────────────────────────────────────────────────────
+
+
+model Company {
+  id                                      String   @id @default(uuid()) @db.Uuid
+  name                                    String   @unique @db.VarChar(140)
+  company_name                            String   @unique @db.VarChar(140)
+  abbr                                    String   @db.VarChar(140)
+  country                                 String   @db.VarChar(140)
+  default_currency                        String   @db.VarChar(140)
+  is_group                                Boolean @default(false)
+  parent_company                          String?  @db.VarChar(140)
+  reporting_currency                      String?  @db.VarChar(140)
+  create_chart_of_accounts_based_on       String?  @db.VarChar(140)
+  existing_company                        String?  @db.VarChar(140)
+  chart_of_accounts                       String?  @db.VarChar(140)
+  enable_perpetual_inventory              Boolean @default(false)
+  enable_item_wise_inventory_account      Boolean @default(false)
+  enable_provisional_accounting_for_non_stock_items Boolean @default(false)
+  default_provisional_account             String?  @db.VarChar(140)
+  default_inventory_account               String?  @db.VarChar(140)
+  valuation_method                        String?  @db.VarChar(140)
+  accounts_frozen_till_date               DateTime? @db.Date
+  default_holiday_list                    String?  @db.VarChar(140)
+  default_letter_head                     String?  @db.VarChar(140)
+  tax_id                                  String?  @db.VarChar(140)
+  domain                                  String?  @db.VarChar(140)
+  date_of_establishment                   DateTime? @db.Date
+  date_of_incorporation                   DateTime? @db.Date
+  date_of_commencement                    DateTime? @db.Date
+  phone_no                                String?  @db.VarChar(140)
+  email                                   String?  @db.VarChar(140)
+  fax                                     String?  @db.VarChar(140)
+  website                                 String?  @db.VarChar(140)
+  company_description                     String?  @db.Text
+  company_logo                            String?  @db.VarChar(140)
+  default_bank_account                    String?  @db.VarChar(140)
+  default_cash_account                    String?  @db.VarChar(140)
+  default_receivable_account              String?  @db.VarChar(140)
+  default_payable_account                 String?  @db.VarChar(140)
+  default_expense_account                 String?  @db.VarChar(140)
+  default_income_account                  String?  @db.VarChar(140)
+  stock_received_but_not_billed           String?  @db.VarChar(140)
+  stock_adjustment_account                String?  @db.VarChar(140)
+  write_off_account                       String?  @db.VarChar(140)
+  default_discount_account                String?  @db.VarChar(140)
+  unrealized_profit_loss_account          String?  @db.VarChar(140)
+  exchange_gain_loss_account              String?  @db.VarChar(140)
+  unrealized_exchange_gain_loss_account   String?  @db.VarChar(140)
+  round_off_account                       String?  @db.VarChar(140)
+  round_off_cost_center                   String?  @db.VarChar(140)
+  round_off_for_opening                   String?  @db.VarChar(140)
+  default_deferred_revenue_account        String?  @db.VarChar(140)
+  default_deferred_expense_account        String?  @db.VarChar(140)
+  accumulated_depreciation_account        String?  @db.VarChar(140)
+  depreciation_expense_account            String?  @db.VarChar(140)
+  disposal_account                        String?  @db.VarChar(140)
+  capital_work_in_progress_account        String?  @db.VarChar(140)
+  asset_received_but_not_billed           String?  @db.VarChar(140)
+  cost_center                             String?  @db.VarChar(140)
+  depreciation_cost_center                String?  @db.VarChar(140)
+  default_operating_cost_account          String?  @db.VarChar(140)
+  default_wip_warehouse                   String?  @db.VarChar(140)
+  default_fg_warehouse                    String?  @db.VarChar(140)
+  default_scrap_warehouse                 String?  @db.VarChar(140)
+  default_warehouse_for_sales_return      String?  @db.VarChar(140)
+  default_in_transit_warehouse            String?  @db.VarChar(140)
+  default_finance_book                    String?  @db.VarChar(140)
+  default_advance_received_account        String?  @db.VarChar(140)
+  default_advance_paid_account            String?  @db.VarChar(140)
+  book_advance_payments_in_separate_party_account Boolean @default(false)
+  reconcile_on_advance_payment_date       Boolean @default(false)
+  reconciliation_takes_effect_on          String?  @db.VarChar(140)
+  auto_exchange_rate_revaluation          Boolean @default(false)
+  auto_err_frequency                      String?  @db.VarChar(140)
+  submit_err_jv                           Boolean @default(false)
+  exception_budget_approver_role          String?  @db.VarChar(140)
+  series_for_depreciation_entry           String?  @db.VarChar(140)
+  allow_account_creation_against_child_company Boolean @default(false)
+  payment_terms                           String?  @db.VarChar(140)
+  default_buying_terms                    String?  @db.VarChar(140)
+  default_selling_terms                   String?  @db.VarChar(140)
+  default_sales_contact                   String?  @db.VarChar(140)
+  credit_limit                            Decimal @default(0) @db.Decimal(18, 2)
+  monthly_sales_target                    Decimal @default(0) @db.Decimal(18, 2)
+  total_monthly_sales                     Decimal @default(0) @db.Decimal(18, 2)
+  sales_monthly_history                   String?  @db.Text
+  transactions_annual_history             String?  @db.Text
+  lft                                     Int      @default(0)
+  rgt                                     Int      @default(0)
+  old_parent                              String?  @db.VarChar(140)
+  docstatus                               Int      @default(0)
+
+  @@schema("app")
+}
+
+// ── Fiscal Year ──────────────────────────────────────────────────────
+
+
+model FiscalYear {
+  id                              String   @id @default(uuid()) @db.Uuid
+  name                            String   @unique @db.VarChar(140)
+  year                            String   @unique @db.VarChar(140)
+  year_start_date                 DateTime @db.Date
+  year_end_date                   DateTime @db.Date
+  disabled                        Boolean @default(false)
+  is_short_year                   Boolean @default(false)
+  auto_created                    Boolean @default(false)
+
+  companies                       FiscalYearCompany[]
+
+  @@schema("app")
+}
+
+// ── Fiscal Year Company ──────────────────────────────────────────────
+
+
+model FiscalYearCompany {
+  id                              String   @id @default(uuid()) @db.Uuid
+  name                            String?  @unique @db.VarChar(140)
+  company                         String   @db.VarChar(140)
+
+  fiscalYearId                    String   @db.Uuid
+  fiscalYear                      FiscalYear @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+
+  @@schema("app")
 }

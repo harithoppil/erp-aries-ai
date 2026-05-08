@@ -1,234 +1,171 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { personnelstatus, certstatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { generateId, generateShortCode } from '@/lib/uuid';
-import { createPersonnelSchema } from '@/lib/validators';
+import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeCallMethod } from '@/lib/frappe-client';
 
 export type ClientSafePersonnel = {
   id: string;
-  employee_id: string;
   first_name: string;
-  last_name: string;
+  last_name: string | null;
   email: string | null;
-  phone: string | null;
-  status: string;
   designation: string | null;
   department: string | null;
-  day_rate: number | null;
-  currency: string;
+  status: string;
+  date_of_joining: Date | null;
   created_at: Date;
+};
+
+export type ClientSafeCertification = {
+  id: string;
+  personnel_id: string;
+  cert_type: string;
+  cert_number: string | null;
+  issuing_body: string | null;
+  issue_date: Date | null;
+  expiry_date: Date | null;
+  status: string;
 };
 
 export async function listPersonnel(): Promise<
   { success: true; personnel: ClientSafePersonnel[] } | { success: false; error: string }
 > {
   try {
-    const personnel = await prisma.personnel.findMany({ orderBy: { created_at: 'desc' } });
-    return { success: true, personnel: personnel.map((p) => ({ ...p, status: String(p.status) })) };
-  } catch (error) {
-    console.error('Error fetching personnel:', error);
-    return { success: false, error: 'Failed to fetch personnel' };
+    const employees = await frappeGetList<any>('Employee', {
+      fields: ['name', 'first_name', 'last_name', 'personal_email', 'designation', 'department', 'status', 'date_of_joining', 'creation'],
+      order_by: 'creation desc',
+      limit_page_length: 500,
+    });
+
+    return {
+      success: true,
+      personnel: employees.map((e: any) => ({
+        id: e.name,
+        first_name: e.first_name || 'Unknown',
+        last_name: e.last_name || null,
+        email: e.personal_email || null,
+        designation: e.designation || null,
+        department: e.department || null,
+        status: e.status || 'Active',
+        date_of_joining: e.date_of_joining ? new Date(e.date_of_joining) : null,
+        created_at: e.creation ? new Date(e.creation) : new Date(),
+      })),
+    };
+  } catch (error: any) {
+    console.error('Error fetching personnel:', error?.message);
+    return { success: false, error: error?.message || 'Failed to fetch personnel' };
   }
 }
 
 export async function createPersonnel(data: {
-  employee_id: string;
+  employee_id?: string;
   first_name: string;
-  last_name: string;
+  last_name?: string;
   email?: string;
-  phone?: string;
   designation?: string;
   department?: string;
+  date_of_joining?: string;
   day_rate?: number;
-  currency?: string;
 }) {
   try {
-    const person = await prisma.personnel.create({
-      data: {
-        id: generateId(),
-        employee_id: data.employee_id,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        email: data.email || null,
-        phone: data.phone || null,
-        status: personnelstatus.ACTIVE,
-        designation: data.designation || null,
-        department: data.department || null,
-        day_rate: data.day_rate || null,
-        currency: data.currency || 'AED',
-      }
+    const doc = await frappeInsertDoc<any>('Employee', {
+      first_name: data.first_name,
+      last_name: data.last_name || undefined,
+      personal_email: data.email || undefined,
+      designation: data.designation || undefined,
+      department: data.department || undefined,
+      date_of_joining: data.date_of_joining || undefined,
+      status: 'Active',
     });
     revalidatePath('/erp/hr');
-    return { success: true as const, person: { ...person, status: String(person.status) } as ClientSafePersonnel };
+    return {
+      success: true as const,
+      personnel: {
+        id: doc.name,
+        first_name: doc.first_name || 'Unknown',
+        last_name: doc.last_name || null,
+        email: doc.personal_email || null,
+        designation: doc.designation || null,
+        department: doc.department || null,
+        status: 'Active',
+        date_of_joining: data.date_of_joining ? new Date(data.date_of_joining) : null,
+        created_at: new Date(),
+      } as ClientSafePersonnel,
+    };
   } catch (error: any) {
-    if (error.code === 'P2002') return { success: false as const, error: 'Employee ID already exists' };
-    return { success: false as const, error: 'Failed to create personnel' };
+    return { success: false as const, error: error?.message || 'Failed to create personnel' };
   }
 }
 
-export async function listCertifications() {
-  try {
-    const certifications = await prisma.certifications.findMany({ orderBy: { issue_date: 'desc' } });
-    return { success: true as const, certifications };
-  } catch (error) {
-    return { success: false as const, error: 'Failed to fetch certifications' };
-  }
-}
-
-export async function addCertification(data: {
-  personnel_id: string;
-  cert_type: string;
-  issuing_body?: string;
-  issue_date?: Date;
-  expiry_date?: Date;
-  cert_number?: string;
-}) {
-  try {
-    const cert = await prisma.certifications.create({
-      data: {
-        id: generateId(),
-        personnel_id: data.personnel_id,
-        cert_type: data.cert_type,
-        issuing_body: data.issuing_body || null,
-        issue_date: data.issue_date || null,
-        expiry_date: data.expiry_date || null,
-        cert_number: data.cert_number || null,
-        status: certstatus.VALID,
-      }
-    });
-    revalidatePath('/erp/hr');
-    return { success: true as const, certification: cert };
-  } catch (error) {
-    return { success: false as const, error: 'Failed to add certification' };
-  }
-}
-
-export type ClientSafeCertification = {
-  id: string;
-  personnel_id: string;
-  cert_type: string;
-  issuing_body: string | null;
-  issue_date: Date | null;
-  expiry_date: Date | null;
-  cert_number: string | null;
-  status: string;
-};
-
-export async function getComplianceAlerts(): Promise<
-  { success: true; alerts: ClientSafeCertification[] } | { success: false; error: string }
+export async function listComplianceAlerts(): Promise<
+  { success: true; alerts: any[] } | { success: false; error: string }
 > {
   try {
-    const certs = await prisma.certifications.findMany({
-      where: { status: { in: [certstatus.EXPIRED, certstatus.EXPIRING_SOON] } },
-      orderBy: { expiry_date: 'asc' },
-      include: { personnel: { select: { id: true, first_name: true, last_name: true } } },
+    // Fetch certifications expiring within 60 days
+    const sixtyDaysFromNow = new Date();
+    sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
+    const dateStr = sixtyDaysFromNow.toISOString().slice(0, 10);
+
+    const certs = await frappeGetList<any>('Certification', {
+      fields: ['name', 'employee', 'certification_name', 'certification_number', 'issuing_body', 'issue_date', 'expiry_date', 'status'],
+      filters: { expiry_date: ['<=', dateStr], status: ['!=', 'Expired'] },
+      order_by: 'expiry_date asc',
+      limit_page_length: 100,
     });
-    return { success: true, alerts: certs.map(c => ({
-      id: c.id,
-      personnel_id: c.personnel_id,
-      cert_type: c.cert_type,
-      issuing_body: c.issuing_body,
-      issue_date: c.issue_date,
-      expiry_date: c.expiry_date,
-      cert_number: c.cert_number,
-      status: String(c.status),
-    })) };
-  } catch (error) {
-    console.error('Error fetching compliance alerts:', error);
-    return { success: false, error: 'Failed to fetch compliance alerts' };
+
+    return {
+      success: true,
+      alerts: certs.map((c: any) => ({
+        id: c.name,
+        personnel_id: c.employee,
+        cert_type: c.certification_name || 'Certification',
+        cert_number: c.certification_number || null,
+        issuing_body: c.issuing_body || null,
+        issue_date: c.issue_date ? new Date(c.issue_date) : null,
+        expiry_date: c.expiry_date ? new Date(c.expiry_date) : null,
+        status: c.status || 'Valid',
+      })),
+    };
+  } catch (error: any) {
+    console.error('Error fetching compliance alerts:', error?.message);
+    return { success: false, error: error?.message || 'Failed to fetch compliance alerts' };
   }
 }
 
-// ── Personnel Mutations ────────────────────────────────────────────────────
-
-export async function updatePersonnelStatus(id: string, status: personnelstatus) {
+export async function createEmployee(data: {
+  first_name: string;
+  last_name?: string;
+  email?: string;
+  designation?: string;
+  department?: string;
+  date_of_joining?: Date;
+}) {
   try {
-    const record = await prisma.personnel.update({
-      where: { id },
-      data: { status },
+    const employee = await frappeInsertDoc<any>('Employee', {
+      first_name: data.first_name,
+      last_name: data.last_name || undefined,
+      personal_email: data.email || undefined,
+      designation: data.designation || undefined,
+      department: data.department || undefined,
+      date_of_joining: data.date_of_joining ? data.date_of_joining.toISOString().slice(0, 10) : undefined,
+      status: 'Active',
     });
     revalidatePath('/erp/hr');
-    return { success: true, data: record };
+    return {
+      success: true as const,
+      employee: {
+        id: employee.name,
+        first_name: data.first_name,
+        last_name: data.last_name || null,
+        email: data.email || null,
+        designation: data.designation || null,
+        department: data.department || null,
+        status: 'Active',
+        date_of_joining: data.date_of_joining || null,
+        created_at: new Date(),
+      } as ClientSafePersonnel,
+    };
   } catch (error: any) {
-    console.error('[hr] updatePersonnelStatus failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update personnel status' };
-  }
-}
-
-export async function updatePersonnel(
-  id: string,
-  data: Partial<{
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-    designation: string;
-    department: string;
-    day_rate: number;
-  }>
-) {
-  try {
-    const record = await prisma.personnel.update({
-      where: { id },
-      data,
-    });
-    revalidatePath('/erp/hr');
-    return { success: true, data: record };
-  } catch (error: any) {
-    console.error('[hr] updatePersonnel failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update personnel' };
-  }
-}
-
-export async function deletePersonnel(id: string) {
-  try {
-    await prisma.personnel.update({
-      where: { id },
-      data: { status: personnelstatus.INACTIVE },
-    });
-    revalidatePath('/erp/hr');
-    return { success: true };
-  } catch (error: any) {
-    console.error('[hr] deletePersonnel failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete personnel' };
-  }
-}
-
-// ── Certification Mutations ────────────────────────────────────────────────
-
-export async function updateCertification(
-  id: string,
-  data: Partial<{
-    cert_type: string;
-    cert_number: string;
-    issuing_body: string;
-    issue_date: Date;
-    expiry_date: Date;
-    status: certstatus;
-  }>
-) {
-  try {
-    const record = await prisma.certifications.update({
-      where: { id },
-      data,
-    });
-    revalidatePath('/erp/hr');
-    return { success: true, data: record };
-  } catch (error: any) {
-    console.error('[hr] updateCertification failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update certification' };
-  }
-}
-
-export async function deleteCertification(id: string) {
-  try {
-    await prisma.certifications.delete({ where: { id } });
-    revalidatePath('/erp/hr');
-    return { success: true };
-  } catch (error: any) {
-    console.error('[hr] deleteCertification failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete certification' };
+    console.error('Error creating employee:', error?.message);
+    return { success: false as const, error: error?.message || 'Failed to create employee' };
   }
 }

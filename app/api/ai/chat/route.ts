@@ -82,9 +82,9 @@ export async function POST(req: NextRequest) {
 
   // Build history in Chat Completions format
   const history = historyMessages
-    .filter(m => m.role !== "system")
-    .map(m => {
-      const msg: Record<string, any> = { role: m.role, content: m.content };
+    .filter((m: { role: string }) => m.role !== "system")
+    .map((m: { role: string; content: string | null; tool_calls: string | null; tool_call_id: string | null }) => {
+      const msg: Record<string, unknown> = { role: m.role, content: m.content };
       // Restore tool_calls if present
       if (m.tool_calls) {
         try {

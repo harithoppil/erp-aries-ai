@@ -74,7 +74,7 @@ export async function listPersonas(filters?: {
     // List view: truncate about/greeting for performance
     return {
       success: true,
-      personas: personas.map((p) => ({
+      personas: personas.map((p: { about: string | null; greeting: string | null }) => ({
         ...parsePersona(p),
         about: p.about ? p.about.slice(0, 200) + (p.about.length > 200 ? '...' : '') : null,
         greeting: p.greeting ? p.greeting.slice(0, 100) + (p.greeting.length > 100 ? '...' : '') : null,
@@ -315,13 +315,13 @@ export async function chatWithPersona(
 
     // Build history in Chat Completions format
     const history = historyMessages
-      .filter(m => m.role !== 'system')
-      .map(m => {
-        const msg: Record<string, any> = { role: m.role, content: m.content };
+      .filter((m: { role: string }) => m.role !== 'system')
+      .map((m: { role: string; content: string | null; tool_calls: string | null; tool_call_id: string | null }) => {
+        const msg: Record<string, unknown> = { role: m.role, content: m.content };
         if (m.tool_calls) {
           try {
             msg.tool_calls = typeof m.tool_calls === 'string' ? JSON.parse(m.tool_calls) : m.tool_calls;
-          } catch {}
+          } catch { /* ignore parse errors */ }
         }
         if (m.tool_call_id) {
           msg.tool_call_id = m.tool_call_id;

@@ -1,29 +1,40 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
-import { generateId, generateShortCode } from '@/lib/uuid';
+import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeDeleteDoc } from '@/lib/frappe-client';
 
-export interface NotebookRead {
+export type NotebookRead = {
   id: string;
   title: string;
   content: string | null;
   metadata_json: string | null;
-  created_at: Date;
-  updated_at: Date;
-}
+  created_at: string;
+  updated_at: string;
+};
+
+const NOTEBOOK_DOCTYPE = 'Note';
 
 export async function listNotebooks(): Promise<
   { success: true; notebooks: NotebookRead[] } | { success: false; error: string }
 > {
   try {
-    const notebooks = await prisma.notebooks.findMany({
-      orderBy: { updated_at: 'desc' },
+    const notes = await frappeGetList<Record<string, unknown>>(NOTEBOOK_DOCTYPE, {
+      fields: ['name', 'title', 'content', 'modified', 'creation'],
+      order_by: 'creation desc',
+      limit_page_length: 200,
     });
-    return { success: true, notebooks };
+    return {
+      success: true,
+      notebooks: notes.map((n) => ({
+        id: String(n.name),
+        title: String(n.title || n.name),
+        content: String(n.content || ''),
+        metadata_json: null,
+        created_at: String(n.creation || new Date().toISOString()),
+        updated_at: String(n.modified || new Date().toISOString()),
+      })),
+    };
   } catch (error: any) {
-    console.error('[notebooks] listNotebooks failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch notebooks' };
+    return { success: false, error: error?.message || 'Failed to load notebooks' };
   }
 }
 
@@ -31,30 +42,43 @@ export async function getNotebook(id: string): Promise<
   { success: true; notebook: NotebookRead } | { success: false; error: string }
 > {
   try {
-    const notebook = await prisma.notebooks.findUnique({ where: { id } });
-    if (!notebook) return { success: false, error: 'Notebook not found' };
-    return { success: true, notebook };
+    const note = await frappeGetDoc<Record<string, unknown>>(NOTEBOOK_DOCTYPE, id);
+    return {
+      success: true,
+      notebook: {
+        id: String(note.name),
+        title: String(note.title || note.name),
+        content: String(note.content || ''),
+        metadata_json: null,
+        created_at: String(note.creation || new Date().toISOString()),
+        updated_at: String(note.modified || new Date().toISOString()),
+      },
+    };
   } catch (error: any) {
-    console.error('[notebooks] getNotebook failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch notebook' };
+    return { success: false, error: error?.message || 'Failed to load notebook' };
   }
 }
 
-export async function createNotebook(data: { title?: string; content?: string }): Promise<
+export async function createNotebook(data: { title: string; content?: string }): Promise<
   { success: true; notebook: NotebookRead } | { success: false; error: string }
 > {
   try {
-    const notebook = await prisma.notebooks.create({
-      data: {
-        id: generateId(),
-        title: data.title || 'Untitled Notebook',
-        content: data.content || null,
-      },
+    const note = await frappeInsertDoc<Record<string, unknown>>(NOTEBOOK_DOCTYPE, {
+      title: data.title,
+      content: data.content || '',
     });
-    revalidatePath('/notebooks');
-    return { success: true, notebook };
+    return {
+      success: true,
+      notebook: {
+        id: String(note.name),
+        title: String(note.title || note.name),
+        content: String(note.content || ''),
+        metadata_json: null,
+        created_at: String(note.creation || new Date().toISOString()),
+        updated_at: String(note.modified || new Date().toISOString()),
+      },
+    };
   } catch (error: any) {
-    console.error('[notebooks] createNotebook failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create notebook' };
   }
 }
@@ -63,28 +87,27 @@ export async function updateNotebook(id: string, data: Partial<{ title: string; 
   { success: true; notebook: NotebookRead } | { success: false; error: string }
 > {
   try {
-    const notebook = await prisma.notebooks.update({
-      where: { id },
-      data,
-    });
-    revalidatePath('/notebooks');
-    revalidatePath(`/notebooks/editor/${id}`);
-    return { success: true, notebook };
+    const updateData: Record<string, unknown> = {};
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.content !== undefined) updateData.content = data.content;
+
+    const note = await frappeUpdateDoc<Record<string, unknown>>(NOTEBOOK_DOCTYPE, id, updateData);
+    return {
+      success: true,
+      notebook: {
+        id: String(note.name),
+        title: String(note.title || note.name),
+        content: String(note.content || ''),
+        metadata_json: data.metadata_json || null,
+        created_at: String(note.creation || new Date().toISOString()),
+        updated_at: String(note.modified || new Date().toISOString()),
+      },
+    };
   } catch (error: any) {
-    console.error('[notebooks] updateNotebook failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update notebook' };
   }
 }
 
-export async function deleteNotebook(id: string): Promise<
-  { success: true } | { success: false; error: string }
-> {
-  try {
-    await prisma.notebooks.delete({ where: { id } });
-    revalidatePath('/notebooks');
-    return { success: true };
-  } catch (error: any) {
-    console.error('[notebooks] deleteNotebook failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete notebook' };
-  }
+export async function deleteNotebook(id: string): Promise<void> {
+  await frappeDeleteDoc(NOTEBOOK_DOCTYPE, id);
 }

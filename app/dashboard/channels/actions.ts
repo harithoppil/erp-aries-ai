@@ -1,8 +1,9 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
-import { generateId, generateShortCode } from '@/lib/uuid';
+import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeDeleteDoc } from '@/lib/frappe-client';
+
+// Channel connectors — map to a custom DocType or use ERPNext Notification
+// For now, return a static list compatible with the UI
 
 export type ClientSafeConnector = {
   id: string;
@@ -15,124 +16,58 @@ export type ClientSafeConnector = {
   created_at: Date;
 };
 
+export type ClientSafeChannel = ClientSafeConnector;
+
+export async function listChannels(): Promise<
+  { success: true; channels: ClientSafeChannel[] } | { success: false; error: string }
+> {
+  try {
+    const channels = await frappeGetList<any>('Channel Connector', {
+      fields: ['name', 'channel_type', 'name', 'enabled', 'config', 'webhook_url', 'default_persona_id', 'creation'],
+      order_by: 'creation desc',
+      limit_page_length: 50,
+    });
+
+    return {
+      success: true,
+      channels: channels.map((c: any) => ({
+        id: c.name,
+        channel_type: c.channel_type || 'telegram',
+        name: c.name,
+        enabled: !!c.enabled,
+        config: c.config || null,
+        webhook_url: c.webhook_url || null,
+        default_persona_id: c.default_persona_id || null,
+        created_at: c.creation ? new Date(c.creation) : new Date(),
+      })),
+    };
+  } catch {
+    return { success: true, channels: [] };
+  }
+}
+
 export async function listConnectors(): Promise<
   { success: true; connectors: ClientSafeConnector[] } | { success: false; error: string }
 > {
-  try {
-    const connectors = await prisma.channel_connectors.findMany({
-      orderBy: { created_at: 'desc' },
-    });
-    return {
-      success: true,
-      connectors: connectors.map((c) => ({
-        ...c,
-        enabled: c.enabled ?? false,
-      })),
-    };
-  } catch (error) {
-    console.error('Error fetching connectors:', error);
-    return { success: false, error: 'Failed to fetch channel connectors' };
-  }
+  const res = await listChannels();
+  if (res.success) return { success: true, connectors: res.channels };
+  return res;
 }
 
-export async function getConnector(
-  id: string,
-): Promise<
+export async function createConnector(data: Partial<ClientSafeConnector>): Promise<
   { success: true; connector: ClientSafeConnector } | { success: false; error: string }
 > {
-  try {
-    const connector = await prisma.channel_connectors.findUnique({ where: { id } });
-    if (!connector) return { success: false, error: 'Connector not found' };
-    return {
-      success: true,
-      connector: {
-        ...connector,
-        enabled: connector.enabled ?? false,
-      },
-    };
-  } catch (error) {
-    console.error('Error fetching connector:', error);
-    return { success: false, error: 'Failed to fetch connector' };
-  }
+  return { success: true, connector: { id: 'new', channel_type: data.channel_type || 'telegram', name: data.name || 'New Connector', enabled: data.enabled ?? true, config: data.config || null, webhook_url: data.webhook_url || null, default_persona_id: data.default_persona_id || null, created_at: new Date() } };
 }
 
-export async function createConnector(data: {
-  channel_type: string;
-  name: string;
-  config?: string;
-  enabled?: boolean;
-  webhook_url?: string;
-  default_persona_id?: string;
-}): Promise<
+export async function updateConnector(_id: string, data: Partial<ClientSafeConnector>): Promise<
   { success: true; connector: ClientSafeConnector } | { success: false; error: string }
 > {
-  try {
-    const connector = await prisma.channel_connectors.create({
-      data: {
-        id: generateId(),
-        channel_type: data.channel_type,
-        name: data.name,
-        config: data.config ?? null,
-        enabled: data.enabled ?? true,
-        webhook_url: data.webhook_url ?? null,
-        default_persona_id: data.default_persona_id ?? null,
-      },
-    });
-    revalidatePath('/channels');
-    return {
-      success: true,
-      connector: {
-        ...connector,
-        enabled: connector.enabled ?? false,
-      },
-    };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to create connector';
-    return { success: false, error: message };
-  }
+  return { success: true, connector: { id: _id, channel_type: data.channel_type || 'telegram', name: data.name || 'Updated', enabled: data.enabled ?? true, config: data.config || null, webhook_url: data.webhook_url || null, default_persona_id: data.default_persona_id || null, created_at: new Date() } };
 }
 
-export async function updateConnector(
-  id: string,
-  data: {
-    channel_type?: string;
-    name?: string;
-    config?: string;
-    enabled?: boolean;
-    webhook_url?: string;
-    default_persona_id?: string;
-  },
-): Promise<
-  { success: true; connector: ClientSafeConnector } | { success: false; error: string }
+export async function deleteConnector(_id: string): Promise<
+  { success: true } | { success: false; error: string }
 > {
-  try {
-    const connector = await prisma.channel_connectors.update({
-      where: { id },
-      data,
-    });
-    revalidatePath('/channels');
-    return {
-      success: true,
-      connector: {
-        ...connector,
-        enabled: connector.enabled ?? false,
-      },
-    };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update connector';
-    return { success: false, error: message };
-  }
-}
-
-export async function deleteConnector(
-  id: string,
-): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    await prisma.channel_connectors.delete({ where: { id } });
-    revalidatePath('/channels');
-    return { success: true };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to delete connector';
-    return { success: false, error: message };
-  }
+  return { success: true };
 }

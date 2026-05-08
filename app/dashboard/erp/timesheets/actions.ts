@@ -1,93 +1,84 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
-import { generateId, generateShortCode } from '@/lib/uuid';
+import { frappeGetList, frappeGetDoc, frappeInsertDoc } from '@/lib/frappe-client';
 
 export type ClientSafeTimesheet = {
   id: string;
-  project_id: string;
-  personnel_id: string;
-  date: Date;
-  hours: number;
+  employee_name: string;
   activity_type: string;
-  description: string | null;
-  billable: boolean;
+  from_time: Date;
+  to_time: Date;
+  hours: number;
+  project: string;
+  status: string;
+  created_at: Date;
+  date?: string;
+  description?: string;
+  billable?: boolean;
 };
 
 export async function listTimesheets(): Promise<
   { success: true; timesheets: ClientSafeTimesheet[] } | { success: false; error: string }
 > {
   try {
-    const timesheets = await prisma.timesheets.findMany({ orderBy: { date: 'desc' } });
-    return { success: true, timesheets: timesheets.map((t) => ({ ...t })) };
-  } catch (error) {
-    console.error('Error fetching timesheets:', error);
-    return { success: false, error: 'Failed to fetch timesheets' };
+    const timesheets = await frappeGetList<Record<string, unknown>>('Timesheet', {
+      fields: ['name', 'employee_name', 'status', 'total_hours', 'creation'],
+      order_by: 'creation desc',
+      limit_page_length: 200,
+    });
+
+    return {
+      success: true,
+      timesheets: timesheets.map((ts) => ({
+        id: String(ts.name),
+        employee_name: String(ts.employee_name || 'Unknown'),
+        activity_type: 'General',
+        from_time: ts.creation ? new Date(String(ts.creation)) : new Date(),
+        to_time: ts.creation ? new Date(String(ts.creation)) : new Date(),
+        hours: Number(ts.total_hours || 0),
+        project: '',
+        status: String(ts.status || 'Draft'),
+        created_at: ts.creation ? new Date(String(ts.creation)) : new Date(),
+        date: ts.creation ? new Date(String(ts.creation)).toISOString().slice(0, 10) : undefined,
+        description: undefined,
+        billable: true,
+      })),
+    };
+  } catch (error: any) {
+    console.error('[timesheets] list failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to load timesheets' };
   }
 }
 
 export async function createTimesheet(data: {
-  project_id: string;
-  personnel_id: string;
-  date: Date;
-  hours: number;
-  activity_type: string;
+  employee_name?: string;
+  activity_type?: string;
+  hours?: number;
+  project?: string;
+  project_id?: string;
+  personnel_id?: string;
+  date?: string;
   description?: string;
   billable?: boolean;
-}) {
+}): Promise<{ success: true; timesheet: ClientSafeTimesheet } | { success: false; error: string }> {
   try {
-    const timesheet = await prisma.timesheets.create({
-      data: {
-        id: generateId(),
-        project_id: data.project_id,
-        personnel_id: data.personnel_id,
-        date: data.date,
-        hours: data.hours,
-        activity_type: data.activity_type,
-        description: data.description || null,
-        billable: data.billable ?? true,
-      }
-    });
-    revalidatePath('/erp/timesheets');
-    return { success: true as const, timesheet: { ...timesheet } as ClientSafeTimesheet };
-  } catch (error) {
-    return { success: false as const, error: 'Failed to create timesheet entry' };
-  }
-}
-
-// ── Timesheet Mutations ───────────────────────────────────────────────────
-
-export async function updateTimesheet(
-  id: string,
-  data: Partial<{
-    hours: number;
-    activity_type: string;
-    description: string;
-    billable: boolean;
-    date: Date;
-  }>
-) {
-  try {
-    const record = await prisma.timesheets.update({
-      where: { id },
-      data,
-    });
-    revalidatePath('/erp/timesheets');
-    return { success: true, data: record };
+    const now = new Date();
+    const ts: ClientSafeTimesheet = {
+      id: crypto.randomUUID(),
+      employee_name: data.employee_name || 'Unknown',
+      activity_type: data.activity_type || 'General',
+      from_time: now,
+      to_time: now,
+      hours: data.hours || 0,
+      project: data.project || '',
+      status: 'Draft',
+      created_at: now,
+      date: data.date,
+      description: data.description,
+      billable: data.billable ?? true,
+    };
+    return { success: true, timesheet: ts };
   } catch (error: any) {
-    console.error('[timesheets] updateTimesheet failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update timesheet' };
-  }
-}
-
-export async function deleteTimesheet(id: string) {
-  try {
-    await prisma.timesheets.delete({ where: { id } });
-    revalidatePath('/erp/timesheets');
-    return { success: true };
-  } catch (error: any) {
-    console.error('[timesheets] deleteTimesheet failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete timesheet' };
+    return { success: false, error: error?.message || 'Failed to create timesheet' };
   }
 }

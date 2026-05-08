@@ -295,7 +295,7 @@ export default function HRClient({ initialPersonnel }: HRClientProps) {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <div className="h-8 w-8 rounded-full bg-[#1e3a5f]/10 flex items-center justify-center text-[10px] font-bold text-[#1e3a5f]">
-                                {getInitials(p.first_name, p.last_name)}
+                                {getInitials(p.first_name, p.last_name ?? undefined)}
                               </div>
                               <div>
                                 <p className="font-medium text-[#0f172a]">{fullName || "Unnamed"}</p>

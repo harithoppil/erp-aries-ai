@@ -16,7 +16,7 @@ import remarkGfm from "remark-gfm";
 type SearchMode = "keyword" | "rag";
 
 export default function WikiPage() {
-  const [pages, setPages] = useState<string[]>([]);
+  const [pages, setPages] = useState<WikiPageRead[]>([]);
   const [selectedPage, setSelectedPage] = useState<string | null>(null);
   const [content, setContent] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -101,7 +101,7 @@ export default function WikiPage() {
     if (!editingPage) return;
     setEditSaving(true);
     try {
-      const result = await updateWikiPage(editingPage, editContent, `Update ${editingPage}`);
+      const result = await updateWikiPage(editingPage, editContent);
       if (result.success) {
         toast.success("Page updated");
         setContent(editContent);
@@ -319,30 +319,30 @@ export default function WikiPage() {
                 ) : (
                   <div className="space-y-0.5">
                     {pages.map((p) => (
-                      <div key={p} className="group relative">
+                      <div key={p.path} className="group relative">
                         <button
-                          onClick={() => handleSelectPage(p)}
+                          onClick={() => handleSelectPage(p.path)}
                           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                            selectedPage === p
+                            selectedPage === p.path
                               ? "bg-[#1e3a5f]/10 text-[#1e3a5f] font-medium"
                               : "text-[#64748b] hover:bg-gray-50"
                           }`}
                         >
                           <FileText className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate flex-1">{p}</span>
+                          <span className="truncate flex-1">{p.title || p.path}</span>
                         </button>
                         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleStartEdit(p); }}
+                            onClick={(e) => { e.stopPropagation(); handleStartEdit(p.path); }}
                             className="p-1 rounded hover:bg-gray-200 text-[#64748b] hover:text-[#1e3a5f]"
                             title="Edit page"
                           >
                             <Pencil size={12} />
                           </button>
-                          {deleteConfirm === p ? (
+                          {deleteConfirm === p.path ? (
                             <div className="flex items-center gap-1 bg-red-50 rounded px-1 py-0.5">
                               <button
-                                onClick={(e) => { e.stopPropagation(); handleDelete(p); }}
+                                onClick={(e) => { e.stopPropagation(); handleDelete(p.path); }}
                                 className="text-[10px] font-medium text-red-600 hover:text-red-800"
                               >Yes</button>
                               <button
@@ -352,7 +352,7 @@ export default function WikiPage() {
                             </div>
                           ) : (
                             <button
-                              onClick={(e) => { e.stopPropagation(); setDeleteConfirm(p); }}
+                              onClick={(e) => { e.stopPropagation(); setDeleteConfirm(p.path); }}
                               className="p-1 rounded hover:bg-red-50 text-[#64748b] hover:text-red-600"
                               title="Delete page"
                             >

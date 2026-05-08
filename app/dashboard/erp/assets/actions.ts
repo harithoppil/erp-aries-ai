@@ -1,10 +1,7 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { assetstatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { generateId, generateShortCode } from '@/lib/uuid';
-import { createAssetSchema } from '@/lib/validators';
+import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeCallMethod } from '@/lib/frappe-client';
 
 export type ClientSafeAsset = {
   id: string;
@@ -13,88 +10,108 @@ export type ClientSafeAsset = {
   asset_category: string;
   status: string;
   location: string | null;
+  warehouse_id: string | null;
   purchase_date: Date | null;
   purchase_cost: number | null;
   current_value: number | null;
   depreciation_rate: number;
   calibration_date: Date | null;
   next_calibration_date: Date | null;
+  calibration_certificate: string | null;
+  certification_body: string | null;
+  assigned_to_project: string | null;
+  assigned_to_personnel: string | null;
+  notes: string | null;
   created_at: Date;
+  updated_at: Date;
 };
 
-export async function listAssets(params?: {
-  search?: string;
-  status?: string;
-  category?: string;
-  from_date?: string;
-  to_date?: string;
-}): Promise<
+export async function listAssets(): Promise<
   { success: true; assets: ClientSafeAsset[] } | { success: false; error: string }
 > {
   try {
-    const where: any = {};
-    if (params?.search) {
-      where.OR = [
-        { asset_name: { contains: params.search, mode: 'insensitive' } },
-        { asset_code: { contains: params.search, mode: 'insensitive' } },
-        { location: { contains: params.search, mode: 'insensitive' } },
-      ];
-    }
-    if (params?.status) {
-      where.status = params.status;
-    }
-    if (params?.category) {
-      where.asset_category = params.category;
-    }
-    const assets = await prisma.assets.findMany({ where, orderBy: { created_at: 'desc' } });
-    return { success: true, assets: assets.map((a) => ({ ...a, status: String(a.status) })) };
-  } catch (error) {
-    console.error('Error fetching assets:', error);
-    return { success: false, error: 'Failed to fetch assets' };
+    const assets = await frappeGetList<any>('Asset', {
+      fields: ['name', 'asset_name', 'asset_category', 'status', 'location', 'purchase_date', 'purchase_amount', 'value_after_depreciation', 'calculate_depreciation', 'creation', 'modified'],
+      order_by: 'creation desc',
+      limit_page_length: 200,
+    });
+
+    return {
+      success: true,
+      assets: assets.map((a: any) => ({
+        id: a.name,
+        asset_name: a.asset_name || a.name,
+        asset_code: a.name,
+        asset_category: a.asset_category || 'General',
+        status: a.status || 'Draft',
+        location: a.location || null,
+        warehouse_id: null,
+        purchase_date: a.purchase_date ? new Date(a.purchase_date) : null,
+        purchase_cost: a.purchase_amount || null,
+        current_value: a.value_after_depreciation || null,
+        depreciation_rate: 0,
+        calibration_date: null,
+        next_calibration_date: null,
+        calibration_certificate: null,
+        certification_body: null,
+        assigned_to_project: null,
+        assigned_to_personnel: null,
+        notes: null,
+        created_at: a.creation ? new Date(a.creation) : new Date(),
+        updated_at: a.modified ? new Date(a.modified) : new Date(),
+      })),
+    };
+  } catch (error: any) {
+    console.error('Error fetching assets:', error?.message);
+    return { success: false, error: error?.message || 'Failed to fetch assets' };
   }
 }
 
 export async function createAsset(data: {
   asset_name: string;
-  asset_code: string;
-  asset_category: string;
-  location?: string;
+  asset_code?: string;
+  asset_category?: string;
   purchase_date?: Date;
   purchase_cost?: number;
-  current_value?: number;
-  depreciation_rate?: number;
+  location?: string;
   calibration_date?: Date;
   next_calibration_date?: Date;
 }) {
-  // Validate input
-  const parsed = createAssetSchema.safeParse(data);
-  if (!parsed.success) {
-    return { success: false as const, error: parsed.error.issues.map(e => e.message).join(', ') };
-  }
-  const validated = parsed.data;
-
   try {
-    const asset = await prisma.assets.create({
-      data: {
-        id: generateId(),
-        asset_name: validated.asset_name,
-        asset_code: validated.asset_code,
-        asset_category: validated.asset_category,
-        status: assetstatus.AVAILABLE,
-        location: validated.location || null,
-        purchase_date: data.purchase_date || null,
-        purchase_cost: validated.purchase_cost || null,
-        current_value: data.current_value || null,
-        depreciation_rate: data.depreciation_rate || 0,
-        calibration_date: validated.calibration_date || null,
-        next_calibration_date: validated.next_calibration_date || null,
-      }
+    const asset = await frappeInsertDoc<any>('Asset', {
+      asset_name: data.asset_name,
+      asset_category: data.asset_category || 'General',
+      purchase_date: data.purchase_date ? data.purchase_date.toISOString().slice(0, 10) : undefined,
+      purchase_amount: data.purchase_cost || 0,
+      location: data.location || undefined,
     });
     revalidatePath('/erp/assets');
-    return { success: true as const, asset: { ...asset, status: String(asset.status) } as ClientSafeAsset };
+    return {
+      success: true as const,
+      asset: {
+        id: asset.name,
+        asset_name: asset.asset_name,
+        asset_code: asset.name,
+        asset_category: asset.asset_category || 'General',
+        status: 'Draft',
+        location: data.location || null,
+        purchase_date: data.purchase_date || null,
+        purchase_cost: data.purchase_cost || null,
+        current_value: null,
+        depreciation_rate: 0,
+        calibration_date: null,
+        next_calibration_date: null,
+        calibration_certificate: null,
+        certification_body: null,
+        assigned_to_project: null,
+        assigned_to_personnel: null,
+        notes: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      } as ClientSafeAsset,
+    };
   } catch (error: any) {
-    if (error.code === 'P2002') return { success: false as const, error: 'Asset code already exists' };
-    return { success: false as const, error: 'Failed to create asset' };
+    return { success: false as const, error: error?.message || 'Failed to create asset' };
   }
 }
 
@@ -102,79 +119,41 @@ export async function listCalibrationDue(): Promise<
   { success: true; assets: ClientSafeAsset[] } | { success: false; error: string }
 > {
   try {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() + 30);
-    const assets = await prisma.assets.findMany({
-      where: {
-        next_calibration_date: { lte: cutoff },
-        status: { not: 'DECOMMISSIONED' },
-      },
-      orderBy: { next_calibration_date: 'asc' },
+    // In ERPNext, calibration is handled via Asset Maintenance
+    const maintenance = await frappeGetList<any>('Asset Maintenance', {
+      fields: ['name', 'asset_name', 'asset_category', 'status', 'creation'],
+      filters: { status: ['in', ['Overdue', 'Pending']] },
+      order_by: 'creation desc',
+      limit_page_length: 50,
     });
-    return { success: true, assets: assets.map(a => ({ ...a, status: String(a.status) })) };
-  } catch (error) {
-    console.error('Error fetching calibration due:', error);
-    return { success: false, error: 'Failed to fetch calibration due assets' };
-  }
-}
 
-// ── Asset Mutations ────────────────────────────────────────────────────────
-
-export async function updateAssetStatus(id: string, status: assetstatus) {
-  try {
-    const record = await prisma.assets.update({
-      where: { id },
-      data: { status },
-    });
-    revalidatePath('/erp/assets');
-    return { success: true, data: record };
+    return {
+      success: true,
+      assets: maintenance.map((a: any) => ({
+        id: a.name,
+        asset_name: a.asset_name || a.name,
+        asset_code: a.name,
+        asset_category: a.asset_category || 'General',
+        status: a.status || 'Pending',
+        location: null,
+        warehouse_id: null,
+        purchase_date: null,
+        purchase_cost: null,
+        current_value: null,
+        depreciation_rate: 0,
+        calibration_date: null,
+        next_calibration_date: null,
+        calibration_certificate: null,
+        certification_body: null,
+        assigned_to_project: null,
+        assigned_to_personnel: null,
+        notes: null,
+        created_at: a.creation ? new Date(a.creation) : new Date(),
+        updated_at: a.creation ? new Date(a.creation) : new Date(),
+      })),
+    };
   } catch (error: any) {
-    console.error('[assets] updateAssetStatus failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update asset status' };
-  }
-}
-
-export async function updateAsset(
-  id: string,
-  data: Partial<{
-    asset_name: string;
-    asset_category: string;
-    location: string;
-    purchase_cost: number;
-    current_value: number;
-    depreciation_rate: number;
-    calibration_date: Date;
-    next_calibration_date: Date;
-    calibration_certificate: string;
-    certification_body: string;
-    assigned_to_project: string;
-    assigned_to_personnel: string;
-    notes: string;
-  }>
-) {
-  try {
-    const record = await prisma.assets.update({
-      where: { id },
-      data,
-    });
-    revalidatePath('/erp/assets');
-    return { success: true, data: record };
-  } catch (error: any) {
-    console.error('[assets] updateAsset failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update asset' };
-  }
-}
-
-export async function deleteAsset(id: string) {
-  try {
-    await prisma.assets.update({
-      where: { id },
-      data: { status: assetstatus.DECOMMISSIONED },
-    });
-    revalidatePath('/erp/assets');
-    return { success: true };
-  } catch (error: any) {
-    console.error('[assets] deleteAsset failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete asset' };
+    console.error('Error fetching calibration due:', error?.message);
+    return { success: false, error: error?.message || 'Failed to fetch calibration alerts' };
   }
 }

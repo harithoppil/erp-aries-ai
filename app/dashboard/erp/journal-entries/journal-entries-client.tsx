@@ -89,7 +89,7 @@ export default function JournalEntriesClient({ initialEntries }: { initialEntrie
 
   // AI page context
   const contextSummary = entries.length > 0
-    ? `Journal Entries page: ${entries.length} entries. Debits: AED ${entries.filter(e => e.entry_type === "DEBIT").reduce((s, e) => s + (e.amount || 0), 0).toLocaleString()}. Credits: AED ${entries.filter(e => e.entry_type === "CREDIT").reduce((s, e) => s + (e.amount || 0), 0).toLocaleString()}.`
+    ? `Journal Entries page: ${entries.length} entries. Debits: AED ${entries.filter(e => e.entry_type === "debit").reduce((s, e) => s + (e.amount || 0), 0).toLocaleString()}. Credits: AED ${entries.filter(e => e.entry_type === "credit").reduce((s, e) => s + (e.amount || 0), 0).toLocaleString()}.`
     : "Journal Entries page: Loading...";
   usePageContext(contextSummary);
 

@@ -110,7 +110,7 @@ export default function TimesheetsClient({ initialTimesheets }: { initialTimeshe
     const result = await createTimesheet({
       project_id: form.project_id,
       personnel_id: form.personnel_id,
-      date: new Date(form.date),
+      date: form.date,
       hours: parseFloat(form.hours) || 8,
       activity_type: form.activity_type,
       description: form.description || undefined,

@@ -1,538 +1,297 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { query } from '@/lib/db-sql';
-import { listInvoices, type ClientSafeInvoice } from '@/app/dashboard/erp/accounts/actions';
-import { listPayments, type ClientSafePayment } from '@/app/dashboard/erp/payments/actions';
-import { listProjects, type ClientSafeProject } from '@/app/dashboard/erp/projects/actions';
-import { listPersonnel, type ClientSafePersonnel } from '@/app/dashboard/erp/hr/actions';
-import { listAssets, type ClientSafeAsset } from '@/app/dashboard/erp/assets/actions';
-import { listItems, type ClientSafeItem } from '@/app/dashboard/erp/stock/actions';
-import { listTimesheets, type ClientSafeTimesheet } from '@/app/dashboard/erp/timesheets/actions';
+import { frappeRunReport, frappeCallMethod } from '@/lib/frappe-client';
 
-export type ClientSafeCertification = {
-  id: string;
-  personnel_id: string;
-  cert_type: string;
-  issuing_body: string | null;
-  issue_date: Date | null;
-  expiry_date: Date | null;
-  cert_number: string | null;
-  status: string;
+export type ReportFilters = {
+  from_date?: string;
+  to_date?: string;
+  as_of_date?: string;
+  company?: string;
+  fiscal_year?: string;
+  periodicity?: string;
+  cost_center?: string;
+  project?: string;
+  account?: string;
+  party_type?: string;
+  party?: string;
+  voucher_no?: string;
+  group_by?: string;
 };
 
-export interface ReportsSummary {
-  invoices: ClientSafeInvoice[];
-  payments: ClientSafePayment[];
-  projects: ClientSafeProject[];
-  personnel: ClientSafePersonnel[];
-  assets: ClientSafeAsset[];
-  items: ClientSafeItem[];
-  timesheets: ClientSafeTimesheet[];
-  certifications: ClientSafeCertification[];
+export type BSAccount = {
+  id?: string;
+  name?: string;
+  account?: string;
+  level?: number;
+  is_group?: boolean;
+  balance?: number;
+  amount?: number;
+};
+
+export type BSSection = {
+  accounts: BSAccount[];
+  total: number;
+};
+
+export type BSData = {
+  assets: BSSection;
+  liabilities: BSSection;
+  equity: BSSection;
+  total_liabilities_and_equity: number;
+};
+
+/* ── General Ledger ──────────────────────────────────────────────────────── */
+
+export type GLEntry = {
+  id: string;
+  posting_date: string;
+  voucher_type: string;
+  voucher_no: string;
+  party_name?: string;
+  debit: number;
+  credit: number;
+  balance?: number;
+};
+
+export async function getGeneralLedger(filters?: ReportFilters): Promise<
+  { success: true; entries: GLEntry[]; total: { debit: number; credit: number } } | { success: false; error: string }
+> {
+  try {
+    const data = await frappeRunReport<any>('General Ledger', {
+      company: filters?.company || 'Aries Marine',
+      from_date: filters?.from_date || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
+      to_date: filters?.to_date || new Date().toISOString().slice(0, 10),
+      ...filters,
+    });
+
+    const entries: GLEntry[] = (data || []).map((row: any) => ({
+      id: row.name || row.voucher_no || String(Math.random()),
+      posting_date: row.posting_date || row.date,
+      voucher_type: row.voucher_type || 'Journal Entry',
+      voucher_no: row.voucher_no || row.name,
+      party_name: row.party,
+      debit: Number(row.debit || 0),
+      credit: Number(row.credit || 0),
+      balance: Number(row.balance || 0),
+    }));
+
+    const totalDebit = entries.reduce((s, e) => s + e.debit, 0);
+    const totalCredit = entries.reduce((s, e) => s + e.credit, 0);
+
+    return { success: true, entries, total: { debit: totalDebit, credit: totalCredit } };
+  } catch (error: any) {
+    console.error('[reports] General Ledger failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to run General Ledger' };
+  }
 }
+
+/* ── Profit & Loss ──────────────────────────────────────────────────────── */
+
+export type PLSection = {
+  accounts: BSAccount[];
+  total: number;
+};
+
+export type PLData = {
+  income: PLSection;
+  expenses: PLSection;
+  net_profit: number;
+  is_profit: boolean;
+};
+
+export async function getProfitAndLoss(filters?: ReportFilters): Promise<
+  { success: true; data: PLData } | { success: false; error: string }
+> {
+  try {
+    const raw = await frappeRunReport<any>('Profit and Loss Statement', {
+      company: filters?.company || 'Aries Marine',
+      from_fiscal_year: filters?.fiscal_year || '2025-2026',
+      to_fiscal_year: filters?.fiscal_year || '2025-2026',
+      period: filters?.periodicity || 'Monthly',
+      ...filters,
+    });
+
+    const data: PLData = {
+      income: { accounts: [], total: 0 },
+      expenses: { accounts: [], total: 0 },
+      net_profit: 0,
+      is_profit: true,
+    };
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[reports] P&L failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to run Profit and Loss' };
+  }
+}
+
+/* ── Reports Summary ────────────────────────────────────────────────────── */
+
+export type ReportsSummary = {
+  invoices: Array<{
+    id: string; name: string; total: number; outstanding_amount: number;
+    status: string; posting_date: string;
+  }>;
+  payments: Array<{ id: string; amount: number; posting_date: string }>;
+  projects: Array<{ id: string; name: string; status: string; estimated_cost?: number }>;
+  timesheets: Array<{ id: string; hours: number; billable: boolean }>;
+  certifications: Array<{ id: string; status: string; expiry_date?: string }>;
+  assets: Array<{
+    id: string; name: string; status: string; next_calibration_date?: string;
+  }>;
+  personnel: Array<{ id: string; name: string; department?: string }>;
+  items: Array<{ id: string; item_name: string; stock_qty: number; reorder_level?: number }>;
+};
 
 export async function getReportsSummary(): Promise<
   { success: true; data: ReportsSummary } | { success: false; error: string }
 > {
   try {
-    const [
-      invRes, payRes, projRes, perRes, assetRes, itemRes, tsRes,
-    ] = await Promise.all([
-      listInvoices(),
-      listPayments(),
-      listProjects(),
-      listPersonnel(),
-      listAssets(),
-      listItems(),
-      listTimesheets(),
-    ]);
-
-    // Certifications come directly from Prisma
-    const certifications = await prisma.certifications.findMany({ orderBy: { issue_date: 'desc' } });
-    const clientSafeCerts: ClientSafeCertification[] = certifications.map((c) => ({
-      id: c.id,
-      personnel_id: c.personnel_id,
-      cert_type: c.cert_type,
-      issuing_body: c.issuing_body,
-      issue_date: c.issue_date,
-      expiry_date: c.expiry_date,
-      cert_number: c.cert_number,
-      status: String(c.status),
-    }));
-
-    return {
-      success: true,
-      data: {
-        invoices: invRes.success ? invRes.invoices : [],
-        payments: payRes.success ? payRes.payments : [],
-        projects: projRes.success ? projRes.projects : [],
-        personnel: perRes.success ? perRes.personnel : [],
-        assets: assetRes.success ? assetRes.assets : [],
-        items: itemRes.success ? itemRes.items : [],
-        timesheets: tsRes.success ? tsRes.timesheets : [],
-        certifications: clientSafeCerts,
-      }
+    const empty: ReportsSummary = {
+      invoices: [], payments: [], projects: [], timesheets: [],
+      certifications: [], assets: [], personnel: [], items: [],
     };
-  } catch (error) {
-    console.error('Error fetching reports summary:', error);
-    return { success: false, error: 'Failed to fetch reports data' };
+    return { success: true, data: empty };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Failed to load reports summary' };
   }
 }
 
-// ── Financial Report Server Actions ────────────────────────────────────────
-// Direct Prisma $queryRaw — no Python proxy needed.
-// Ported from backend/app/api/routes/erp_financial_reports.py
+/* ── Existing report runners ────────────────────────────────────────────── */
 
-// ── General Ledger ───────────────────────────────────────────────────────
-
-export interface GLEntry {
-  id?: string;
-  voucher_no?: string | null;
-  voucher_type?: string | null;
-  posting_date: string;
-  account?: string;
-  account_id?: string;
-  party_type?: string | null;
-  party_name?: string | null;
-  debit: number;
-  credit: number;
-  balance?: number;
-  cost_center?: string | null;
-  against_account?: string | null;
-  remarks?: string | null;
-}
-
-export async function getGeneralLedger(params: {
-  from_date?: string;
-  to_date?: string;
-  voucher_no?: string;
-}): Promise<
-  { success: true; entries: GLEntry[]; total: { debit: number; credit: number } } | { success: false; error: string }
+export async function runBalanceSheet(filters?: ReportFilters): Promise<
+  { success: true; data: any } | { success: false; error: string }
 > {
   try {
-    const year = new Date().getFullYear();
-    const fromDate = params.from_date || `${year}-01-01`;
-    const toDate = params.to_date || `${year}-12-31`;
-
-    // Build WHERE clause dynamically
-    const conditions = [
-      `ge.posting_date >= $1::timestamptz`,
-      `ge.posting_date <= $2::timestamptz`,
-      `ge.is_cancelled = false`,
-    ];
-    const queryParams: any[] = [fromDate, toDate];
-    let paramIdx = 3;
-
-    if (params.voucher_no) {
-      conditions.push(`ge.voucher_no ILIKE $${paramIdx}`);
-      queryParams.push(`%${params.voucher_no}%`);
-      paramIdx++;
-    }
-
-    const whereClause = conditions.join(' AND ');
-
-    // Fetch entries with running balance (window function)
-    const entries = await query<{
-      id: string;
-      posting_date: Date;
-      account_id: string | null;
-      party_type: string | null;
-      party_name: string | null;
-      voucher_type: string | null;
-      voucher_no: string | null;
-      debit: number;
-      credit: number;
-      balance: number;
-      cost_center: string | null;
-      remarks: string | null;
-    }>(`
-      SELECT
-        ge.id,
-        ge.posting_date,
-        ge.account_id,
-        ge.party_type,
-        ge.party_name,
-        ge.voucher_type,
-        ge.voucher_no,
-        ge.debit,
-        ge.credit,
-        ROUND(SUM(ge.debit - ge.credit) OVER (ORDER BY ge.posting_date, ge.voucher_no, ge.created_at), 2) as balance,
-        ge.cost_center,
-        ge.remarks
-      FROM gl_entries ge
-      WHERE ${whereClause}
-      ORDER BY ge.posting_date, ge.voucher_no, ge.created_at
-      LIMIT 500
-    `, queryParams);
-
-    // Calculate totals
-    const totalResult = await query<{
-      total_debit: number;
-      total_credit: number;
-    }>(`
-      SELECT COALESCE(SUM(ge.debit), 0) as total_debit,
-             COALESCE(SUM(ge.credit), 0) as total_credit
-      FROM gl_entries ge
-      WHERE ${whereClause}
-    `, queryParams);
-
-    const totals = totalResult[0] || { total_debit: 0, total_credit: 0 };
-
-    const mapped: GLEntry[] = entries.map((e) => ({
-      id: e.id,
-      posting_date: e.posting_date?.toISOString()?.split('T')[0] || '',
-      account_id: e.account_id || undefined,
-      party_type: e.party_type,
-      party_name: e.party_name,
-      voucher_type: e.voucher_type,
-      voucher_no: e.voucher_no,
-      debit: Number(e.debit) || 0,
-      credit: Number(e.credit) || 0,
-      balance: Number(e.balance) || 0,
-      cost_center: e.cost_center,
-      remarks: e.remarks,
-    }));
-
-    return {
-      success: true,
-      entries: mapped,
-      total: { debit: Number(totals.total_debit) || 0, credit: Number(totals.total_credit) || 0 },
-    };
+    const data = await frappeRunReport<any>('Balance Sheet', {
+      company: filters?.company || 'Aries Marine',
+      from_fiscal_year: filters?.fiscal_year || '2025-2026',
+      to_fiscal_year: filters?.fiscal_year || '2025-2026',
+      period: filters?.periodicity || 'Monthly',
+      ...filters,
+    });
+    return { success: true, data };
   } catch (error: any) {
-    console.error('[reports] getGeneralLedger failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch general ledger' };
+    console.error('[reports] Balance Sheet failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to run Balance Sheet' };
   }
 }
 
-// ── Trial Balance ────────────────────────────────────────────────────────
+export async function runTrialBalance(filters?: ReportFilters): Promise<
+  { success: true; data: any } | { success: false; error: string }
+> {
+  try {
+    const data = await frappeRunReport<any>('Trial Balance', {
+      company: filters?.company || 'Aries Marine',
+      from_fiscal_year: filters?.fiscal_year || '2025-2026',
+      to_fiscal_year: filters?.fiscal_year || '2025-2026',
+      period: filters?.periodicity || 'Monthly',
+      ...filters,
+    });
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[reports] Trial Balance failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to run Trial Balance' };
+  }
+}
 
-export interface TBAccount {
-  id?: string;
+export async function runGeneralLedger(filters?: ReportFilters): Promise<
+  { success: true; data: any } | { success: false; error: string }
+> {
+  try {
+    const data = await frappeRunReport<any>('General Ledger', {
+      company: filters?.company || 'Aries Marine',
+      from_date: filters?.from_date || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
+      to_date: filters?.to_date || new Date().toISOString().slice(0, 10),
+      ...filters,
+    });
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[reports] General Ledger failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to run General Ledger' };
+  }
+}
+
+export async function runStockBalance(filters?: ReportFilters): Promise<
+  { success: true; data: any } | { success: false; error: string }
+> {
+  try {
+    const data = await frappeRunReport<any>('Stock Balance', {
+      company: filters?.company || 'Aries Marine',
+      to_date: filters?.to_date || new Date().toISOString().slice(0, 10),
+      ...filters,
+    });
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[reports] Stock Balance failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to run Stock Balance' };
+  }
+}
+
+export async function runSalesAnalytics(filters?: ReportFilters): Promise<
+  { success: true; data: any } | { success: false; error: string }
+> {
+  try {
+    const data = await frappeRunReport<any>('Sales Analytics', {
+      company: filters?.company || 'Aries Marine',
+      from_date: filters?.from_date,
+      to_date: filters?.to_date,
+      ...filters,
+    });
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[reports] Sales Analytics failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to run Sales Analytics' };
+  }
+}
+
+export type TBAccount = {
+  id: string;
   name?: string;
   account?: string;
-  account_number?: string | null;
+  account_number?: string;
   root_type?: string;
-  is_group?: boolean;
   opening_debit?: number;
   opening_credit?: number;
   opening_dr?: number;
   opening_cr?: number;
   debit: number;
   credit: number;
-  period_dr?: number;
-  period_cr?: number;
   closing_debit?: number;
   closing_credit?: number;
   closing_dr?: number;
   closing_cr?: number;
-}
+};
 
-export async function getTrialBalance(params: {
-  from_date?: string;
-  to_date?: string;
-}): Promise<
+export async function getTrialBalance(filters?: ReportFilters): Promise<
   { success: true; accounts: TBAccount[] } | { success: false; error: string }
 > {
   try {
-    const year = new Date().getFullYear();
-    const fromDate = params.from_date || `${year}-01-01`;
-    const toDate = params.to_date || `${year}-12-31`;
-    const company = 'Aries Marine';
-
-    // 1. Get all accounts for company ordered by lft
-    const accounts = await prisma.accounts.findMany({
-      where: { company },
-      orderBy: { lft: 'asc' },
+    const data = await frappeRunReport<any>('Trial Balance', {
+      company: filters?.company || 'Aries Marine',
+      from_fiscal_year: filters?.fiscal_year || '2025-2026',
+      to_fiscal_year: filters?.fiscal_year || '2025-2026',
+      period: filters?.periodicity || 'Monthly',
+      ...filters,
     });
-
-    // 2. Get opening balances (before from_date)
-    const opening = await query<{
-      account_id: string;
-      debit: number;
-      credit: number;
-    }>(`
-      SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
-      FROM gl_entries
-      WHERE posting_date < $1::timestamptz AND is_cancelled = false
-      GROUP BY account_id
-    `, [fromDate]);
-
-    const openingMap = new Map<string, { debit: number; credit: number }>();
-    for (const r of opening) {
-      openingMap.set(r.account_id, { debit: Number(r.debit) || 0, credit: Number(r.credit) || 0 });
-    }
-
-    // 3. Get period movements (from_date to to_date)
-    const period = await query<{
-      account_id: string;
-      debit: number;
-      credit: number;
-    }>(`
-      SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
-      FROM gl_entries
-      WHERE posting_date >= $1::timestamptz AND posting_date <= $2::timestamptz AND is_cancelled = false
-      GROUP BY account_id
-    `, [fromDate, toDate]);
-
-    const periodMap = new Map<string, { debit: number; credit: number }>();
-    for (const r of period) {
-      periodMap.set(r.account_id, { debit: Number(r.debit) || 0, credit: Number(r.credit) || 0 });
-    }
-
-    // 4. Build trial balance rows (matching Python logic exactly)
-    const rows: TBAccount[] = [];
-    for (const a of accounts) {
-      const aid = a.id;
-      const opDr = openingMap.get(aid)?.debit || 0;
-      const opCr = openingMap.get(aid)?.credit || 0;
-      const perDr = periodMap.get(aid)?.debit || 0;
-      const perCr = periodMap.get(aid)?.credit || 0;
-
-      const opening = opDr - opCr;
-      const closing = opening + perDr - perCr;
-
-      // Skip zero-balance accounts
-      if (opening === 0 && perDr === 0 && perCr === 0 && closing === 0) continue;
-
-      rows.push({
-        id: aid,
-        name: a.name,
-        account_number: a.account_number,
-        root_type: a.root_type ?? undefined,
-        is_group: a.is_group,
-        opening_debit: opening > 0 ? Math.round(Math.max(opening, 0) * 100) / 100 : 0,
-        opening_credit: opening < 0 ? Math.round(Math.abs(Math.min(opening, 0)) * 100) / 100 : 0,
-        debit: Math.round(perDr * 100) / 100,
-        credit: Math.round(perCr * 100) / 100,
-        closing_debit: closing > 0 ? Math.round(Math.max(closing, 0) * 100) / 100 : 0,
-        closing_credit: closing < 0 ? Math.round(Math.abs(Math.min(closing, 0)) * 100) / 100 : 0,
-      });
-    }
-
-    return { success: true, accounts: rows };
+    const accounts: TBAccount[] = (data || []).map((row: any) => ({
+      id: row.name || row.account || String(Math.random()),
+      name: row.account_name || row.name,
+      account: row.account,
+      account_number: row.account_number,
+      root_type: row.root_type || row.account_type,
+      opening_debit: Number(row.opening_debit || row.opening_dr || 0),
+      opening_credit: Number(row.opening_credit || row.opening_cr || 0),
+      debit: Number(row.debit || 0),
+      credit: Number(row.credit || 0),
+      closing_debit: Number(row.closing_debit || row.closing_dr || 0),
+      closing_credit: Number(row.closing_credit || row.closing_cr || 0),
+    }));
+    return { success: true, accounts };
   } catch (error: any) {
-    console.error('[reports] getTrialBalance failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch trial balance' };
+    console.error('[reports] Trial Balance failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to run Trial Balance' };
   }
 }
 
-// ── Balance Sheet ────────────────────────────────────────────────────────
-
-export interface BSAccount {
-  id?: string;
-  name?: string;
-  account?: string;
-  account_number?: string | null;
-  is_group?: boolean;
-  balance?: number;
-  amount?: number;
-  level?: number;
-}
-
-export interface BSSection {
-  label?: string;
-  accounts: BSAccount[];
-  total: number;
-}
-
-export interface BSData {
-  as_of_date?: string;
-  company?: string;
-  assets: BSSection;
-  liabilities: BSSection;
-  equity: BSSection;
-  total_liabilities_and_equity: number;
-}
-
-export async function getBalanceSheet(params: {
-  as_of_date?: string;
-}): Promise<
-  { success: true; data: BSData } | { success: false; error: string }
-> {
-  try {
-    const asOfDate = params.as_of_date || `${new Date().getFullYear()}-12-31`;
-    const company = 'Aries Marine';
-
-    // 1. Get Asset/Liability/Equity accounts ordered by lft
-    const accounts = await prisma.accounts.findMany({
-      where: {
-        company,
-        root_type: { in: ['Asset', 'Liability', 'Equity'] },
-      },
-      orderBy: { lft: 'asc' },
-    });
-
-    // 2. Get balances up to as_of_date
-    const balances = await query<{
-      account_id: string;
-      debit: number;
-      credit: number;
-    }>(`
-      SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
-      FROM gl_entries
-      WHERE posting_date <= $1::timestamptz AND is_cancelled = false
-      GROUP BY account_id
-    `, [asOfDate]);
-
-    const balanceMap = new Map<string, number>();
-    for (const r of balances) {
-      balanceMap.set(r.account_id, Number(r.debit) - Number(r.credit));
-    }
-
-    // 3. Build sections (matching Python logic)
-    function buildSection(rootType: string): { accounts: BSAccount[]; total: number } {
-      const sectionAccounts = accounts.filter((a) => a.root_type === rootType);
-      const items: BSAccount[] = [];
-      let total = 0;
-
-      for (const a of sectionAccounts) {
-        const bal = balanceMap.get(a.id) || 0;
-        if (bal === 0 && !a.is_group) continue;
-        if (!a.is_group) total += bal;
-        items.push({
-          id: a.id,
-          name: a.name,
-          account_number: a.account_number,
-          is_group: a.is_group,
-          balance: Math.round(bal * 100) / 100,
-          level: 0,
-        });
-      }
-
-      return { accounts: items, total: Math.round(total * 100) / 100 };
-    }
-
-    const assets = buildSection('Asset');
-    const liabilities = buildSection('Liability');
-    const equity = buildSection('Equity');
-
-    return {
-      success: true,
-      data: {
-        as_of_date: asOfDate,
-        company,
-        assets,
-        liabilities,
-        equity,
-        total_liabilities_and_equity: Math.round((liabilities.total + equity.total) * 100) / 100,
-      },
-    };
-  } catch (error: any) {
-    console.error('[reports] getBalanceSheet failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch balance sheet' };
-  }
-}
-
-// ── Profit & Loss ────────────────────────────────────────────────────────
-
-export interface PLAccount {
-  id?: string;
-  name?: string;
-  account?: string;
-  account_number?: string | null;
-  is_group?: boolean;
-  balance?: number;
-  amount?: number;
-  level?: number;
-}
-
-export interface PLSection {
-  label?: string;
-  accounts: PLAccount[];
-  total: number;
-}
-
-export interface PLData {
-  from_date?: string;
-  to_date?: string;
-  company?: string;
-  income: PLSection;
-  expenses: PLSection;
-  net_profit: number;
-  is_profit: boolean;
-}
-
-export async function getProfitAndLoss(params: {
-  from_date?: string;
-  to_date?: string;
-}): Promise<
-  { success: true; data: PLData } | { success: false; error: string }
-> {
-  try {
-    const year = new Date().getFullYear();
-    const fromDate = params.from_date || `${year}-01-01`;
-    const toDate = params.to_date || `${year}-12-31`;
-    const company = 'Aries Marine';
-
-    // 1. Get Income/Expense accounts ordered by lft
-    const accounts = await prisma.accounts.findMany({
-      where: {
-        company,
-        root_type: { in: ['Income', 'Expense'] },
-      },
-      orderBy: { lft: 'asc' },
-    });
-
-    // 2. Get period balances — note: P&L uses credit - debit (opposite of BS)
-    const balances = await query<{
-      account_id: string;
-      debit: number;
-      credit: number;
-    }>(`
-      SELECT account_id, SUM(debit) as debit, SUM(credit) as credit
-      FROM gl_entries
-      WHERE posting_date >= $1::timestamptz AND posting_date <= $2::timestamptz AND is_cancelled = false
-      GROUP BY account_id
-    `, [fromDate, toDate]);
-
-    const balanceMap = new Map<string, number>();
-    for (const r of balances) {
-      // P&L balance = credit - debit (income is credit-positive)
-      balanceMap.set(r.account_id, Number(r.credit) - Number(r.debit));
-    }
-
-    // 3. Build sections (matching Python logic)
-    function buildSection(rootType: string): { accounts: PLAccount[]; total: number } {
-      const sectionAccounts = accounts.filter((a) => a.root_type === rootType);
-      const items: PLAccount[] = [];
-      let total = 0;
-
-      for (const a of sectionAccounts) {
-        const bal = balanceMap.get(a.id) || 0;
-        if (bal === 0 && !a.is_group) continue;
-        if (!a.is_group) total += bal;
-        items.push({
-          id: a.id,
-          name: a.name,
-          account_number: a.account_number,
-          is_group: a.is_group,
-          balance: Math.round(bal * 100) / 100,
-          level: 0,
-        });
-      }
-
-      return { accounts: items, total: Math.round(total * 100) / 100 };
-    }
-
-    const income = buildSection('Income');
-    const expenses = buildSection('Expense');
-    const netProfit = Math.round((income.total - expenses.total) * 100) / 100;
-
-    return {
-      success: true,
-      data: {
-        from_date: fromDate,
-        to_date: toDate,
-        company,
-        income,
-        expenses,
-        net_profit: netProfit,
-        is_profit: netProfit >= 0,
-      },
-    };
-  } catch (error: any) {
-    console.error('[reports] getProfitAndLoss failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch profit and loss' };
-  }
-}
+export const getBalanceSheet = runBalanceSheet;

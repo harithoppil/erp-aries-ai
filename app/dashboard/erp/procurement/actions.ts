@@ -1,262 +1,333 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { postatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { generateId, generateShortCode } from '@/lib/uuid';
-import { createPurchaseOrderSchema } from '@/lib/validators';
+import {
+  frappeGetList,
+  frappeGetDoc,
+  frappeInsertDoc,
+  frappeUpdateDoc,
+  frappeCallMethod,
+} from '@/lib/frappe-client';
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export type ClientSafeSupplier = {
   id: string;
   supplier_name: string;
   supplier_code: string;
-  contact_person: string | null;
   email: string | null;
-  phone: string | null;
-  address: string | null;
   category: string | null;
-  rating: number | null;
+  status: string;
   created_at: Date;
 };
-
-export async function listSuppliers(params?: {
-  search?: string;
-}): Promise<
-  { success: true; suppliers: ClientSafeSupplier[] } | { success: false; error: string }
-> {
-  try {
-    const where: any = {};
-    if (params?.search) {
-      where.OR = [
-        { supplier_name: { contains: params.search, mode: 'insensitive' } },
-        { supplier_code: { contains: params.search, mode: 'insensitive' } },
-        { contact_person: { contains: params.search, mode: 'insensitive' } },
-        { email: { contains: params.search, mode: 'insensitive' } },
-      ];
-    }
-    const suppliers = await prisma.suppliers.findMany({ where, orderBy: { created_at: 'desc' } });
-    return { success: true, suppliers: suppliers.map((s) => ({ ...s })) };
-  } catch (error) {
-    console.error('Error fetching suppliers:', error);
-    return { success: false, error: 'Failed to fetch suppliers' };
-  }
-}
 
 export type ClientSafePurchaseOrder = {
   id: string;
   po_number: string;
-  supplier_id: string;
   supplier_name: string;
-  project_id: string | null;
   status: string;
-  order_date: Date;
-  expected_delivery: Date | null;
-  subtotal: number;
-  tax_amount: number;
   total: number;
   currency: string;
-  notes: string | null;
   created_at: Date;
 };
 
-export async function listPurchaseOrders(params?: {
-  search?: string;
+export interface PurchaseOrderItemInput {
+  item_code: string;
+  qty: number;
+  rate: number;
+  schedule_date?: string;
+}
+
+export interface PurchaseOrderValidateInput {
+  supplier: string;
+  items: PurchaseOrderItemInput[];
+  schedule_date?: string;
+  transaction_date?: string;
+}
+
+export interface FrappeSupplier {
+  name: string;
+  supplier_name: string;
+  supplier_type?: string;
+  supplier_group?: string;
+  email_id?: string;
+  disabled?: number;
+  creation?: string;
+  prevent_pos?: number;
+  warn_pos?: number;
+}
+
+export interface FrappePurchaseOrder {
+  name: string;
+  supplier: string;
   status?: string;
-  from_date?: string;
-  to_date?: string;
-}): Promise<
+  docstatus: number;
+  base_grand_total?: number;
+  currency?: string;
+  creation?: string;
+  schedule_date?: string;
+  transaction_date?: string;
+  items?: FrappePurchaseOrderItem[];
+  per_received?: number;
+}
+
+export interface FrappePurchaseOrderItem {
+  name?: string;
+  item_code: string;
+  qty: number;
+  rate: number;
+  amount?: number;
+  received_qty?: number;
+  schedule_date?: string;
+}
+
+export interface FrappePurchaseReceipt {
+  name: string;
+}
+
+export interface FrappeSupplierScorecard {
+  name: string;
+  status?: string;
+}
+
+// ── Existing CRUD functions ─────────────────────────────────────────────────
+
+export async function listSuppliers(): Promise<
+  { success: true; suppliers: ClientSafeSupplier[] } | { success: false; error: string }
+> {
+  try {
+    const suppliers = await frappeGetList<FrappeSupplier>('Supplier', {
+      fields: ['name', 'supplier_name', 'supplier_type', 'supplier_group', 'email_id', 'disabled', 'creation'],
+      order_by: 'creation desc',
+      limit_page_length: 500,
+    });
+
+    return {
+      success: true,
+      suppliers: suppliers.map((s) => ({
+        id: s.name,
+        supplier_name: s.supplier_name || s.name,
+        supplier_code: s.name,
+        email: s.email_id || null,
+        category: s.supplier_group || null,
+        status: s.disabled ? 'Inactive' : 'Active',
+        created_at: s.creation ? new Date(s.creation) : new Date(),
+      })),
+    };
+  } catch (error: any) {
+    console.error('Error fetching suppliers:', error?.message);
+    return { success: false, error: error?.message || 'Failed to fetch suppliers' };
+  }
+}
+
+export async function listPurchaseOrders(): Promise<
   { success: true; orders: ClientSafePurchaseOrder[] } | { success: false; error: string }
 > {
   try {
-    const where: any = {};
-    if (params?.search) {
-      where.OR = [
-        { po_number: { contains: params.search, mode: 'insensitive' } },
-        { supplier_id: { contains: params.search, mode: 'insensitive' } },
-      ];
-    }
-    if (params?.status) {
-      where.status = params.status;
-    }
-    const orders = await prisma.purchase_orders.findMany({
-      where,
-      orderBy: { created_at: 'desc' },
-      include: { suppliers: true },
+    const orders = await frappeGetList<FrappePurchaseOrder>('Purchase Order', {
+      fields: ['name', 'supplier', 'status', 'docstatus', 'base_grand_total', 'currency', 'creation'],
+      order_by: 'creation desc',
+      limit_page_length: 200,
     });
+
     return {
       success: true,
       orders: orders.map((o) => ({
-        id: o.id,
-        po_number: o.po_number,
-        supplier_id: o.supplier_id,
-        supplier_name: o.suppliers?.supplier_name || "Unknown",
-        project_id: o.project_id,
-        status: String(o.status),
-        order_date: o.order_date,
-        expected_delivery: o.expected_delivery,
-        subtotal: o.subtotal,
-        tax_amount: o.tax_amount,
-        total: o.total,
-        currency: o.currency,
-        notes: o.notes,
-        created_at: o.created_at,
-      }))
+        id: o.name,
+        po_number: o.name,
+        supplier_name: o.supplier || 'Unknown',
+        status: o.docstatus === 1 ? 'SUBMITTED' : o.docstatus === 2 ? 'CANCELLED' : 'DRAFT',
+        total: o.base_grand_total || 0,
+        currency: o.currency || 'AED',
+        created_at: o.creation ? new Date(o.creation) : new Date(),
+      })),
     };
-  } catch (error) {
-    console.error('Error fetching purchase orders:', error);
-    return { success: false, error: 'Failed to fetch purchase orders' };
+  } catch (error: any) {
+    console.error('Error fetching purchase orders:', error?.message);
+    return { success: false, error: error?.message || 'Failed to fetch purchase orders' };
+  }
+}
+
+export async function createPurchaseOrder(data: {
+  supplier: string;
+  items: { item_code: string; qty: number; rate: number }[];
+}) {
+  try {
+    const doc = await frappeInsertDoc<FrappePurchaseOrder>('Purchase Order', {
+      supplier: data.supplier,
+      items: data.items.map((i) => ({
+        item_code: i.item_code,
+        qty: i.qty,
+        rate: i.rate,
+        amount: i.qty * i.rate,
+      })),
+    });
+    revalidatePath('/erp/procurement');
+    return { success: true as const, order: { id: doc.name, po_number: doc.name, supplier_name: data.supplier, status: 'DRAFT', total: 0, currency: 'AED', created_at: new Date() } as ClientSafePurchaseOrder };
+  } catch (error: any) {
+    return { success: false as const, error: error?.message || 'Failed to create purchase order' };
   }
 }
 
 export async function createSupplier(data: {
   supplier_name: string;
-  supplier_code: string;
-  contact_person?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  category?: string;
-  rating?: number;
+  supplier_code?: string;
 }) {
   try {
-    const supplier = await prisma.suppliers.create({
-      data: { id: generateId(), ...data, rating: data.rating || null }
+    const doc = await frappeInsertDoc<FrappeSupplier>('Supplier', {
+      supplier_name: data.supplier_name,
+      name: data.supplier_code || undefined,
     });
     revalidatePath('/erp/procurement');
-    return { success: true as const, supplier: { ...supplier } as ClientSafeSupplier };
+    return { success: true as const, supplier: { id: doc.name, supplier_name: data.supplier_name, supplier_code: doc.name, email: null, category: null, status: 'Active', created_at: new Date() } as ClientSafeSupplier };
   } catch (error: any) {
-    if (error.code === 'P2002') return { success: false as const, error: 'Supplier code already exists' };
-    return { success: false as const, error: 'Failed to create supplier' };
+    return { success: false as const, error: error?.message || 'Failed to create supplier' };
   }
 }
 
-export async function createPurchaseOrder(data: {
-  supplier_id: string;
-  project_id?: string;
-  expected_delivery?: string;
-  notes?: string;
-  items: { description: string; quantity: number; rate: number; item_code?: string }[];
-}) {
-  // Validate input
-  const parsed = createPurchaseOrderSchema.safeParse(data);
-  if (!parsed.success) {
-    return { success: false as const, error: parsed.error.issues.map(e => e.message).join(', ') };
-  }
-  const validated = parsed.data;
+// ── NEW: Validation & Business Logic ────────────────────────────────────────
 
+/**
+ * Validate a Purchase Order before submission.
+ * Checks: supplier exists (and not blocked), items present, schedule_date after transaction_date.
+ */
+export async function validatePurchaseOrder(
+  data: PurchaseOrderValidateInput
+): Promise<{ success: true; valid: true } | { success: false; error: string }> {
   try {
-    const poNumber = generateShortCode("PO");
-    const subtotal = validated.items.reduce((s, i) => s + i.quantity * i.rate, 0);
-    const taxAmount = subtotal * 0.05;
-    const total = subtotal + taxAmount;
-
-    const po = await prisma.purchase_orders.create({
-      data: {
-        id: generateId(),
-        po_number: poNumber,
-        supplier_id: validated.supplier_id,
-        project_id: validated.project_id || null,
-        status: postatus.DRAFT,
-        currency: 'AED',
-        expected_delivery: validated.expected_delivery ? new Date(validated.expected_delivery) : null,
-        subtotal,
-        tax_amount: taxAmount,
-        total,
-        notes: validated.notes || null,
-        po_items: {
-          create: validated.items.map(i => ({
-            id: generateId(),
-            item_code: i.item_code || null,
-            description: i.description,
-            quantity: i.quantity,
-            rate: i.rate,
-            amount: i.quantity * i.rate,
-          })),
-        },
-      },
-      include: { po_items: true },
+    // 1. Supplier must exist
+    if (!data.supplier || data.supplier.trim().length === 0) {
+      return { success: false, error: 'Supplier is required' };
+    }
+    const suppliers = await frappeGetList<FrappeSupplier>('Supplier', {
+      filters: { name: data.supplier },
+      fields: ['name', 'supplier_name', 'prevent_pos', 'warn_pos', 'disabled'],
+      limit_page_length: 1,
     });
-    revalidatePath('/erp/procurement');
-    return { success: true as const, order: po };
+    if (suppliers.length === 0) {
+      return { success: false, error: `Supplier "${data.supplier}" not found` };
+    }
+    const supplier = suppliers[0];
+    if (supplier.disabled) {
+      return { success: false, error: `Supplier "${data.supplier}" is disabled` };
+    }
+    if (supplier.prevent_pos) {
+      return { success: false, error: `Purchase Orders are not allowed for supplier "${data.supplier}"` };
+    }
+    if (supplier.warn_pos) {
+      // Warn but do not block — return as a warning message in error for now
+      // In a real UI this would be a warning, here we allow through but log
+      console.warn(`[procurement] Supplier ${data.supplier} has a cautionary scorecard standing`);
+    }
+
+    // 2. Items must not be empty
+    if (!data.items || data.items.length === 0) {
+      return { success: false, error: 'At least one item is required' };
+    }
+    for (const item of data.items) {
+      if (!item.item_code || item.item_code.trim().length === 0) {
+        return { success: false, error: 'Item Code is required for all items' };
+      }
+      if (typeof item.qty !== 'number' || item.qty <= 0) {
+        return { success: false, error: `Item "${item.item_code}" must have quantity > 0` };
+      }
+      if (typeof item.rate !== 'number' || item.rate < 0) {
+        return { success: false, error: `Item "${item.item_code}" must have a valid rate` };
+      }
+    }
+
+    // 3. Schedule date validation
+    if (data.schedule_date && data.transaction_date) {
+      const scheduleDate = new Date(data.schedule_date);
+      const transactionDate = new Date(data.transaction_date);
+      if (scheduleDate < transactionDate) {
+        return { success: false, error: 'Schedule Date cannot be before Transaction Date' };
+      }
+    }
+
+    // 4. Ensure all line items have a schedule_date or inherit from header
+    for (const item of data.items) {
+      if (!item.schedule_date && !data.schedule_date) {
+        return { success: false, error: `Item "${item.item_code}" is missing a schedule date` };
+      }
+    }
+
+    return { success: true, valid: true };
   } catch (error: any) {
-    if (error.code === 'P2002') return { success: false as const, error: 'PO number already exists' };
-    return { success: false as const, error: error.message || 'Failed to create purchase order' };
+    console.error('[procurement] validatePurchaseOrder failed:', error?.message);
+    return { success: false, error: error?.message || 'Purchase Order validation failed' };
   }
 }
 
-// ── Purchase Order Mutations ───────────────────────────────────────────────
-
-export async function updatePurchaseOrderStatus(id: string, status: postatus) {
+/**
+ * Create a Purchase Receipt from a submitted Purchase Order.
+ */
+export async function makePurchaseReceipt(
+  poId: string
+): Promise<{ success: true; purchaseReceipt: FrappePurchaseReceipt } | { success: false; error: string }> {
   try {
-    const record = await prisma.purchase_orders.update({
-      where: { id },
-      data: { status },
+    const po = await frappeGetDoc<FrappePurchaseOrder & { items?: FrappePurchaseOrderItem[] }>('Purchase Order', poId);
+    if (po.docstatus !== 1) {
+      return { success: false, error: 'Purchase Order must be submitted before creating a Purchase Receipt' };
+    }
+
+    const items = (po.items || [])
+      .map((item) => {
+        const pendingQty = item.qty - (item.received_qty || 0);
+        return {
+          item_code: item.item_code,
+          qty: pendingQty,
+          rate: item.rate,
+          amount: pendingQty * item.rate,
+          against_purchase_order: poId,
+          purchase_order_item: item.name,
+        };
+      })
+      .filter((item) => item.qty > 0);
+
+    if (items.length === 0) {
+      return { success: false, error: 'All items have already been received' };
+    }
+
+    const pr = await frappeInsertDoc<FrappePurchaseReceipt>('Purchase Receipt', {
+      supplier: po.supplier,
+      items,
     });
+
     revalidatePath('/erp/procurement');
-    return { success: true, data: record };
+    return { success: true, purchaseReceipt: pr };
   } catch (error: any) {
-    console.error('[procurement] updatePurchaseOrderStatus failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update purchase order status' };
+    console.error('[procurement] makePurchaseReceipt failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to create Purchase Receipt' };
   }
 }
 
-export async function updatePurchaseOrder(
-  id: string,
-  data: Partial<{ supplier_id: string; project_id: string; expected_delivery: Date; notes: string }>
-) {
+/**
+ * Sum the total value of all submitted Purchase Orders for a given supplier.
+ */
+export async function getSupplierTotalPurchases(
+  supplier: string
+): Promise<{ success: true; totalPurchases: number; orderCount: number } | { success: false; error: string }> {
   try {
-    const record = await prisma.purchase_orders.update({
-      where: { id },
-      data,
+    if (!supplier || supplier.trim().length === 0) {
+      return { success: false, error: 'Supplier is required' };
+    }
+
+    const orders = await frappeGetList<FrappePurchaseOrder>('Purchase Order', {
+      filters: { supplier, docstatus: 1 },
+      fields: ['name', 'base_grand_total'],
+      limit_page_length: 500,
     });
-    revalidatePath('/erp/procurement');
-    return { success: true, data: record };
-  } catch (error: any) {
-    console.error('[procurement] updatePurchaseOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update purchase order' };
-  }
-}
 
-export async function deletePurchaseOrder(id: string) {
-  try {
-    await prisma.purchase_orders.update({
-      where: { id },
-      data: { status: postatus.CANCELLED },
-    });
-    revalidatePath('/erp/procurement');
-    return { success: true };
-  } catch (error: any) {
-    console.error('[procurement] deletePurchaseOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete purchase order' };
-  }
-}
+    const totalPurchases = orders.reduce((sum, o) => sum + (o.base_grand_total || 0), 0);
 
-// ── Supplier Mutations ─────────────────────────────────────────────────────
-
-export async function updateSupplier(
-  id: string,
-  data: Partial<{ supplier_name: string; contact_person: string; email: string; phone: string; address: string; category: string; rating: number }>
-) {
-  try {
-    const record = await prisma.suppliers.update({
-      where: { id },
-      data,
-    });
-    revalidatePath('/erp/procurement');
-    return { success: true, data: record };
+    return {
+      success: true,
+      totalPurchases: Math.round(totalPurchases * 100) / 100,
+      orderCount: orders.length,
+    };
   } catch (error: any) {
-    console.error('[procurement] updateSupplier failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update supplier' };
-  }
-}
-
-export async function deleteSupplier(id: string) {
-  try {
-    await prisma.suppliers.delete({ where: { id } });
-    revalidatePath('/erp/procurement');
-    return { success: true };
-  } catch (error: any) {
-    console.error('[procurement] deleteSupplier failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete supplier' };
+    console.error('[procurement] getSupplierTotalPurchases failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to get supplier total purchases' };
   }
 }

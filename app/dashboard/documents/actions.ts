@@ -1,98 +1,94 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
+import { frappeGetList, frappeGetDoc, frappeUploadFile, frappeInsertDoc, frappeDeleteDoc } from '@/lib/frappe-client';
 
 export type ClientSafeDocument = {
   id: string;
-  original_filename: string;
+  enquiry_id: string;
+  filename: string;
   content_type: string;
-  file_size: number;
+  storage_path: string;
+  wiki_source_page: string | null;
+  markdown_content: string | null;
   processing_status: string;
-  doc_type: string;
-  auto_detected_type: string | null;
-  entity_type: string | null;
-  entity_id: string | null;
   created_at: Date;
-  processed_at: Date | null;
 };
 
-export async function listDocuments(): Promise<
+export async function listDocuments(enquiryId?: string): Promise<
   { success: true; documents: ClientSafeDocument[] } | { success: false; error: string }
 > {
   try {
-    const docs = await prisma.uploaded_documents.findMany({
-      orderBy: { created_at: 'desc' },
-      select: {
-        id: true,
-        original_filename: true,
-        content_type: true,
-        file_size: true,
-        processing_status: true,
-        doc_type: true,
-        auto_detected_type: true,
-        entity_type: true,
-        entity_id: true,
-        created_at: true,
-        processed_at: true,
-      },
+    const filters: Record<string, unknown> = {};
+    if (enquiryId) {
+      filters.attached_to_doctype = 'Opportunity';
+      filters.attached_to_name = enquiryId;
+    }
+    const files = await frappeGetList<any>('File', {
+      fields: ['name', 'file_name', 'file_url', 'attached_to_doctype', 'attached_to_name', 'file_type', 'creation'],
+      filters,
+      order_by: 'creation desc',
+      limit_page_length: 200,
     });
+
     return {
       success: true,
-      documents: docs.map((d) => ({
-        ...d,
-        processing_status: String(d.processing_status),
-        doc_type: String(d.doc_type),
+      documents: files.map((f: any) => ({
+        id: f.name,
+        enquiry_id: f.attached_to_name || '',
+        filename: f.file_name,
+        content_type: f.file_type || 'application/octet-stream',
+        storage_path: f.file_url,
+        wiki_source_page: null,
+        markdown_content: null,
+        processing_status: 'completed',
+        created_at: f.creation ? new Date(f.creation) : new Date(),
       })),
     };
-  } catch (error) {
-    console.error('Error fetching documents:', error);
-    return { success: false, error: 'Failed to fetch documents' };
+  } catch (error: any) {
+    console.error('[documents] listDocuments failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to fetch documents' };
   }
 }
 
-export async function getDocument(
-  id: string,
-): Promise<
-  | {
-      success: true;
-      document: ClientSafeDocument & {
-        extracted_data: string | null;
-        gcs_bucket: string;
-        gcs_path: string;
-        confidence_score: number | null;
-        error_message: string | null;
-        thumbnail_url: string | null;
-      };
-    }
-  | { success: false; error: string }
+export async function uploadDocument(enquiryId: string, file: File): Promise<
+  { success: true; document: ClientSafeDocument } | { success: false; error: string }
 > {
   try {
-    const doc = await prisma.uploaded_documents.findUnique({ where: { id } });
-    if (!doc) return { success: false, error: 'Document not found' };
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const result = await frappeUploadFile(buffer, file.name, {
+      doctype: 'Opportunity',
+      docname: enquiryId,
+      is_private: false,
+    });
+
+    const uploaded = (result as any).message || result as any;
     return {
       success: true,
       document: {
-        id: doc.id,
-        original_filename: doc.original_filename,
-        content_type: doc.content_type,
-        file_size: doc.file_size,
-        processing_status: String(doc.processing_status),
-        doc_type: String(doc.doc_type),
-        auto_detected_type: doc.auto_detected_type,
-        entity_type: doc.entity_type,
-        entity_id: doc.entity_id,
-        created_at: doc.created_at,
-        processed_at: doc.processed_at,
-        extracted_data: doc.extracted_data,
-        gcs_bucket: doc.gcs_bucket,
-        gcs_path: doc.gcs_path,
-        confidence_score: doc.confidence_score,
-        error_message: doc.error_message,
-        thumbnail_url: doc.thumbnail_url,
+        id: uploaded.name || file.name,
+        enquiry_id: enquiryId,
+        filename: file.name,
+        content_type: file.type || 'application/octet-stream',
+        storage_path: uploaded.file_url,
+        wiki_source_page: null,
+        markdown_content: null,
+        processing_status: 'completed',
+        created_at: new Date(),
       },
     };
-  } catch (error) {
-    console.error('Error fetching document:', error);
-    return { success: false, error: 'Failed to fetch document' };
+  } catch (error: any) {
+    console.error('[documents] uploadDocument failed:', error?.message);
+    return { success: false, error: error?.message || 'Failed to upload document' };
+  }
+}
+
+export async function deleteDocument(id: string): Promise<
+  { success: true } | { success: false; error: string }
+> {
+  try {
+    await frappeDeleteDoc('File', id);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Failed to delete document' };
   }
 }

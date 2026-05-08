@@ -7,5 +7,5 @@ export default async function ChartOfAccountsPage() {
   const roots = new Set<string>();
   accounts.forEach((a) => { if (a.level === 0) roots.add(a.id); });
 
-  return <ChartOfAccountsClient initialAccounts={accounts} initialExpanded={roots} />;
+  return <ChartOfAccountsClient />;
 }

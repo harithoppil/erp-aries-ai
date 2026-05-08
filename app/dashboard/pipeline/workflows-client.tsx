@@ -185,7 +185,7 @@ function WorkflowCard({
             <Workflow className="h-4 w-4 text-primary" />
             {workflow.name}
           </CardTitle>
-          <StatusBadge status={workflow.status} />
+          <StatusBadge status={workflow.status || 'draft'} />
         </div>
         {workflow.description && (
           <p className="text-xs text-muted-foreground mt-1">{workflow.description}</p>
@@ -198,7 +198,7 @@ function WorkflowCard({
               <Layers className="h-3 w-3" /> {workflow.nodes.length} node{workflow.nodes.length !== 1 ? "s" : ""}
             </span>
             <span className="flex items-center gap-1">
-              <FileText className="h-3 w-3" /> v{workflow.version}
+              <FileText className="h-3 w-3" /> v{workflow.version || '1.0'}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" /> {new Date(workflow.updated_at).toLocaleDateString()}
@@ -235,7 +235,7 @@ function WorkflowCard({
           <div className="mt-3 flex flex-wrap gap-1">
             {workflow.nodes.slice(0, 6).map((node) => (
               <Badge key={node.id} variant="outline" className="text-[10px] py-0">
-                {node.label}
+                {node.label || node.name}
               </Badge>
             ))}
             {workflow.nodes.length > 6 && (
