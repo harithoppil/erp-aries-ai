@@ -95,12 +95,12 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
 
   return (
     <motion.aside
-      className="fixed left-0 top-0 z-40 flex h-screen flex-col overflow-y-auto bg-[#0f172a] text-[#cbd5e1] dark:bg-[#0f172a]"
+      className="fixed left-0 top-0 z-40 flex h-screen flex-col bg-[#0f172a] text-[#cbd5e1] dark:bg-[#0f172a]"
       animate={{ width: isCollapsed ? 64 : 240 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
     >
-      {/* Logo */}
-      <div className={`flex items-center gap-3 border-b border-slate-800 px-4 py-4 ${!isCollapsed ? "" : "justify-center"}`}>
+      {/* Logo — fixed top */}
+      <div className={`flex shrink-0 items-center gap-3 border-b border-slate-800 px-4 py-4 ${!isCollapsed ? "" : "justify-center"}`}>
         <img src="/aries-logo-transparent.png" alt="Aries" className="h-8 w-8 shrink-0" />
         {!isCollapsed && (
           <div className="leading-tight">
@@ -110,8 +110,8 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
         )}
       </div>
 
-      {/* Navigation */}
-      <nav className="pb-20">
+      {/* Navigation — scrollable middle section */}
+      <nav className="flex-1 overflow-y-auto">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
             {!isCollapsed && (
@@ -136,9 +136,7 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
                 >
                   <Icon size={20} />
                   {!isCollapsed && (
-                    <>
-                      <span className="flex-1">{item.label}</span>
-                    </>
+                    <span className="flex-1">{item.label}</span>
                   )}
                 </Link>
               );
@@ -159,16 +157,23 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
         ))}
       </nav>
 
-      {/* User Card */}
-      <div className="mt-auto border-t border-slate-800">
+      {/* User Card — fixed bottom */}
+      <div className="shrink-0 border-t border-slate-800 bg-[#0f172a]">
         {user ? (
           <div className={`px-4 py-3 ${isCollapsed ? "flex flex-col items-center" : ""}`}>
             {!isCollapsed ? (
               <div className="flex items-center gap-3">
-                {/* Avatar initials */}
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1e3a5f] text-xs font-bold text-white">
-                  {initials}
-                </div>
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.name}
+                    className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-slate-700"
+                  />
+                ) : (
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1e3a5f] text-xs font-bold text-white ring-2 ring-slate-700">
+                    {initials}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium text-white">
                     {user.name}
@@ -189,15 +194,20 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
             ) : (
               <Tooltip>
                 <TooltipTrigger>
-                  <button
-                    onClick={handleSignout}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-slate-400 transition-colors hover:text-red-400"
-                  >
-                    <LogOut size={16} />
-                  </button>
+                  {user.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.name}
+                      className="h-8 w-8 rounded-full object-cover ring-2 ring-slate-700"
+                    />
+                  ) : (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1e3a5f] text-xs font-bold text-white ring-2 ring-slate-700">
+                      {initials}
+                    </div>
+                  )}
                 </TooltipTrigger>
                 <TooltipContent side="right" className="text-xs">
-                  Sign Out ({user.name})
+                  {user.name} — Sign Out
                 </TooltipContent>
               </Tooltip>
             )}
@@ -215,17 +225,19 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
             </div>
           )
         )}
-      </div>
 
-      {/* Toggle button */}
-      {showToggle && (
-        <button
-          onClick={onToggle}
-          className="absolute bottom-4 right-4 hidden h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white lg:flex"
-        >
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-      )}
+        {/* Toggle button */}
+        {showToggle && (
+          <div className={`border-t border-slate-800/50 px-4 py-2 ${isCollapsed ? "flex justify-center" : "flex justify-end"}`}>
+            <button
+              onClick={onToggle}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+            >
+              {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
+          </div>
+        )}
+      </div>
     </motion.aside>
   );
 }
