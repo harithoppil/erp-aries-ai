@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { useActionDispatcher, parseActionMarkers } from "@/store/useActionDispatcher";
 import { planUIActions, executeFunctionCalls, type FunctionCall } from "@/lib/gemini-client";
-import { chatWithPersona } from "@/app/ai/actions";
+import { chatWithPersona } from "@/app/dashboard/ai/actions";
 
 export interface ChatMessage {
   id: string;
@@ -78,7 +78,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ personaError: null });
     try {
       // Use Server Action for persona CRUD — hits Prisma directly
-      const { listPersonas } = await import("@/app/ai/actions");
+      const { listPersonas } = await import("@/app/dashboard/ai/actions");
       const result = await listPersonas({ enabled: true });
       if (result.success) {
         const enabled = result.personas.map((p) => ({

@@ -26,7 +26,7 @@ const NAV_GROUPS = [
   {
     label: "Main",
     items: [
-      { href: "/", label: "Dashboard", icon: Home },
+      { href: "/dashboard", label: "Dashboard", icon: Home },
       { href: "/enquiries", label: "Enquiries", icon: FileText },
       { href: "/erp/customers", label: "Customers", icon: Briefcase },
       { href: "/erp/quotations", label: "Quotations", icon: FileText },

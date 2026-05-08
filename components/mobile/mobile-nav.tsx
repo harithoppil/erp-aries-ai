@@ -12,7 +12,7 @@ import { useDarkMode } from "@/hooks/use-responsive";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const BOTTOM_TABS = [
-  { href: "/", label: "Home", icon: Home },
+  { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/enquiries", label: "Enquiries", icon: FileText },
   { href: "/ai", label: "AI", icon: Bot },
   { href: "/wiki", label: "Wiki", icon: BookOpen },

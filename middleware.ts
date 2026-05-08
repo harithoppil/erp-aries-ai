@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // ── Public routes that don't require authentication ─────────────────────────
-const PUBLIC_ROUTES = ["/auth", "/api/webhooks"];
+const PUBLIC_ROUTES = ["/", "/auth", "/api/webhooks"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

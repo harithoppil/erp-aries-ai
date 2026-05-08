@@ -334,7 +334,7 @@ function registerERPServer(gw: MCPGateway): void {
     parameters: { name: { type: 'string', description: 'Customer name to search', required: true } },
     handler: async (args) => {
       try {
-        const { listCustomers } = await import('@/app/erp/customers/actions');
+        const { listCustomers } = await import('@/app/dashboard/erp/customers/actions');
         const result = await listCustomers();
         if (!result.success) return `Error: ${result.error}`;
         const matches = result.customers.filter(c =>
@@ -356,7 +356,7 @@ function registerERPServer(gw: MCPGateway): void {
     parameters: { q: { type: 'string', description: 'Search query', required: true } },
     handler: async (args) => {
       try {
-        const { listItems } = await import('@/app/erp/stock/actions');
+        const { listItems } = await import('@/app/dashboard/erp/stock/actions');
         const result = await listItems();
         if (!result.success) return `Error: ${result.error}`;
         const q = (args.q || '').toLowerCase();
@@ -381,7 +381,7 @@ function registerERPServer(gw: MCPGateway): void {
     parameters: { sku: { type: 'string', description: 'Item code/SKU', required: true } },
     handler: async (args) => {
       try {
-        const { listItems } = await import('@/app/erp/stock/actions');
+        const { listItems } = await import('@/app/dashboard/erp/stock/actions');
         const result = await listItems();
         if (!result.success) return `Error: ${result.error}`;
         const item = result.items.find(i => i.item_code === args.sku);
@@ -404,7 +404,7 @@ function registerERPServer(gw: MCPGateway): void {
     },
     handler: async (args) => {
       try {
-        const { listItems } = await import('@/app/erp/stock/actions');
+        const { listItems } = await import('@/app/dashboard/erp/stock/actions');
         const result = await listItems();
         if (!result.success) return `Error: ${result.error}`;
         const item = result.items.find(i => i.item_code === args.sku);

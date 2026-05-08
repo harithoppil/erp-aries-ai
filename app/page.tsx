@@ -1,393 +1,463 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import { listEnquiries, type ClientSafeEnquiry } from "@/app/enquiries/actions";
-import { STATUS_COLORS } from "@/types/api";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  FileText, TrendingUp, AlertCircle, CheckCircle,
-  Anchor, BarChart3, Calendar, ArrowRight,
+  Anchor, ArrowRight, BarChart3, Bot, CheckCircle,
+  FileText, Globe, MessageSquare, Shield, ShoppingCart, Sparkles,
+  Users, Wallet, Zap, Menu, X, LogOut, LayoutDashboard,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useResponsive } from "@/hooks/use-responsive";
-import { usePageContext } from "@/hooks/usePageContext";
+import { useSession } from "@/hooks/use-session";
+import { signoutAction } from "@/app/auth/actions";
+import { useRouter } from "next/navigation";
 
 /* ═══════════════════════════════════════════════════════════
- * Dashboard — Bridge Command Center
+ * Aries Marine ERP — Landing Page
  *
- * Layout: 4 stat cards (with animated counters)
- *         Enquiry heatmap calendar (GitHub-style)
- *         Recent enquiries list
+ * Beautiful marketing landing with auth-aware header.
+ * Shows Dashboard link when logged in, Login/Signup otherwise.
  * ═══════════════════════════════════════════════════════════ */
 
-function AnimatedCounter({ value }: { value: number }) {
-  return (
-    <span className="text-3xl font-bold tabular-nums">
-      {value}
-    </span>
-  );
-}
+const FEATURES = [
+  {
+    icon: Bot,
+    title: "AI-Powered Presales",
+    description:
+      "Gemini-driven consulting that qualifies leads, drafts proposals, and negotiates terms autonomously.",
+  },
+  {
+    icon: FileText,
+    title: "Document Intelligence",
+    description:
+      "Upload any document — contracts, specs, drawings — and extract structured data with LLM vision.",
+  },
+  {
+    icon: BarChart3,
+    title: "Full ERP Suite",
+    description:
+      "Accounts, procurement, HR, projects, stock, and timesheets — all in one marine-focused platform.",
+  },
+  {
+    icon: Globe,
+    title: "Multi-Subsidiary",
+    description:
+      "Manage Aries Marine LLC, Aries Subsea, Aries Engineering, and Aries Offshore from a single pane.",
+  },
+  {
+    icon: Shield,
+    title: "Enterprise Security",
+    description:
+      "JWT-based auth, role-based access control, audit trails, and Row-Level Security in PostgreSQL.",
+  },
+  {
+    icon: Sparkles,
+    title: "Knowledge Wiki",
+    description:
+      "LLM-maintained knowledge base that compounds with every document, enquiry, and conversation.",
+  },
+];
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  accent,
-  delay,
-}: {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  accent: string;
-  delay: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay, ease: [0.25, 0.1, 0.25, 1] }}
-    >
-      <Card className="glass-card overflow-hidden">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                {label}
-              </p>
-              <AnimatedCounter value={value} />
-            </div>
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accent}`}>
-              <Icon className="h-5 w-5" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
+const STATS = [
+  { value: "12+", label: "ERP Modules" },
+  { value: "4", label: "Subsidiaries" },
+  { value: "99.9%", label: "Uptime" },
+  { value: "<200ms", label: "API Response" },
+];
 
-/* ═══ Heatmap Calendar — GitHub-style contribution graph ═══ */
-function HeatmapCalendar({ enquiries }: { enquiries: ClientSafeEnquiry[] }) {
-  // Group enquiries by date
-  const dateMap = new Map<string, number>();
-  enquiries.forEach((e) => {
-    const date = (e.created_at instanceof Date ? e.created_at.toISOString() : String(e.created_at))?.split("T")[0] || "";
-    if (date) {
-      dateMap.set(date, (dateMap.get(date) || 0) + 1);
-    }
-  });
+function LandingHeader() {
+  const { user, loading } = useSession();
+  const router = useRouter();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const maxCount = Math.max(...dateMap.values(), 1);
-
-  // Build last 12 weeks (84 days)
-  const days: { date: string; count: number; level: number }[] = [];
-  const today = new Date();
-  for (let i = 83; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().split("T")[0];
-    const count = dateMap.get(key) || 0;
-    const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / maxCount) * 4));
-    days.push({ date: key, count, level });
-  }
-
-  const levelColors = [
-    "bg-muted/30",                      // 0: No activity
-    "bg-primary/20",                    // 1: Low
-    "bg-primary/40",                    // 2: Medium
-    "bg-primary/60",                    // 3: High
-    "bg-primary",                       // 4: Max
-  ];
-
-  const weeks = [];
-  for (let w = 0; w < 12; w++) {
-    weeks.push(days.slice(w * 7, (w + 1) * 7));
+  async function handleSignout() {
+    await signoutAction();
+    router.refresh();
   }
 
   return (
-    <div className="flex gap-0.5" role="grid" aria-label="Enquiry activity heatmap">
-      {weeks.map((week, wi) => (
-        <div key={wi} className="flex flex-col gap-0.5" role="row">
-          {week.map((day) => (
-            <div
-              key={day.date}
-              className={`h-3 w-3 rounded-[2px] ${levelColors[day.level]} transition-transform hover:scale-150 hover:z-10`}
-              role="gridcell"
-              aria-label={`${day.date}: ${day.count} enquiries`}
-              title={`${day.date}: ${day.count} enquiries`}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export default function Dashboard() {
-  const { isMobile } = useResponsive();
-  const [enquiries, setEnquiries] = useState<ClientSafeEnquiry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    listEnquiries().then((result) => {
-      if (result.success) {
-        setEnquiries(result.enquiries);
-      } else {
-        setError(result.error);
-      }
-      setIsLoading(false);
-    });
-  }, []);
-
-  const stats = useMemo(() => ({
-    total: enquiries?.length ?? 0,
-    active: enquiries?.filter((e) => !["completed", "rejected"].includes(e.status)).length ?? 0,
-    pendingReview: enquiries?.filter((e) => ["human_review", "policy_review"].includes(e.status)).length ?? 0,
-    completed: enquiries?.filter((e) => e.status === "completed").length ?? 0,
-  }), [enquiries]);
-
-  // Feed page context to AI chat panel
-  const contextSummary = enquiries
-    ? `Dashboard: ${stats.total} total enquiries, ${stats.active} active, ${stats.pendingReview} pending review, ${stats.completed} completed. Recent: ${enquiries.slice(0, 3).map((e) => `${e.client_name} (${e.status})`).join(", ")}`
-    : "Dashboard: Loading data...";
-  usePageContext(contextSummary);
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        className="flex items-center justify-between"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-            <Anchor className="h-5 w-5 text-primary" />
+    <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-[#0f172a]/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2">
+          <img src="/aries-logo-transparent.png" alt="Aries" className="h-8 w-8" />
+          <div className="leading-tight">
+            <span className="text-sm font-bold text-white">Aries</span>
+            <span className="ml-1.5 text-[10px] font-medium text-slate-400">Marine ERP</span>
           </div>
-          <div>
-            <h1 className="text-xl font-bold">Command Center</h1>
-            <p className="text-[11px] text-muted-foreground">Enquiry pipeline overview</p>
-          </div>
-        </div>
-        <Link href="/enquiries/new">
-          <Button size="sm" className="gap-2 rounded-xl">
-            <FileText className="h-3.5 w-3.5" />
-            New Enquiry
-          </Button>
         </Link>
-      </motion.div>
 
-      {/* Stat cards */}
-      <div className={isMobile ? "grid grid-cols-2 gap-3" : "grid grid-cols-4 gap-4"}>
-        <StatCard
-          label="Total Enquiries"
-          value={stats.total}
-          icon={FileText}
-          accent="bg-sonar/15 text-sonar"
-          delay={0}
-        />
-        <StatCard
-          label="Active Pipeline"
-          value={stats.active}
-          icon={TrendingUp}
-          accent="bg-amber/15 text-amber"
-          delay={0.05}
-        />
-        <StatCard
-          label="Pending Review"
-          value={stats.pendingReview}
-          icon={AlertCircle}
-          accent="bg-destructive/15 text-destructive"
-          delay={0.1}
-        />
-        <StatCard
-          label="Completed"
-          value={stats.completed}
-          icon={CheckCircle}
-          accent="bg-primary/15 text-primary"
-          delay={0.15}
-        />
-      </div>
+        {/* Desktop Nav */}
+        <nav className="hidden items-center gap-6 md:flex">
+          <a href="#features" className="text-sm text-slate-300 transition-colors hover:text-white">
+            Features
+          </a>
+          <a href="#stats" className="text-sm text-slate-300 transition-colors hover:text-white">
+            Stats
+          </a>
+          <a href="#modules" className="text-sm text-slate-300 transition-colors hover:text-white">
+            Modules
+          </a>
 
-      {/* Heatmap + Chart row */}
-      <div className={isMobile ? "space-y-4" : "grid grid-cols-2 gap-4"}>
-        {/* Activity heatmap */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-        >
-          <Card className="glass-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-primary" />
-                Enquiry Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 12 }).map((_, w) => (
-                    <div key={w} className="flex flex-col gap-0.5">
-                      {Array.from({ length: 7 }).map((_, d) => (
-                        <Skeleton key={d} className="h-3 w-3 rounded-[2px]" />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <HeatmapCalendar enquiries={enquiries || []} />
-              )}
-              <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>12 weeks ago</span>
-                <div className="flex items-center gap-1">
-                  Less
-                  {[0, 1, 2, 3, 4].map((l) => (
-                    <div
-                      key={l}
-                      className={`h-2.5 w-2.5 rounded-[2px] ${
-                        l === 0 ? "bg-muted/30" : `bg-primary/${l * 20}`
-                      }`}
-                    />
-                  ))}
-                  More
-                </div>
-                <span>Today</span>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Pipeline status distribution */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.25 }}
-        >
-          <Card className="glass-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                Pipeline Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-6 w-full rounded" />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {Object.entries(STATUS_COLORS).map(([status, colorClass]) => {
-                    const count = enquiries?.filter((e) => e.status === status).length ?? 0;
-                    if (count === 0) return null;
-                    const pct = enquiries?.length ? (count / enquiries.length) * 100 : 0;
-                    return (
-                      <div key={status} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="capitalize">{status.replace(/_/g, " ")}</span>
-                          <span className="text-muted-foreground">{count}</span>
-                        </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted/50">
-                          <motion.div
-                            className={`h-full rounded-full ${colorClass}`}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.6, delay: 0.3 }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Recent enquiries */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.3 }}
-      >
-        <Card className="glass-card">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">Recent Enquiries</CardTitle>
-              <Link href="/enquiries">
-                <Button variant="ghost" size="sm" className="gap-1 text-xs">
-                  View all <ArrowRight className="h-3 w-3" />
+          {!loading && (
+            user ? (
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-slate-300 hover:text-white"
+                  onClick={handleSignout}
+                >
+                  <LogOut className="mr-1 h-4 w-4" />
+                  Sign Out
                 </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="space-y-0">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center justify-between px-4 py-3">
-                    <div className="space-y-1">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
-                ))}
-              </div>
-            ) : error ? (
-              <div className="p-8 text-center text-destructive text-sm">
-                Failed to load: {error}
-              </div>
-            ) : !enquiries?.length ? (
-              <div className="p-8 text-center text-muted-foreground text-sm">
-                No enquiries yet.{" "}
-                <Link href="/enquiries/new" className="text-primary underline">
-                  Create one
-                </Link>
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-[#1e3a5f] hover:bg-[#2a4f7f]"
+                                  >
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </Button>
               </div>
             ) : (
-              <div className="divide-y divide-border/50">
-                {enquiries.slice(0, 8).map((e: ClientSafeEnquiry, i: number) => (
-                  <motion.div
-                    key={e.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + i * 0.03 }}
-                  >
-                    <Link
-                      href={`/enquiries/${e.id}`}
-                      className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{e.client_name}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {e.industry || "No industry"} · {e.channel}
-                        </p>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={`ml-2 shrink-0 text-[10px] ${STATUS_COLORS[e.status as keyof typeof STATUS_COLORS] || ""}`}
-                      >
-                        {e.status.replace(/_/g, " ")}
-                      </Badge>
-                    </Link>
-                  </motion.div>
-                ))}
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-slate-300 hover:text-white"
+                                  >
+                  <Link href="/auth">Sign In</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-[#0ea5e9] hover:bg-[#0284c7]"
+                                  >
+                  <Link href="/auth">Get Started</Link>
+                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
+            )
+          )}
+        </nav>
+
+        {/* Mobile menu button */}
+        <button
+          className="rounded-lg p-2 text-slate-300 hover:bg-slate-800 md:hidden"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border-b border-white/10 bg-[#0f172a]/95 backdrop-blur-xl px-4 py-4 md:hidden"
+        >
+          <div className="flex flex-col gap-3">
+            <a href="#features" className="text-sm text-slate-300" onClick={() => setMobileMenuOpen(false)}>Features</a>
+            <a href="#stats" className="text-sm text-slate-300" onClick={() => setMobileMenuOpen(false)}>Stats</a>
+            <a href="#modules" className="text-sm text-slate-300" onClick={() => setMobileMenuOpen(false)}>Modules</a>
+            <div className="border-t border-slate-800 pt-3">
+              {!loading && (
+                user ? (
+                  <>
+                    <Link href="/dashboard" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white hover:bg-[#2a4f7f]">
+                      <LayoutDashboard className="h-4 w-4" /> Dashboard
+                    </Link>
+                    <Button variant="ghost" className="w-full text-slate-300" onClick={handleSignout}>
+                      <LogOut className="mr-1 h-4 w-4" /> Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/auth" className="inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+                      Sign In
+                    </Link>
+                    <Link href="/auth" className="inline-flex w-full items-center justify-center rounded-lg bg-[#0ea5e9] px-3 py-2 text-sm font-medium text-white hover:bg-[#0284c7]">
+                      Get Started
+                    </Link>
+                  </>
+                )
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </header>
+  );
+}
+
+function HeroSection() {
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] px-4 pt-32 pb-20 sm:px-6 lg:px-8">
+      {/* Radial glow */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(14,165,233,0.12),transparent_60%)]" />
+
+      <div className="relative mx-auto max-w-7xl">
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#0ea5e9]/30 bg-[#0ea5e9]/10 px-4 py-1.5 text-sm font-medium text-[#0ea5e9]">
+              <Zap className="h-4 w-4" />
+              AI-Native Enterprise Platform
+            </div>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="mx-auto max-w-4xl text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
+          >
+            Marine ERP powered by{" "}
+            <span className="bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] bg-clip-text text-transparent">
+              Artificial Intelligence
+            </span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mx-auto mt-6 max-w-2xl text-lg text-slate-400"
+          >
+            From presales consulting to full ERP — Aries Marine streamlines
+            operations across all subsidiaries with Gemini-driven intelligence.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+          >
+            <Link
+              href="/auth"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0ea5e9] px-6 text-sm font-medium text-white hover:bg-[#0284c7]"
+            >
+              Get Started
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/auth"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-600 px-6 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              Sign In
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatsSection() {
+  return (
+    <section id="stats" className="border-y border-slate-800 bg-[#0f172a] px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          {STATS.map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="text-center"
+            >
+              <div className="text-3xl font-bold text-white sm:text-4xl">{stat.value}</div>
+              <div className="mt-1 text-sm text-slate-400">{stat.label}</div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FeaturesSection() {
+  return (
+    <section id="features" className="bg-[#0f172a] px-4 py-20 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-16 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#0ea5e9]/30 bg-[#0ea5e9]/10 px-4 py-1.5 text-sm font-medium text-[#0ea5e9]">
+              <Sparkles className="h-4 w-4" />
+              Built for Modern Marine Operations
+            </div>
+          </motion.div>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-3xl font-bold text-white sm:text-4xl"
+          >
+            Everything you need to scale
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="mx-auto mt-4 max-w-2xl text-lg text-slate-400"
+          >
+            One platform for enquiries, accounts, procurement, HR, projects,
+            and AI-powered document intelligence.
+          </motion.p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {FEATURES.map((feature, i) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="group rounded-2xl border border-slate-800 bg-slate-900/50 p-6 backdrop-blur-sm transition-colors hover:border-[#0ea5e9]/30 hover:bg-slate-800/50"
+            >
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#1e3a5f] text-[#0ea5e9]">
+                <feature.icon className="h-6 w-6" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold text-white">{feature.title}</h3>
+              <p className="text-sm leading-relaxed text-slate-400">{feature.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ModulesSection() {
+  const modules = [
+    { icon: FileText, name: "Enquiries", desc: "Lead qualification & pipeline" },
+    { icon: Wallet, name: "Accounts", desc: "Invoicing & payments" },
+    { icon: Users, name: "Personnel", desc: "HR & timesheets" },
+    { icon: ShoppingCart, name: "Procurement", desc: "POs & suppliers" },
+    { icon: BarChart3, name: "Reports", desc: "GL, P&L, Balance Sheet" },
+    { icon: MessageSquare, name: "AI Chat", desc: "Gemini assistant" },
+  ];
+
+  return (
+    <section id="modules" className="bg-gradient-to-b from-[#0f172a] to-[#1e293b] px-4 py-20 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-16 text-center">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-3xl font-bold text-white sm:text-4xl"
+          >
+            12+ Integrated Modules
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="mx-auto mt-4 max-w-2xl text-lg text-slate-400"
+          >
+            From sales to finance to operations — every department covered.
+          </motion.p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {modules.map((mod, i) => (
+            <motion.div
+              key={mod.name}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08 }}
+              className="flex items-center gap-4 rounded-xl border border-slate-700/50 bg-slate-800/30 px-5 py-4"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1e3a5f] text-[#0ea5e9]">
+                <mod.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-medium text-white">{mod.name}</div>
+                <div className="text-xs text-slate-400">{mod.desc}</div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CTASection() {
+  return (
+    <section className="bg-gradient-to-r from-[#1e3a5f] to-[#0f172a] px-4 py-16 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+        >
+          <h2 className="text-3xl font-bold text-white sm:text-4xl">
+            Ready to transform your marine operations?
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-300">
+            Join Aries Marine Consultancy and experience AI-powered enterprise
+            resource planning.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link
+              href="/auth"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0ea5e9] px-6 text-sm font-medium text-white hover:bg-[#0284c7]"
+            >
+              Get Started
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function LandingFooter() {
+  return (
+    <footer className="border-t border-slate-800 bg-[#0f172a] px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="flex items-center gap-2">
+            <img src="/aries-logo-transparent.png" alt="Aries" className="h-6 w-6" />
+            <span className="text-sm font-semibold text-white">Aries Marine ERP</span>
+          </div>
+          <p className="text-xs text-slate-500">
+            Aries Marine Consultancy LLC. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <div className="min-h-screen bg-[#0f172a]">
+      <LandingHeader />
+      <HeroSection />
+      <StatsSection />
+      <FeaturesSection />
+      <ModulesSection />
+      <CTASection />
+      <LandingFooter />
     </div>
   );
 }

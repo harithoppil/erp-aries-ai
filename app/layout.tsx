@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import '@/app/globals.css';
-import { AppLayout } from '@/components/app-layout';
+import { AppLayout } from '@/app/dashboard/app-layout';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -138,10 +138,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="font-sans antialiased">
-        <TooltipProvider>
-          <AppLayout>{children}</AppLayout>
-          <Toaster richColors position="bottom-right" />
-        </TooltipProvider>
+        {children}
+        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   );
