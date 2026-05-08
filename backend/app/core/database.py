@@ -6,7 +6,15 @@ from sqlalchemy.types import TypeDecorator, CHAR
 
 from backend.app.core.config import settings
 
-engine = create_async_engine(settings.database_url, echo=settings.database_echo)
+import ssl as _ssl
+
+engine = create_async_engine(
+    settings.effective_database_url,
+    echo=settings.database_echo,
+    connect_args={
+        "ssl": _ssl.create_default_context(),
+    } if "azure.com" in settings.effective_database_url else {},
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

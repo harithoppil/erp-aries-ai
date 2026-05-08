@@ -210,7 +210,7 @@ export async function executeFunctionCalls(
 
     // Stagger execution for visual effect (dialog opens, then form fills one by one)
     if (i > 0 && staggerMs > 0) {
-      await Bun.sleep(staggerMs);
+      await new Promise(r => setTimeout(r, staggerMs));
     }
 
     try {

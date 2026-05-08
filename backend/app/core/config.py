@@ -9,8 +9,25 @@ class Settings(BaseSettings):
     debug: bool = True
 
     # Database — Azure PostgreSQL (production & dev)
+    # If DATABASE_URL uses postgresql:// (for Bun.SQL compat), auto-upgrade to +asyncpg
     database_url: str = "postgresql+asyncpg://postgres:Arieserp1!@aries-erp-ai.postgres.database.azure.com:5432/postgres"
     database_echo: bool = False
+
+    @property
+    def effective_database_url(self) -> str:
+        """Ensure the URL uses the asyncpg driver for SQLAlchemy async engine.
+
+        Bun.SQL uses postgresql://?sslmode=require, but asyncpg's connect()
+        doesn't accept sslmode in the DSN. We strip it and use connect_args
+        for SSL instead (handled in database.py).
+        """
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # Remove sslmode from query string — SSL is configured via connect_args in database.py
+        if "?sslmode=" in url or "&sslmode=" in url:
+            url = url.replace("?sslmode=require", "").replace("&sslmode=require", "")
+        return url
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"

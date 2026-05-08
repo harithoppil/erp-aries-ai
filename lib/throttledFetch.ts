@@ -21,7 +21,7 @@ async function drainQueue() {
       reject(error);
     }
     if (requestQueue.length > 0) {
-      await Bun.sleep(MIN_INTERVAL);
+      await new Promise(r => setTimeout(r, MIN_INTERVAL));
     }
   }
   processing = false;
