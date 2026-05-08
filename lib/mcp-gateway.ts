@@ -105,6 +105,7 @@ class MCPGateway {
 
 let _gateway: MCPGateway | null = null;
 
+export { MCPGateway };
 export function getMCPGateway(): MCPGateway {
   if (_gateway) return _gateway;
 

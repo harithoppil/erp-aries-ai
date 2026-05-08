@@ -1,8 +1,8 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { API_BASE } from '@/lib/api-base';
 import { revalidatePath } from 'next/cache';
+import { AgentLoop } from '@/lib/agent-loop';
 import { generateId, generateShortCode } from '@/lib/uuid';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -267,9 +267,8 @@ export async function seedPersonas(): Promise<
   }
 }
 
-// ── Chat (stays as Python microservice call) ─────────────────────────────
-// Chat uses AgentLoop (10-30s tool-calling loops with Gemini).
-// This stays as a fetch to the Python backend for now.
+// ── Chat (now uses in-process AgentLoop — no Python needed) ──────────────
+// The AgentLoop calls Gemini Chat Completions API directly from Next.js.
 
 export async function chatWithPersona(
   personaId: string,
@@ -277,27 +276,112 @@ export async function chatWithPersona(
   conversationId?: string
 ): Promise<{ success: true; content: string; message_id: string; conversation_id: string; model?: string } | { success: false; error: string }> {
   try {
-    const res = await fetch(`${API_BASE}/ai/chat/${personaId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, conversation_id: conversationId, channel: 'web' }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      const msg = typeof err.detail === 'string'
-        ? err.detail
-        : Array.isArray(err.detail)
-          ? err.detail.map((e: any) => e.msg || JSON.stringify(e)).join('; ')
-          : JSON.stringify(err.detail || err);
-      throw new Error(msg || 'Chat failed');
+    // Load persona from Prisma
+    const persona = await prisma.ai_personas.findUnique({ where: { id: personaId } });
+    if (!persona) return { success: false, error: 'Persona not found' };
+
+    // Get or create conversation
+    let conversation = conversationId
+      ? await prisma.ai_conversations.findUnique({ where: { id: conversationId } })
+      : null;
+
+    if (!conversation) {
+      conversation = await prisma.ai_conversations.create({
+        data: {
+          id: generateId(),
+          persona_id: personaId,
+          channel: 'web',
+          title: message.slice(0, 60),
+        },
+      });
     }
-    const data = await res.json();
+
+    // Save user message
+    const userMsg = await prisma.ai_messages.create({
+      data: {
+        id: generateId(),
+        conversation_id: conversation.id,
+        role: 'user',
+        content: message,
+      },
+    });
+
+    // Load conversation history (last 20 messages)
+    const historyMessages = await prisma.ai_messages.findMany({
+      where: { conversation_id: conversation.id },
+      orderBy: { created_at: 'asc' },
+      take: 20,
+    });
+
+    // Build history in Chat Completions format
+    const history = historyMessages
+      .filter(m => m.role !== 'system')
+      .map(m => {
+        const msg: Record<string, any> = { role: m.role, content: m.content };
+        if (m.tool_calls) {
+          try {
+            msg.tool_calls = typeof m.tool_calls === 'string' ? JSON.parse(m.tool_calls) : m.tool_calls;
+          } catch {}
+        }
+        if (m.tool_call_id) {
+          msg.tool_call_id = m.tool_call_id;
+        }
+        return msg;
+      });
+
+    // Parse allowed tools
+    let allowedTools: string[] | null = null;
+    if (persona.allowed_tools) {
+      try {
+        allowedTools = typeof persona.allowed_tools === 'string'
+          ? JSON.parse(persona.allowed_tools)
+          : persona.allowed_tools;
+      } catch {
+        allowedTools = null;
+      }
+    }
+
+    // Run AgentLoop
+    const loop = new AgentLoop({
+      persona: {
+        id: persona.id,
+        nickname: persona.nickname,
+        about: persona.about || undefined,
+        greeting: persona.greeting || undefined,
+        model: persona.model || undefined,
+        temperature: persona.temperature ?? undefined,
+        allowed_tools: allowedTools,
+        allowed_mcp_servers: persona.allowed_mcp_servers
+          ? (typeof persona.allowed_mcp_servers === 'string'
+              ? JSON.parse(persona.allowed_mcp_servers)
+              : persona.allowed_mcp_servers)
+          : null,
+        knowledge_base_prompt: persona.knowledge_base_prompt || null,
+        enable_knowledge_base: persona.enable_knowledge_base,
+      },
+    });
+
+    const result = await loop.run(message, history as any);
+
+    // Save assistant message
+    const assistantMsg = await prisma.ai_messages.create({
+      data: {
+        id: generateId(),
+        conversation_id: conversation.id,
+        role: 'assistant',
+        content: result.content,
+        tool_calls: result.toolCalls.length > 0
+          ? JSON.stringify(result.toolCalls.map(tc => ({ name: tc.name, args: tc.args, callId: tc.callId })))
+          : undefined,
+      },
+    });
+
     return {
       success: true,
-      content: data.content || '',
-      message_id: data.message_id || Date.now().toString(),
-      conversation_id: data.conversation_id || '',
-      model: data.model,
+      content: result.content,
+      message_id: assistantMsg.id,
+      conversation_id: conversation.id,
+      model: result.model,
     };
   } catch (error: any) {
     console.error('[ai] chatWithPersona failed:', error?.message);
@@ -305,14 +389,19 @@ export async function chatWithPersona(
   }
 }
 
-// ── Conversations ─────────────────────────────────────────────────────────
+// ── Conversations (now uses Prisma directly — no Python needed) ──────────
 
 export async function listConversations(personaId?: string): Promise<
   { success: true; conversations: any[] } | { success: false; error: string }
 > {
   try {
-    const params = personaId ? `?persona_id=${personaId}` : '';
-    const conversations = await fetch(`${API_BASE}/ai/conversations${params}`).then(r => r.json());
+    const where: any = {};
+    if (personaId) where.persona_id = personaId;
+    const conversations = await prisma.ai_conversations.findMany({
+      where,
+      orderBy: { updated_at: 'desc' },
+      take: 50,
+    });
     return { success: true, conversations };
   } catch (error: any) {
     console.error('[ai] listConversations failed:', error?.message);
@@ -324,7 +413,10 @@ export async function getConversationMessages(conversationId: string): Promise<
   { success: true; messages: any[] } | { success: false; error: string }
 > {
   try {
-    const messages = await fetch(`${API_BASE}/ai/conversations/${conversationId}/messages`).then(r => r.json());
+    const messages = await prisma.ai_messages.findMany({
+      where: { conversation_id: conversationId },
+      orderBy: { created_at: 'asc' },
+    });
     return { success: true, messages };
   } catch (error: any) {
     console.error('[ai] getMessages failed:', error?.message);

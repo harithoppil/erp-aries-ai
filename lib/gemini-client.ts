@@ -24,7 +24,6 @@
  *   // calls = [{ name: "create_customer", args: { customer_name: "Acme", ... } }]
  */
 
-import { API_BASE } from "@/lib/api";
 import { getAdapter, type AIProvider, type FunctionCallResult } from "@/lib/ai-tool-adapters";
 import type { UIAction } from "@/store/useActionDispatcher";
 
@@ -134,7 +133,7 @@ async function getEphemeralToken(): Promise<{ token: string; projectId: string }
     return { token: cachedToken.token, projectId: cachedToken.projectId };
   }
 
-  const res = await fetch(`${API_BASE}/ai/token`);
+  const res = await fetch(`/api/ai/token`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`Token endpoint failed: ${err.detail || res.statusText}`);
@@ -165,7 +164,7 @@ async function callAIViaProxy(options: PlanOptions): Promise<FunctionCall[]> {
   // Convert actions to provider-specific format for the proxy
   const toolSpec = adapter.toToolSpec(options.actions);
 
-  const res = await fetch(`${API_BASE}/ai/ui-plan`, {
+  const res = await fetch(`/api/ai/ui-plan`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

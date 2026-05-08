@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { useActionDispatcher, parseActionMarkers } from "@/store/useActionDispatcher";
 import { planUIActions, executeFunctionCalls, type FunctionCall } from "@/lib/gemini-client";
 import { chatWithPersona } from "@/app/dashboard/ai/actions";
+import type { AgentLoopEvent } from "@/lib/agent-loop";
 
 export interface ChatMessage {
   id: string;
@@ -169,7 +170,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const errMsg: ChatMessage = {
         id: Date.now().toString(),
         sender: "system",
-        content: "Can't reach the AI backend. Please check that the server is running on port 8001, then click Retry.",
+        content: "Can't reach the AI backend. Please try again in a moment.",
         timestamp: new Date().toISOString(),
       };
       set((s) => ({ messages: [...s.messages, errMsg], isTyping: false }));
@@ -219,8 +220,122 @@ export const useAppStore = create<AppState>((set, get) => ({
           })
         : Promise.resolve([] as FunctionCall[]);
 
-    // Track 2: Normal chat (reasoning + text response) — uses Server Action
-    const chatPromise = chatWithPersona(personaId, fullMessage);
+    // Track 2: Chat with streaming — uses SSE endpoint /api/ai/chat
+    // This gives token-by-token output instead of waiting for the full response
+    const chatStreamingPromise = (async () => {
+      try {
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ personaId, message: fullMessage }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Chat API returned ${res.status}`);
+        }
+
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No response stream");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let aiContent = "";
+        const aiMsgId = (Date.now() + 1).toString();
+
+        // Add empty AI message that we'll update incrementally
+        const aiMsg: ChatMessage = {
+          id: aiMsgId,
+          sender: "ai",
+          content: "",
+          timestamp: new Date().toISOString(),
+        };
+        set((s) => ({ messages: [...s.messages, aiMsg] }));
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("event: ")) {
+              // Next line will be the data
+              continue;
+            }
+            if (trimmed.startsWith("data: ")) {
+              const dataStr = trimmed.slice(6);
+              try {
+                const data = JSON.parse(dataStr);
+
+                // Update the AI message content incrementally
+                if (data.content) {
+                  aiContent += data.content;
+                  const currentContent = aiContent;
+                  set((s) => ({
+                    messages: s.messages.map(m =>
+                      m.id === aiMsgId ? { ...m, content: currentContent } : m
+                    ),
+                  }));
+                }
+
+                // When done, finalize
+                if (data.rounds !== undefined) {
+                  set({ isTyping: false });
+                }
+              } catch {
+                // Skip malformed data
+              }
+            }
+          }
+        }
+
+        // Finalize with parsed action markers
+        if (aiContent) {
+          const { cleanText, actions } = parseActionMarkers(aiContent);
+          for (const action of actions) {
+            dispatcher.executeAction(action.name, action.args);
+          }
+          set((s) => ({
+            messages: s.messages.map(m =>
+              m.id === aiMsgId ? { ...m, content: cleanText } : m
+            ),
+            isTyping: false,
+          }));
+        } else {
+          set({ isTyping: false });
+        }
+      } catch (e) {
+        console.warn("[Track 2] Streaming chat failed, falling back to Server Action:", e);
+        // Fallback to non-streaming Server Action
+        try {
+          const chatResult = await chatWithPersona(personaId, fullMessage);
+          if (!chatResult.success) throw new Error(chatResult.error);
+          const rawContent = chatResult.content || "I received your message but couldn't generate a response.";
+          const { cleanText, actions } = parseActionMarkers(rawContent);
+          for (const action of actions) {
+            dispatcher.executeAction(action.name, action.args);
+          }
+          const aiMsg: ChatMessage = {
+            id: chatResult.message_id || (Date.now() + 1).toString(),
+            sender: "ai",
+            content: cleanText,
+            timestamp: new Date().toISOString(),
+          };
+          set((s) => ({ messages: [...s.messages, aiMsg], isTyping: false }));
+        } catch (e2) {
+          const errMsg: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            sender: "system",
+            content: `Failed to reach AI: ${(e2 as Error).message}`,
+            timestamp: new Date().toISOString(),
+          };
+          set((s) => ({ messages: [...s.messages, errMsg], isTyping: false }));
+        }
+      }
+    })();
 
     try {
       // Wait for UI plan (fast) and execute actions immediately
@@ -228,7 +343,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (functionCalls.length > 0) {
         set({ uiActionActive: true, lastUiActions: functionCalls });
         await executeFunctionCalls(functionCalls, handlers, {
-          staggerMs: 200, // 200ms between each action for visual effect
+          staggerMs: 200,
           onExecute: (call) => {
             console.log(`[UI Action] Executed: ${call.name}`, call.args);
           },
@@ -237,41 +352,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } catch (e) {
       console.warn("[UI Plan] Track 1 failed:", e);
-      // Non-fatal — Track 2 still runs
     }
 
-    // Wait for chat response (slow track)
-    try {
-      const chatResult = await chatPromise;
-      if (!chatResult.success) {
-        throw new Error(chatResult.error);
-      }
-
-      // Parse and execute any UI action markers in the response (fallback)
-      const rawContent = chatResult.content || "I received your message but couldn't generate a response.";
-      const { cleanText, actions } = parseActionMarkers(rawContent);
-
-      // Execute any fallback action markers from slow track
-      for (const action of actions) {
-        dispatcher.executeAction(action.name, action.args);
-      }
-
-      const aiMsg: ChatMessage = {
-        id: chatResult.message_id || (Date.now() + 1).toString(),
-        sender: "ai",
-        content: cleanText,
-        timestamp: new Date().toISOString(),
-      };
-      set((s) => ({ messages: [...s.messages, aiMsg], isTyping: false }));
-    } catch (e) {
-      const errMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: "system",
-        content: `Failed to reach AI: ${(e as Error).message}`,
-        timestamp: new Date().toISOString(),
-      };
-      set((s) => ({ messages: [...s.messages, errMsg], isTyping: false }));
-    }
+    // Track 2 runs independently (streaming) — don't await it here
+    // The streaming updates happen via the set() calls inside chatStreamingPromise
   },
 
   toggleChat: () => {

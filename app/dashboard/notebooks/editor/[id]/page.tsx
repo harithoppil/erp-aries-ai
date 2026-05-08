@@ -101,15 +101,15 @@ export default function NotebookEditorPage() {
     if (!aiPrompt.trim()) return;
     setAiLoading(true);
     setAiResponse("");
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api/v1";
 
     try {
-      const res = await fetch(`${apiBase}/ai/chat/presales_assistant`, {
+      // Use Next.js SSE chat endpoint (replaces Python backend)
+      const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          personaId: "presales_assistant",
           message: `You are assisting with a document titled "${title}". The user says: ${aiPrompt}\n\nCurrent document content:\n${editor?.getHTML() || ""}`,
-          context: "notebook_editor",
         }),
       });
 

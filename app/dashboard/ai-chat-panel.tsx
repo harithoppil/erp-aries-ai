@@ -241,7 +241,7 @@ export function AiChatPanel() {
         </div>
         {currentPersona && (
           <p className="mt-1.5 text-[10px] text-slate-400">
-            {currentPersona.nickname} &middot; {currentPersona.position} &middot; {currentPersona.model}
+            {currentPersona.nickname} &middot; {currentPersona.position}
           </p>
         )}
       </div>
