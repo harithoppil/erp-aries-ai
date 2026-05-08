@@ -83,7 +83,6 @@ celerybeat-schedule
 celerybeat.pid
 
 tmp/
+convo*.txt
 
 convo_*.txt
-convo_6.txt
-convo_6.txt

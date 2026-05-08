@@ -1,0 +1,1006 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres:Arieserp1!@aries-erp-ai.postgres.database.azure.com:5432/postgres?sslmode=require"
+}
+
+model accounts {
+  id                  String                @id @db.Uuid
+  name                String                @unique @db.VarChar(200)
+  account_number      String?               @db.VarChar(50)
+  account_type        accounttype?
+  root_type           String?               @db.VarChar(20)
+  report_type         String?               @db.VarChar(50)
+  parent_account      String?               @db.VarChar(200)
+  is_group            Boolean
+  company             String                @db.VarChar(200)
+  account_currency    String                @db.VarChar(3)
+  tax_rate            Float
+  balance_must_be     String?               @db.VarChar(10)
+  balance             Float
+  lft                 Int
+  rgt                 Int
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  gl_entries          gl_entries[]
+  journal_entry_lines journal_entry_lines[]
+}
+
+model ai_conversations {
+  id          String        @id @db.Uuid
+  persona_id  String        @db.Uuid
+  user_id     String?       @db.VarChar(255)
+  channel     String        @db.VarChar(50)
+  title       String?       @db.VarChar(200)
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime      @default(now()) @db.Timestamptz(6)
+  ai_personas ai_personas   @relation(fields: [persona_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ai_messages ai_messages[]
+
+  @@index([channel], map: "ix_ai_conversations_channel")
+  @@index([persona_id], map: "ix_ai_conversations_persona_id")
+  @@index([user_id], map: "ix_ai_conversations_user_id")
+}
+
+model ai_messages {
+  id               String           @id @db.Uuid
+  conversation_id  String           @db.Uuid
+  role             String           @db.VarChar(50)
+  content          String?
+  tool_calls       String?
+  tool_call_id     String?          @db.VarChar(100)
+  tool_name        String?          @db.VarChar(100)
+  metadata_json    String?
+  created_at       DateTime         @default(now()) @db.Timestamptz(6)
+  ai_conversations ai_conversations @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([conversation_id], map: "ix_ai_messages_conversation_id")
+  @@index([created_at], map: "ix_ai_messages_created_at")
+}
+
+model ai_personas {
+  id                    String               @id @db.Uuid
+  username              String               @unique @db.VarChar(100)
+  nickname              String               @db.VarChar(100)
+  position              String               @db.VarChar(200)
+  category              String               @db.VarChar(20)
+  about                 String?
+  greeting              String?
+  model                 String               @db.VarChar(100)
+  temperature           Float
+  allowed_tools         String?
+  allowed_collections   String?
+  allowed_mcp_servers   String?
+  enable_knowledge_base Boolean
+  knowledge_base_prompt String?
+  enabled               Boolean
+  built_in              Boolean
+  created_at            DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime             @default(now()) @db.Timestamptz(6)
+  ai_conversations      ai_conversations[]
+  channel_connectors    channel_connectors[]
+}
+
+model assets {
+  id                      String                @id @db.Uuid
+  asset_name              String                @db.VarChar(255)
+  asset_code              String                @unique @db.VarChar(100)
+  asset_category          String                @db.VarChar(100)
+  status                  assetstatus
+  location                String?               @db.VarChar(200)
+  warehouse_id            String?               @db.Uuid
+  purchase_date           DateTime?             @db.Timestamptz(6)
+  purchase_cost           Float?
+  current_value           Float?
+  depreciation_rate       Float
+  calibration_date        DateTime?             @db.Timestamptz(6)
+  next_calibration_date   DateTime?             @db.Timestamptz(6)
+  calibration_certificate String?               @db.VarChar(500)
+  certification_body      String?               @db.VarChar(200)
+  assigned_to_project     String?               @db.Uuid
+  assigned_to_personnel   String?               @db.Uuid
+  notes                   String?
+  created_at              DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime              @default(now()) @db.Timestamptz(6)
+  personnel               personnel?            @relation(fields: [assigned_to_personnel], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects                projects?             @relation(fields: [assigned_to_project], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouses              warehouses?           @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenance_records     maintenance_records[]
+
+  @@index([assigned_to_personnel], map: "ix_assets_assigned_to_personnel")
+  @@index([assigned_to_project], map: "ix_assets_assigned_to_project")
+  @@index([warehouse_id], map: "ix_assets_warehouse_id")
+}
+
+model audit_log {
+  id         String    @id @db.Uuid
+  enquiry_id String    @db.Uuid
+  action     String    @db.VarChar(100)
+  actor      String    @db.VarChar(255)
+  details    String?
+  node       String?   @db.VarChar(50)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  enquiries  enquiries @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model bins {
+  id             String     @id @db.Uuid
+  item_id        String     @db.Uuid
+  warehouse_id   String     @db.Uuid
+  quantity       Float
+  valuation_rate Float
+  stock_value    Float
+  updated_at     DateTime   @default(now()) @db.Timestamptz(6)
+  items          items      @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouses     warehouses @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([item_id], map: "ix_bins_item_id")
+  @@index([warehouse_id], map: "ix_bins_warehouse_id")
+}
+
+model certifications {
+  id           String     @id @db.Uuid
+  personnel_id String     @db.Uuid
+  cert_type    String     @db.VarChar(100)
+  cert_number  String?    @db.VarChar(100)
+  issuing_body String?    @db.VarChar(200)
+  issue_date   DateTime?  @db.Timestamptz(6)
+  expiry_date  DateTime?  @db.Timestamptz(6)
+  status       certstatus
+  personnel    personnel  @relation(fields: [personnel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([personnel_id], map: "ix_certifications_personnel_id")
+  @@index([status], map: "ix_certifications_status")
+}
+
+model channel_connectors {
+  id                 String       @id @db.Uuid
+  channel_type       String       @db.VarChar(50)
+  name               String       @db.VarChar(200)
+  enabled            Boolean
+  config             String?
+  webhook_url        String?      @db.VarChar(500)
+  default_persona_id String?      @db.Uuid
+  created_at         DateTime     @default(now()) @db.Timestamptz(6)
+  ai_personas        ai_personas? @relation(fields: [default_persona_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model customers {
+  id             String         @id @db.Uuid
+  customer_name  String         @db.VarChar(255)
+  customer_code  String         @unique @db.VarChar(50)
+  contact_person String?        @db.VarChar(255)
+  email          String?        @db.VarChar(255)
+  phone          String?        @db.VarChar(50)
+  address        String?
+  industry       String?        @db.VarChar(100)
+  tax_id         String?        @db.VarChar(50)
+  credit_limit   Float?
+  status         String         @db.VarChar(20)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  quotations     quotations[]
+  sales_orders   sales_orders[]
+}
+
+model documents {
+  id                String    @id @db.Uuid
+  enquiry_id        String    @db.Uuid
+  filename          String    @db.VarChar(500)
+  content_type      String    @db.VarChar(100)
+  storage_path      String    @db.VarChar(1000)
+  wiki_source_page  String?   @db.VarChar(500)
+  markdown_content  String?
+  processing_status String    @db.VarChar(50)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  enquiries         enquiries @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model enquiries {
+  id                  String                @id @db.Uuid
+  enquiry_number      String?               @unique(map: "ix_enquiries_enquiry_number") @db.VarChar(50)
+  client_name         String                @db.VarChar(255)
+  client_email        String?               @db.VarChar(255)
+  channel             String                @db.VarChar(50)
+  industry            String?               @db.VarChar(100)
+  subdivision         String?               @db.VarChar(100)
+  description         String
+  status              enquirystatus
+  estimated_value     Float?
+  estimated_cost      Float?
+  estimated_margin    Float?
+  scope_category      String?               @db.VarChar(100)
+  complexity          String?               @db.VarChar(50)
+  resource_profile    String?
+  approved_by         String?               @db.VarChar(255)
+  approved_at         DateTime?             @db.Timestamptz(6)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  audit_log           audit_log[]
+  documents           documents[]
+  projects            projects[]
+  quotations          quotations[]
+  sales_invoices      sales_invoices[]
+  workflow_executions workflow_executions[]
+
+  @@index([status], map: "ix_enquiries_status")
+}
+
+model invoice_items {
+  id             String         @id @db.Uuid
+  invoice_id     String         @db.Uuid
+  item_code      String?        @db.VarChar(100)
+  description    String
+  quantity       Int
+  rate           Float
+  amount         Float
+  sales_invoices sales_invoices @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model items {
+  id               String               @id @db.Uuid
+  item_code        String               @unique @db.VarChar(100)
+  item_name        String               @db.VarChar(255)
+  item_group       itemgroup
+  description      String?
+  unit             String               @db.VarChar(20)
+  has_batch        Boolean
+  has_serial       Boolean
+  valuation_method stockvaluationmethod
+  standard_rate    Float?
+  min_order_qty    Float?
+  safety_stock     Float?
+  created_at       DateTime             @default(now()) @db.Timestamptz(6)
+  bins             bins[]
+  stock_entries    stock_entries[]
+}
+
+model journal_entries {
+  id                  String                @id @db.Uuid
+  entry_number        String                @unique @db.VarChar(50)
+  posting_date        DateTime              @default(now()) @db.Timestamptz(6)
+  reference           String?               @db.VarChar(200)
+  account             String?               @db.VarChar(255)
+  party_type          String?               @db.VarChar(50)
+  party_name          String?               @db.VarChar(255)
+  entry_type          journalentrytype?
+  amount              Float?
+  currency            String                @db.VarChar(3)
+  notes               String?
+  total_debit         Float
+  total_credit        Float
+  status              String                @db.VarChar(20)
+  subsidiary_id       String?               @db.Uuid
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  subsidiaries        subsidiaries?         @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  journal_entry_lines journal_entry_lines[]
+}
+
+model maintenance_records {
+  id               String    @id @db.Uuid
+  asset_id         String    @db.Uuid
+  maintenance_type String    @db.VarChar(50)
+  description      String
+  performed_by     String    @db.VarChar(255)
+  performed_date   DateTime  @db.Timestamptz(6)
+  next_due_date    DateTime? @db.Timestamptz(6)
+  cost             Float
+  assets           assets    @relation(fields: [asset_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model material_requests {
+  id             String    @id @db.Uuid
+  request_number String    @unique @db.VarChar(50)
+  project_id     String?   @db.Uuid
+  requested_by   String    @db.VarChar(255)
+  purpose        String?
+  status         String    @db.VarChar(50)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  projects       projects? @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model node_executions {
+  id                  String              @id @db.Uuid
+  execution_id        String              @db.Uuid
+  node_key            String              @db.VarChar(100)
+  status              String              @db.VarChar(20)
+  input_data          String?
+  output_data         String?
+  error_message       String?
+  duration_ms         Int?
+  started_at          DateTime?           @db.Timestamptz(6)
+  completed_at        DateTime?           @db.Timestamptz(6)
+  workflow_executions workflow_executions @relation(fields: [execution_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([execution_id], map: "ix_node_executions_execution_id")
+}
+
+model notebooks {
+  id            String   @id @db.Uuid
+  title         String   @db.VarChar(255)
+  content       String?
+  metadata_json String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model payment_entries {
+  id               String          @id @db.Uuid
+  invoice_id       String?         @db.Uuid
+  payment_type     String          @db.VarChar(50)
+  party_type       String          @db.VarChar(50)
+  party_name       String          @db.VarChar(255)
+  amount           Float
+  currency         String          @db.VarChar(3)
+  reference_number String?         @db.VarChar(100)
+  reference_date   DateTime?       @db.Timestamptz(6)
+  posting_date     DateTime        @default(now()) @db.Timestamptz(6)
+  sales_invoices   sales_invoices? @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model personnel {
+  id                  String                @id @db.Uuid
+  employee_id         String                @unique @db.VarChar(50)
+  first_name          String                @db.VarChar(100)
+  last_name           String                @db.VarChar(100)
+  email               String?               @db.VarChar(255)
+  phone               String?               @db.VarChar(50)
+  status              personnelstatus
+  designation         String?               @db.VarChar(100)
+  department          String?               @db.VarChar(100)
+  day_rate            Float?
+  currency            String                @db.VarChar(3)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  assets              assets[]
+  certifications      certifications[]
+  project_assignments project_assignments[]
+  timesheets          timesheets[]
+}
+
+model po_items {
+  id              String          @id @db.Uuid
+  po_id           String          @db.Uuid
+  item_code       String?         @db.VarChar(100)
+  description     String
+  quantity        Int
+  rate            Float
+  amount          Float
+  purchase_orders purchase_orders @relation(fields: [po_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model project_assignments {
+  id                 String    @id @db.Uuid
+  project_id         String    @db.Uuid
+  personnel_id       String    @db.Uuid
+  role               String    @db.VarChar(100)
+  compliance_checked Boolean
+  compliance_passed  Boolean
+  compliance_issues  String?
+  personnel          personnel @relation(fields: [personnel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects           projects  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([personnel_id], map: "ix_project_assignments_personnel_id")
+  @@index([project_id], map: "ix_project_assignments_project_id")
+}
+
+model projects {
+  id                  String                @id @db.Uuid
+  project_name        String                @db.VarChar(255)
+  project_code        String                @unique @db.VarChar(50)
+  project_type        String                @db.VarChar(100)
+  status              projectstatus
+  enquiry_id          String?               @db.Uuid
+  customer_name       String                @db.VarChar(255)
+  expected_start      DateTime?             @db.Timestamptz(6)
+  expected_end        DateTime?             @db.Timestamptz(6)
+  actual_start        DateTime?             @db.Timestamptz(6)
+  actual_end          DateTime?             @db.Timestamptz(6)
+  project_location    String?               @db.VarChar(200)
+  vessel_name         String?               @db.VarChar(200)
+  estimated_cost      Float?
+  actual_cost         Float
+  day_rate            Float?
+  currency            String                @db.VarChar(3)
+  notes               String?
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  assets              assets[]
+  gl_entries          gl_entries[]
+  journal_entry_lines journal_entry_lines[]
+  material_requests   material_requests[]
+  project_assignments project_assignments[]
+  enquiries           enquiries?            @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchase_orders     purchase_orders[]
+  tasks               tasks[]
+  timesheets          timesheets[]
+}
+
+model purchase_orders {
+  id                String     @id @db.Uuid
+  po_number         String     @unique @db.VarChar(50)
+  supplier_id       String     @db.Uuid
+  project_id        String?    @db.Uuid
+  status            postatus
+  order_date        DateTime   @default(now()) @db.Timestamptz(6)
+  expected_delivery DateTime?  @db.Timestamptz(6)
+  subtotal          Float
+  tax_amount        Float
+  total             Float
+  currency          String     @db.VarChar(3)
+  notes             String?
+  created_at        DateTime   @default(now()) @db.Timestamptz(6)
+  po_items          po_items[]
+  projects          projects?  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  suppliers         suppliers  @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model quality_inspections {
+  id                String   @id @db.Uuid
+  inspection_type   String   @db.VarChar(100)
+  reference         String?  @db.VarChar(200)
+  status            String   @db.VarChar(50)
+  findings          String?
+  corrective_action String?
+  inspected_by      String   @db.VarChar(255)
+  inspection_date   DateTime @default(now()) @db.Timestamptz(6)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model quotation_items {
+  id           String     @id @db.Uuid
+  quotation_id String     @db.Uuid
+  item_code    String?    @db.VarChar(100)
+  description  String
+  quantity     Int
+  rate         Float
+  amount       Float
+  quotations   quotations @relation(fields: [quotation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model quotations {
+  id               String            @id @db.Uuid
+  quotation_number String            @unique @db.VarChar(50)
+  enquiry_id       String?           @db.Uuid
+  customer_id      String?           @db.Uuid
+  customer_name    String            @db.VarChar(255)
+  project_type     String?           @db.VarChar(100)
+  valid_until      DateTime?         @db.Timestamptz(6)
+  status           quotationstatus
+  subtotal         Float
+  tax_rate         Float
+  tax_amount       Float
+  total            Float
+  currency         String            @db.VarChar(3)
+  notes            String?
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  quotation_items  quotation_items[]
+  customers        customers?        @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  enquiries        enquiries?        @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sales_orders     sales_orders[]
+}
+
+model sales_invoices {
+  id                 String              @id @db.Uuid
+  invoice_number     String              @unique @db.VarChar(50)
+  enquiry_id         String?             @db.Uuid
+  customer_name      String              @db.VarChar(255)
+  customer_email     String?             @db.VarChar(255)
+  posting_date       DateTime            @default(now()) @db.Timestamptz(6)
+  due_date           DateTime?           @db.Timestamptz(6)
+  status             salesinvoicestatus
+  subtotal           Float
+  tax_rate           Float
+  tax_amount         Float
+  total              Float
+  currency           String              @db.VarChar(3)
+  paid_amount        Float
+  outstanding_amount Float
+  document_id        String?             @db.Uuid
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  invoice_items      invoice_items[]
+  payment_entries    payment_entries[]
+  uploaded_documents uploaded_documents? @relation(fields: [document_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  enquiries          enquiries?          @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model sales_order_items {
+  id             String       @id @db.Uuid
+  sales_order_id String       @db.Uuid
+  item_code      String?      @db.VarChar(100)
+  description    String
+  quantity       Int
+  rate           Float
+  amount         Float
+  delivered_qty  Int
+  sales_orders   sales_orders @relation(fields: [sales_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model sales_orders {
+  id                String              @id @db.Uuid
+  order_number      String              @unique @db.VarChar(50)
+  quotation_id      String?             @db.Uuid
+  customer_id       String?             @db.Uuid
+  customer_name     String              @db.VarChar(255)
+  project_type      String?             @db.VarChar(100)
+  delivery_date     DateTime?           @db.Timestamptz(6)
+  status            salesorderstatus
+  subtotal          Float
+  tax_rate          Float
+  tax_amount        Float
+  total             Float
+  currency          String              @db.VarChar(3)
+  notes             String?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  sales_order_items sales_order_items[]
+  customers         customers?          @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quotations        quotations?         @relation(fields: [quotation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model stock_entries {
+  id                                                    String         @id @db.Uuid
+  entry_type                                            stockentrytype
+  item_id                                               String         @db.Uuid
+  quantity                                              Float
+  source_warehouse                                      String?        @db.Uuid
+  target_warehouse                                      String?        @db.Uuid
+  serial_number                                         String?        @db.VarChar(100)
+  batch_number                                          String?        @db.VarChar(100)
+  valuation_rate                                        Float?
+  reference                                             String?        @db.VarChar(200)
+  posting_date                                          DateTime       @default(now()) @db.Timestamptz(6)
+  created_at                                            DateTime       @default(now()) @db.Timestamptz(6)
+  items                                                 items          @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouses_stock_entries_source_warehouseTowarehouses warehouses?    @relation("stock_entries_source_warehouseTowarehouses", fields: [source_warehouse], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouses_stock_entries_target_warehouseTowarehouses warehouses?    @relation("stock_entries_target_warehouseTowarehouses", fields: [target_warehouse], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([item_id], map: "ix_stock_entries_item_id")
+}
+
+model suppliers {
+  id                 String              @id @db.Uuid
+  supplier_name      String              @db.VarChar(255)
+  supplier_code      String              @unique @db.VarChar(50)
+  contact_person     String?             @db.VarChar(255)
+  email              String?             @db.VarChar(255)
+  phone              String?             @db.VarChar(50)
+  address            String?
+  category           String?             @db.VarChar(100)
+  rating             Float?
+  document_id        String?             @db.Uuid
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  purchase_orders    purchase_orders[]
+  uploaded_documents uploaded_documents? @relation(fields: [document_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model tasks {
+  id          String     @id @db.Uuid
+  project_id  String     @db.Uuid
+  subject     String     @db.VarChar(255)
+  description String?
+  status      taskstatus
+  assigned_to String?    @db.VarChar(255)
+  start_date  DateTime?  @db.Timestamptz(6)
+  end_date    DateTime?  @db.Timestamptz(6)
+  progress    Float
+  projects    projects   @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([project_id], map: "ix_tasks_project_id")
+}
+
+model tax_categories {
+  id          String  @id @db.Uuid
+  name        String  @unique @db.VarChar(100)
+  rate        Float
+  description String?
+}
+
+model timesheets {
+  id            String    @id @db.Uuid
+  project_id    String    @db.Uuid
+  personnel_id  String    @db.Uuid
+  date          DateTime  @db.Timestamptz(6)
+  hours         Float
+  activity_type String    @db.VarChar(100)
+  description   String?
+  billable      Boolean
+  personnel     personnel @relation(fields: [personnel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects      projects  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([project_id], map: "ix_timesheets_project_id")
+}
+
+model ui_dashboards {
+  id                 String   @id @db.Uuid
+  name               String   @db.VarChar(200)
+  ui_type            String   @db.VarChar(50)
+  schema_json        String
+  created_by_persona String?  @db.VarChar(100)
+  is_active          Boolean
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model uploaded_documents {
+  id                 String           @id @db.Uuid
+  original_filename  String           @db.VarChar(500)
+  content_type       String           @db.VarChar(100)
+  file_size          Int
+  gcs_bucket         String           @db.VarChar(255)
+  gcs_path           String           @db.VarChar(1000)
+  doc_type           doctype
+  auto_detected_type String?          @db.VarChar(100)
+  entity_type        String?          @db.VarChar(100)
+  entity_id          String?          @db.Uuid
+  processing_status  processingstatus
+  extracted_data     String?
+  confidence_score   Float?
+  error_message      String?
+  thumbnail_url      String?          @db.VarChar(1000)
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  processed_at       DateTime?        @db.Timestamptz(6)
+  sales_invoices     sales_invoices[]
+  suppliers          suppliers[]
+}
+
+model warehouses {
+  id                                                       String          @id @db.Uuid
+  warehouse_name                                           String          @db.VarChar(200)
+  warehouse_code                                           String          @unique @db.VarChar(50)
+  location                                                 String          @db.VarChar(200)
+  is_group                                                 Boolean
+  parent_warehouse                                         String?         @db.VarChar(200)
+  created_at                                               DateTime        @default(now()) @db.Timestamptz(6)
+  assets                                                   assets[]
+  bins                                                     bins[]
+  stock_entries_stock_entries_source_warehouseTowarehouses stock_entries[] @relation("stock_entries_source_warehouseTowarehouses")
+  stock_entries_stock_entries_target_warehouseTowarehouses stock_entries[] @relation("stock_entries_target_warehouseTowarehouses")
+}
+
+model workflow_edges {
+  id              String    @id @db.Uuid
+  workflow_id     String    @db.Uuid
+  source_node_key String    @db.VarChar(100)
+  target_node_key String    @db.VarChar(100)
+  condition       String?   @db.VarChar(200)
+  workflows       workflows @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workflow_id], map: "ix_workflow_edges_workflow_id")
+}
+
+model workflow_executions {
+  id               String            @id @db.Uuid
+  workflow_id      String            @db.Uuid
+  enquiry_id       String            @db.Uuid
+  status           String            @db.VarChar(20)
+  current_node_key String?           @db.VarChar(100)
+  error_message    String?
+  started_at       DateTime?         @db.Timestamptz(6)
+  completed_at     DateTime?         @db.Timestamptz(6)
+  node_executions  node_executions[]
+  enquiries        enquiries         @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workflows        workflows         @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([enquiry_id], map: "ix_workflow_executions_enquiry_id")
+  @@index([workflow_id], map: "ix_workflow_executions_workflow_id")
+}
+
+model workflow_nodes {
+  id          String    @id @db.Uuid
+  workflow_id String    @db.Uuid
+  node_key    String    @db.VarChar(100)
+  node_type   String    @db.VarChar(50)
+  label       String    @db.VarChar(200)
+  description String?
+  config      String?
+  position_x  Int
+  position_y  Int
+  workflows   workflows @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workflow_id], map: "ix_workflow_nodes_workflow_id")
+}
+
+model workflows {
+  id                  String                @id @db.Uuid
+  name                String                @db.VarChar(200)
+  description         String?
+  version             Int
+  status              String                @db.VarChar(20)
+  is_default          Boolean
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  workflow_edges      workflow_edges[]
+  workflow_executions workflow_executions[]
+  workflow_nodes      workflow_nodes[]
+}
+
+model cost_centers {
+  id                 String        @id @db.Uuid
+  name               String        @db.VarChar(200)
+  cost_center_number String?       @db.VarChar(50)
+  parent_cost_center String?       @db.VarChar(200)
+  subsidiary_id      String?       @db.Uuid
+  is_group           Boolean
+  disabled           Boolean
+  lft                Int
+  rgt                Int
+  created_at         DateTime      @default(now()) @db.Timestamptz(6)
+  subsidiaries       subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model fiscal_years {
+  id              String        @id @db.Uuid
+  year            String        @db.VarChar(20)
+  year_start_date DateTime?     @db.Timestamptz(6)
+  year_end_date   DateTime?     @db.Timestamptz(6)
+  disabled        Boolean
+  is_short_year   Boolean
+  subsidiary_id   String?       @db.Uuid
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  subsidiaries    subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model gl_entries {
+  id                         String        @id @db.Uuid
+  posting_date               DateTime?     @db.Timestamptz(6)
+  fiscal_year                String?       @db.VarChar(20)
+  account_id                 String?       @db.Uuid
+  account_currency           String?       @db.VarChar(3)
+  party_type                 String?       @db.VarChar(50)
+  party_name                 String?       @db.VarChar(255)
+  voucher_type               String?       @db.VarChar(50)
+  voucher_no                 String?       @db.VarChar(100)
+  voucher_detail_no          String?       @db.VarChar(100)
+  against_voucher_type       String?       @db.VarChar(50)
+  against_voucher            String?       @db.VarChar(100)
+  debit                      Float
+  credit                     Float
+  debit_in_account_currency  Float
+  credit_in_account_currency Float
+  cost_center                String?       @db.VarChar(200)
+  project_id                 String?       @db.Uuid
+  subsidiary_id              String?       @db.Uuid
+  is_opening                 String?       @db.VarChar(10)
+  is_cancelled               Boolean
+  remarks                    String?
+  created_at                 DateTime      @default(now()) @db.Timestamptz(6)
+  accounts                   accounts?     @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects                   projects?     @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subsidiaries               subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([account_id], map: "ix_gl_entries_account_id")
+}
+
+model journal_entry_lines {
+  id               String          @id @db.Uuid
+  journal_entry_id String          @db.Uuid
+  account_id       String?         @db.Uuid
+  party_type       String?         @db.VarChar(50)
+  party_name       String?         @db.VarChar(255)
+  debit            Float
+  credit           Float
+  cost_center      String?         @db.VarChar(200)
+  project_id       String?         @db.Uuid
+  reference_type   String?         @db.VarChar(50)
+  reference_name   String?         @db.VarChar(100)
+  user_remark      String?
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  accounts         accounts?       @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  journal_entries  journal_entries @relation(fields: [journal_entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects         projects?       @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([journal_entry_id], map: "ix_journal_entry_lines_journal_entry_id")
+}
+
+model subsidiaries {
+  id                         String            @id @db.Uuid
+  name                       String            @db.VarChar(200)
+  abbr                       String?           @db.VarChar(20)
+  default_currency           String            @db.VarChar(3)
+  country                    String?           @db.VarChar(100)
+  tax_id                     String?           @db.VarChar(50)
+  default_receivable_account String?           @db.VarChar(200)
+  default_payable_account    String?           @db.VarChar(200)
+  default_income_account     String?           @db.VarChar(200)
+  default_expense_account    String?           @db.VarChar(200)
+  default_bank_account       String?           @db.VarChar(200)
+  default_cash_account       String?           @db.VarChar(200)
+  cost_center                String?           @db.VarChar(200)
+  created_at                 DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime          @default(now()) @db.Timestamptz(6)
+  cost_centers               cost_centers[]
+  fiscal_years               fiscal_years[]
+  gl_entries                 gl_entries[]
+  journal_entries            journal_entries[]
+}
+
+enum accounttype {
+  ASSET
+  LIABILITY
+  INCOME
+  EXPENSE
+  EQUITY
+  RECEIVABLE
+  PAYABLE
+}
+
+enum assetstatus {
+  AVAILABLE
+  IN_USE
+  UNDER_MAINTENANCE
+  CALIBRATION_DUE
+  DECOMMISSIONED
+}
+
+enum certstatus {
+  VALID
+  EXPIRING_SOON
+  EXPIRED
+  SUSPENDED
+}
+
+enum doctype {
+  INVOICE
+  RECEIPT
+  CONTRACT
+  CERTIFICATE
+  REPORT
+  OTHER
+}
+
+enum enquirystatus {
+  DRAFT
+  INGESTED
+  CLASSIFIED
+  RULES_APPLIED
+  LLM_DRAFTED
+  POLICY_REVIEW
+  HUMAN_REVIEW
+  APPROVED
+  EXECUTING
+  COMPLETED
+  REJECTED
+}
+
+enum itemgroup {
+  CONSUMABLE
+  EQUIPMENT
+  SERVICE
+  RAW_MATERIAL
+  SPARE_PART
+}
+
+enum journalentrytype {
+  DEBIT
+  CREDIT
+}
+
+enum personnelstatus {
+  ACTIVE
+  ON_PROJECT
+  ON_LEAVE
+  INACTIVE
+}
+
+enum postatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+enum processingstatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum projectstatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum quotationstatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum salesinvoicestatus {
+  DRAFT
+  SUBMITTED
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+enum salesorderstatus {
+  DRAFT
+  TO_DELIVER
+  TO_BILL
+  COMPLETED
+  CANCELLED
+}
+
+enum stockentrytype {
+  RECEIPT
+  DELIVERY
+  TRANSFER
+  MANUFACTURE
+}
+
+enum stockvaluationmethod {
+  FIFO
+  MOVING_AVERAGE
+}
+
+enum taskstatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+// ── RAG / pgvector ─────────────────────────────────────────────────────────
+// The rag_chunks table is managed via raw SQL ($queryRaw / $executeRawUnsafe)
+// because Prisma doesn't support the VECTOR type natively.
+// The Unsupported("vector(768)") column lets Prisma know the table structure
+// but all actual vector operations go through src/lib/rag-db.ts.
+
+model rag_chunks {
+  id          Int                      @id @default(autoincrement())
+  source_path String
+  heading     String?
+  chunk_index Int?
+  content     String
+  embedding   Unsupported("vector(768)")?
+  char_start  Int?
+  char_end    Int?
+  modality    String                   @default("text")
+  tsv         Unsupported("tsvector")?
+  created_at  DateTime                 @default(now()) @db.Timestamptz()
+
+  @@index([source_path], name: "idx_rag_chunks_source")
+  @@index([modality], name: "idx_rag_chunks_modality")
+  @@map("rag_chunks")
+}
+
+// ── Auth / Users ─────────────────────────────────────────────────────────
+
+model users {
+  id              String    @id @db.Uuid @default(uuid())
+  email           String    @unique @db.VarChar(255)
+  password_hash   String    @db.VarChar(255)
+  name            String    @db.VarChar(200)
+  role            String    @default("user") @db.VarChar(50)  // admin, manager, user, viewer
+  department      String?   @db.VarChar(100)  // Operations, Sales, Engineering, HSE, Finance, etc.
+  subsidiary      String?   @db.VarChar(200)  // Aries Marine LLC, Aries Subsea Ltd, etc.
+  company         String    @default("Aries Marine") @db.VarChar(200)
+  is_active       Boolean   @default(true)
+  avatar_url      String?
+  last_login      DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  sessions        sessions[]
+}
+
+model sessions {
+  id             String    @id @db.Uuid @default(uuid())
+  user_id        String    @db.Uuid
+  session_token  String    @unique @db.VarChar(500)
+  expires        DateTime  @db.Timestamptz(6)
+  ip_address     String?   @db.VarChar(45)
+  user_agent     String?
+  is_active      Boolean   @default(true)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
