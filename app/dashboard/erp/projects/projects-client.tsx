@@ -376,7 +376,7 @@ export default function ProjectsClient({ initialProjects, initialTasks }: Projec
                       const StatusIcon = cfg.icon;
                       const typeColor = TYPE_COLORS[p.project_type] || "bg-gray-100 text-gray-700 border-gray-200";
                       return (
-                        <tr key={p.id} onClick={() => router.push(`/erp/projects/${p.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={p.id} onClick={() => router.push(`/dashboard/erp/projects/${p.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{p.project_name}</p>
                           </td>
@@ -445,7 +445,7 @@ export default function ProjectsClient({ initialProjects, initialTasks }: Projec
                         done: "bg-green-100 text-green-700 border-green-200",
                       };
                       return (
-                        <tr key={t.id} onClick={() => router.push(`/erp/projects/${t.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={t.id} onClick={() => router.push(`/dashboard/erp/projects/${t.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{t.subject}</p>
                             {t.description && <p className="text-xs text-[#94a3b8]">{t.description}</p>}

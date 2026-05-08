@@ -291,7 +291,7 @@ export default function HRClient({ initialPersonnel }: HRClientProps) {
                       const deptColor = DEPARTMENT_COLORS[(p.department ?? "")] || "bg-gray-100 text-gray-700 border-gray-200";
                       const fullName = `${p.first_name || ""} ${p.last_name || ""}`.trim();
                       return (
-                        <tr key={p.id} onClick={() => router.push(`/erp/hr/${p.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={p.id} onClick={() => router.push(`/dashboard/erp/hr/${p.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <div className="h-8 w-8 rounded-full bg-[#1e3a5f]/10 flex items-center justify-center text-[10px] font-bold text-[#1e3a5f]">

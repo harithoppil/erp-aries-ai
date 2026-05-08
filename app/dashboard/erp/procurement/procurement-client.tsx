@@ -231,7 +231,7 @@ export default function ProcurementClient({ initialSuppliers, initialPurchaseOrd
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredSuppliers.map((s) => (
-                        <tr key={s.id} onClick={() => router.push(`/erp/procurement/${s.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={s.id} onClick={() => router.push(`/dashboard/erp/procurement/${s.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{s.supplier_name}</p>
                           </td>
@@ -275,7 +275,7 @@ export default function ProcurementClient({ initialSuppliers, initialPurchaseOrd
                       {orders.map((o) => {
                         const cfg = STATUS_CONFIG[o.status] || STATUS_CONFIG.draft;
                         return (
-                          <tr key={o.id} onClick={() => router.push(`/erp/procurement/${o.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                          <tr key={o.id} onClick={() => router.push(`/dashboard/erp/procurement/${o.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{o.po_number || "—"}</td>
                             <td className="px-4 py-3 text-[#0f172a] font-medium">{o.supplier_name || "—"}</td>
                             <td className="px-4 py-3">

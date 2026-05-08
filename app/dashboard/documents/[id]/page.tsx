@@ -190,7 +190,7 @@ export default function DocumentViewerPage() {
       <div className="flex h-[calc(100vh-5.5rem)] flex-col items-center justify-center text-[#94a3b8]">
         <FileText size={48} className="mb-4 opacity-40" />
         <p className="text-lg font-medium">Document not found</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push("/documents")}>
+        <Button variant="outline" className="mt-4" onClick={() => router.push("/dashboard/documents")}>
           <ArrowLeft size={14} className="mr-2" /> Back to Documents
         </Button>
       </div>
@@ -205,7 +205,7 @@ export default function DocumentViewerPage() {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 bg-white px-4 py-2 shrink-0">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push("/documents")}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push("/dashboard/documents")}>
             <ArrowLeft size={16} />
           </Button>
           <div>

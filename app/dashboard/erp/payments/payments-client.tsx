@@ -198,7 +198,7 @@ export default function PaymentsClient({ initialPayments, initialInvoices }: { i
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((p) => (
-                      <tr key={p.id} onClick={() => router.push(`/erp/payments/${p.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                      <tr key={p.id} onClick={() => router.push(`/dashboard/erp/payments/${p.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-[#64748b]">
                           {p.posting_date ? new Date(p.posting_date).toLocaleDateString() : "—"}
                         </td>

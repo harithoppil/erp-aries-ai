@@ -60,7 +60,7 @@ export default function NotebooksPage() {
       if (result.success) {
         setDialogOpen(false);
         setNewTitle("");
-        router.push(`/notebooks/editor/${result.notebook.id}`);
+        router.push(`/dashboard/notebooks/editor/${result.notebook.id}`);
       } else {
         toast.error(result.error);
       }
@@ -137,7 +137,7 @@ export default function NotebooksPage() {
               {filtered.map((n, i) => (
                 <div
                   key={n.id}
-                  onClick={() => router.push(`/notebooks/editor/${n.id}`)}
+                  onClick={() => router.push(`/dashboard/notebooks/editor/${n.id}`)}
                   className={`group cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-md ${CARD_COLORS[i % CARD_COLORS.length]}`}
                 >
                   <div className="flex items-start justify-between mb-3">

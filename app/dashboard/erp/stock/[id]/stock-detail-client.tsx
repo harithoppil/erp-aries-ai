@@ -87,7 +87,7 @@ export default function StockDetailClient({ record }: { record: StockRecord }) {
           {/* Back */}
           <div className="flex items-center gap-4">
             <Link
-              href="/erp/stock"
+              href="/dashboard/erp/stock"
               className="inline-flex items-center gap-1 text-sm text-[#64748b] hover:text-[#1e3a5f] transition-colors"
             >
               <ArrowLeft size={16} /> Back to Stock

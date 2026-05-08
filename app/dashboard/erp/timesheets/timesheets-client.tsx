@@ -219,7 +219,7 @@ export default function TimesheetsClient({ initialTimesheets }: { initialTimeshe
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((t) => (
-                      <tr key={t.id} onClick={() => router.push(`/erp/timesheets/${t.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                      <tr key={t.id} onClick={() => router.push(`/dashboard/erp/timesheets/${t.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-[#64748b]">
                           {t.date ? new Date(t.date).toLocaleDateString() : "—"}
                         </td>

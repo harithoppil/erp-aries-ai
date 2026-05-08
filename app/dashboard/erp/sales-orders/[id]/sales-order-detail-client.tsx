@@ -71,7 +71,7 @@ export default function SalesOrderDetailClient({ record }: { record: SalesOrderR
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/erp/sales-orders")}>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/erp/sales-orders")}>
           <ArrowLeft size={20} />
         </Button>
         <div className="flex-1">
@@ -130,7 +130,7 @@ export default function SalesOrderDetailClient({ record }: { record: SalesOrderR
       {record.quotations && (
         <div
           className="bg-blue-50 rounded-2xl shadow-sm border border-blue-100 p-4 flex items-center gap-3 cursor-pointer hover:bg-blue-100 transition-colors"
-          onClick={() => router.push(`/erp/quotations/${record.quotations!.id}`)}
+          onClick={() => router.push(`/dashboard/erp/quotations/${record.quotations!.id}`)}
         >
           <FileCheck size={20} className="text-blue-600" />
           <div>

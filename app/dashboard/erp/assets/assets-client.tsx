@@ -252,7 +252,7 @@ export default function AssetsClient({ initialAssets }: { initialAssets: ClientS
                       const StatusIcon = cfg.icon;
                       const catColor = CATEGORY_COLORS[a.asset_category] || "bg-gray-100 text-gray-700 border-gray-200";
                       return (
-                        <tr key={a.id} onClick={() => router.push(`/erp/assets/${a.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={a.id} onClick={() => router.push(`/dashboard/erp/assets/${a.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3"><p className="font-medium text-[#0f172a]">{a.asset_name}</p></td>
                           <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{a.asset_code}</td>
                           <td className="px-4 py-3"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${catColor}`}>{a.asset_category}</span></td>

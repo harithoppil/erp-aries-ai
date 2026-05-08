@@ -79,7 +79,7 @@ export default function QuotationDetailClient({ record }: { record: QuotationRec
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/erp/quotations")}>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/erp/quotations")}>
           <ArrowLeft size={20} />
         </Button>
         <div className="flex-1">
@@ -182,7 +182,7 @@ export default function QuotationDetailClient({ record }: { record: QuotationRec
               {record.sales_orders.map((so) => {
                 const sos = SO_STATUS[so.status] ?? SO_STATUS.DRAFT;
                 return (
-                  <TableRow key={so.id} className="cursor-pointer" onClick={() => router.push(`/erp/sales-orders/${so.id}`)}>
+                  <TableRow key={so.id} className="cursor-pointer" onClick={() => router.push(`/dashboard/erp/sales-orders/${so.id}`)}>
                     <TableCell className="px-5 font-medium text-[#0f172a]">{so.order_number}</TableCell>
                     <TableCell className="px-5">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${sos.badge}`}>{sos.label}</span>

@@ -208,7 +208,7 @@ export default function JournalEntriesClient({ initialEntries }: { initialEntrie
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((e) => (
-                      <tr key={e.id} onClick={() => router.push(`/erp/journal-entries/${e.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                      <tr key={e.id} onClick={() => router.push(`/dashboard/erp/journal-entries/${e.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{e.entry_number}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 text-[#64748b]">

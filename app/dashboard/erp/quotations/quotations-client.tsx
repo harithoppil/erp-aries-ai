@@ -241,7 +241,7 @@ export default function QuotationsClient({ initialQuotations }: { initialQuotati
                       const cfg = STATUS_CONFIG[q.status] || STATUS_CONFIG.draft;
                       const StatusIcon = cfg.icon;
                       return (
-                        <tr key={q.id} onClick={() => router.push(`/erp/quotations/${q.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={q.id} onClick={() => router.push(`/dashboard/erp/quotations/${q.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{q.quotation_number}</p>
                             {q.notes && <p className="text-xs text-[#94a3b8] truncate max-w-[200px]">{q.notes}</p>}

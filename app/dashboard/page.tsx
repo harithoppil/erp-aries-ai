@@ -175,7 +175,7 @@ export default function Dashboard() {
             <p className="text-[11px] text-muted-foreground">Enquiry pipeline overview</p>
           </div>
         </div>
-        <Link href="/enquiries/new">
+        <Link href="/dashboard/enquiries/new">
           <Button size="sm" className="gap-2 rounded-xl">
             <FileText className="h-3.5 w-3.5" />
             New Enquiry
@@ -324,7 +324,7 @@ export default function Dashboard() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm">Recent Enquiries</CardTitle>
-              <Link href="/enquiries">
+              <Link href="/dashboard/enquiries">
                 <Button variant="ghost" size="sm" className="gap-1 text-xs">
                   View all <ArrowRight className="h-3 w-3" />
                 </Button>
@@ -351,7 +351,7 @@ export default function Dashboard() {
             ) : !enquiries?.length ? (
               <div className="p-8 text-center text-muted-foreground text-sm">
                 No enquiries yet.{" "}
-                <Link href="/enquiries/new" className="text-primary underline">
+                <Link href="/dashboard/enquiries/new" className="text-primary underline">
                   Create one
                 </Link>
               </div>
@@ -365,7 +365,7 @@ export default function Dashboard() {
                     transition={{ delay: 0.3 + i * 0.03 }}
                   >
                     <Link
-                      href={`/enquiries/${e.id}`}
+                      href={`/dashboard/enquiries/${e.id}`}
                       className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
                     >
                       <div className="min-w-0 flex-1">

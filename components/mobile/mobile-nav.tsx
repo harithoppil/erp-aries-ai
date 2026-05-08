@@ -7,25 +7,27 @@ import {
   FileText, Home, Bot, BookOpen, Package,
   Anchor, ChevronLeft, Menu, Moon, Sun,
   DollarSign, Wrench, FolderKanban, Users, ShoppingCart, Upload,
+  ClipboardList,
 } from "lucide-react";
 import { useDarkMode } from "@/hooks/use-responsive";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const BOTTOM_TABS = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/enquiries", label: "Enquiries", icon: FileText },
-  { href: "/ai", label: "AI", icon: Bot },
-  { href: "/wiki", label: "Wiki", icon: BookOpen },
-  { href: "/erp/stock", label: "Stock", icon: Package },
+  { href: "/dashboard/enquiries", label: "Enquiries", icon: FileText },
+  { href: "/dashboard/ai", label: "AI", icon: Bot },
+  { href: "/dashboard/wiki", label: "Wiki", icon: BookOpen },
+  { href: "/dashboard/erp/stock", label: "Stock", icon: Package },
 ];
 
 const MORE_ITEMS = [
-  { href: "/erp/accounts", label: "Accounts", icon: DollarSign },
-  { href: "/erp/assets", label: "Assets", icon: Wrench },
-  { href: "/erp/projects", label: "Projects", icon: FolderKanban },
-  { href: "/erp/hr", label: "HR", icon: Users },
-  { href: "/erp/procurement", label: "Procurement", icon: ShoppingCart },
-  { href: "/documents", label: "Documents", icon: Upload },
+  { href: "/dashboard/erp/accounts", label: "Accounts", icon: DollarSign },
+  { href: "/dashboard/erp/assets", label: "Assets", icon: Wrench },
+  { href: "/dashboard/erp/projects", label: "Projects", icon: FolderKanban },
+  { href: "/dashboard/erp/hr", label: "HR", icon: Users },
+  { href: "/dashboard/erp/procurement", label: "Procurement", icon: ShoppingCart },
+  { href: "/dashboard/erp/material-requests", label: "Material Requests", icon: ClipboardList },
+  { href: "/dashboard/documents", label: "Documents", icon: Upload },
 ];
 
 export function MobileTopBar() {

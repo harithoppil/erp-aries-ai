@@ -26,7 +26,7 @@ export default function NewEnquiryPage() {
     try {
       const result = await createEnquiry({ ...form, client_email: form.client_email || undefined, industry: form.industry || undefined, subdivision: form.subdivision || undefined });
       if (result.success) {
-        router.push(`/enquiries/${result.enquiry.id}`);
+        router.push(`/dashboard/enquiries/${result.enquiry.id}`);
       } else {
         toast.error(result.error);
       }

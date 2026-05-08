@@ -99,7 +99,7 @@ export default function ProjectDetailClient({ record }: { record: ProjectRecord 
           {/* Back + Title */}
           <div className="flex items-center gap-4">
             <Link
-              href="/erp/projects"
+              href="/dashboard/erp/projects"
               className="inline-flex items-center gap-1 text-sm text-[#64748b] hover:text-[#1e3a5f] transition-colors"
             >
               <ArrowLeft size={16} /> Back to Projects
@@ -285,7 +285,7 @@ export default function ProjectDetailClient({ record }: { record: ProjectRecord 
                           {initials}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <Link href={`/erp/hr/${pa.personnel.id}`} className="font-medium text-[#0f172a] hover:text-[#1e3a5f] transition-colors">
+                          <Link href={`/dashboard/erp/hr/${pa.personnel.id}`} className="font-medium text-[#0f172a] hover:text-[#1e3a5f] transition-colors">
                             {fullName}
                           </Link>
                           <p className="text-xs text-[#94a3b8]">{pa.personnel.designation || "—"}</p>

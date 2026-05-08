@@ -261,7 +261,7 @@ export default function AccountsClient({ initialAccounts, initialInvoices }: {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredAccounts.map((a) => (
-                      <tr key={a.id} onClick={() => router.push(`/erp/accounts/${a.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                      <tr key={a.id} onClick={() => router.push(`/dashboard/erp/accounts/${a.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3">
                           <p className="font-medium text-[#0f172a]">{a.name}</p>
                         </td>
@@ -306,7 +306,7 @@ export default function AccountsClient({ initialAccounts, initialInvoices }: {
                     {invoices.slice(0, 10).map((inv) => {
                       const cfg = STATUS_CONFIG[inv.status] || STATUS_CONFIG.draft;
                       return (
-                        <tr key={inv.id} onClick={() => router.push(`/erp/accounts/${inv.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={inv.id} onClick={() => router.push(`/dashboard/erp/accounts/${inv.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{inv.customer_name || "—"}</p>
                           </td>

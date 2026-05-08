@@ -73,7 +73,7 @@ export default function InvoiceDetailClient({ record }: { record: InvoiceRecord 
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/erp/accounts")}>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/erp/accounts")}>
           <ArrowLeft size={20} />
         </Button>
         <div className="flex-1">

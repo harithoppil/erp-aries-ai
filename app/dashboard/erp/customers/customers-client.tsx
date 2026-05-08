@@ -132,7 +132,7 @@ export default function CustomersClient({ initialCustomers }: CustomersClientPro
           toast.info(`AI filtered customers by "${args.term}"`, { icon: <Sparkles size={14} /> });
         },
         navigate_to_customer: (args: Record<string, any>) => {
-          router.push(`/erp/customers/${args.customer_id}`);
+          router.push(`/dashboard/erp/customers/${args.customer_id}`);
         },
       }
     );
@@ -266,7 +266,7 @@ export default function CustomersClient({ initialCustomers }: CustomersClientPro
                     {filtered.map((c) => {
                       const indColor = INDUSTRY_COLORS[c.industry || ""] || INDUSTRY_COLORS.other;
                       return (
-                        <tr key={c.id} onClick={() => router.push(`/erp/customers/${c.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={c.id} onClick={() => router.push(`/dashboard/erp/customers/${c.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{c.customer_name}</p>
                             {c.address && (

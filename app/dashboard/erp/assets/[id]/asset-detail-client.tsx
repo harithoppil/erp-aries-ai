@@ -91,7 +91,7 @@ export default function AssetDetailClient({ record }: { record: AssetRecord }) {
           {/* Back */}
           <div className="flex items-center gap-4">
             <Link
-              href="/erp/assets"
+              href="/dashboard/erp/assets"
               className="inline-flex items-center gap-1 text-sm text-[#64748b] hover:text-[#1e3a5f] transition-colors"
             >
               <ArrowLeft size={16} /> Back to Assets
@@ -181,7 +181,7 @@ export default function AssetDetailClient({ record }: { record: AssetRecord }) {
                     <User size={14} className="text-[#64748b]" />
                     <div>
                       <p className="text-xs text-[#94a3b8] uppercase">Assigned To</p>
-                      <Link href={`/erp/hr/${record.personnel.id}`} className="text-sm font-medium text-[#0f172a] hover:text-[#1e3a5f] transition-colors">
+                      <Link href={`/dashboard/erp/hr/${record.personnel.id}`} className="text-sm font-medium text-[#0f172a] hover:text-[#1e3a5f] transition-colors">
                         {record.personnel.first_name} {record.personnel.last_name}
                       </Link>
                     </div>
@@ -192,7 +192,7 @@ export default function AssetDetailClient({ record }: { record: AssetRecord }) {
                     <FolderKanban size={14} className="text-[#64748b]" />
                     <div>
                       <p className="text-xs text-[#94a3b8] uppercase">Project</p>
-                      <Link href={`/erp/projects/${record.projects.id}`} className="text-sm font-medium text-[#0f172a] hover:text-[#1e3a5f] transition-colors">
+                      <Link href={`/dashboard/erp/projects/${record.projects.id}`} className="text-sm font-medium text-[#0f172a] hover:text-[#1e3a5f] transition-colors">
                         {record.projects.project_name}
                       </Link>
                     </div>

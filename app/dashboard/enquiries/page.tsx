@@ -28,7 +28,7 @@ export default function EnquiriesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-2xl font-bold">Enquiries</h2>
-        <Link href="/enquiries/new" className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <Link href="/dashboard/enquiries/new" className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4" /> New
         </Link>
       </div>
@@ -40,12 +40,12 @@ export default function EnquiriesPage() {
       ) : !enquiries.length ? (
         <div className="py-12 text-center text-muted-foreground">
           No enquiries yet.{" "}
-          <Link href="/enquiries/new" className="text-primary underline">Create one</Link>
+          <Link href="/dashboard/enquiries/new" className="text-primary underline">Create one</Link>
         </div>
       ) : isMobile ? (
         <div className="space-y-3">
           {enquiries.map((e) => (
-            <Link key={e.id} href={`/enquiries/${e.id}`} className="block rounded-lg border bg-card p-3">
+            <Link key={e.id} href={`/dashboard/enquiries/${e.id}`} className="block rounded-lg border bg-card p-3">
               <div className="flex items-center justify-between">
                 <p className="font-medium">{e.client_name}</p>
                 <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[e.status as keyof typeof STATUS_COLORS] || ""}`}>
@@ -72,7 +72,7 @@ export default function EnquiriesPage() {
               {enquiries.map((e) => (
                 <tr key={e.id} className="hover:bg-muted/50">
                   <td className="px-4 py-3">
-                    <Link href={`/enquiries/${e.id}`} className="font-medium text-primary hover:underline">{e.client_name}</Link>
+                    <Link href={`/dashboard/enquiries/${e.id}`} className="font-medium text-primary hover:underline">{e.client_name}</Link>
                   </td>
                   <td className="px-4 py-3 text-foreground">{e.industry || "—"}</td>
                   <td className="px-4 py-3 text-foreground">{e.channel}</td>

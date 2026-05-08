@@ -45,7 +45,7 @@ export default function AuthPage() {
     try {
       const result = await loginAction({ email, password });
       if (result.success) {
-        router.push("/erp/accounts");
+        router.push("/dashboard");
       } else {
         setError(result.error || "Login failed");
       }
@@ -71,7 +71,7 @@ export default function AuthPage() {
         subsidiary: subsidiary || undefined,
       });
       if (result.success) {
-        router.push("/erp/accounts");
+        router.push("/dashboard");
       } else {
         setError(result.error || "Signup failed");
       }

@@ -246,7 +246,7 @@ export default function SalesOrdersClient({ initialOrders }: { initialOrders: Cl
                       const cfg = STATUS_CONFIG[o.status] || STATUS_CONFIG.draft;
                       const StatusIcon = cfg.icon;
                       return (
-                        <tr key={o.id} onClick={() => router.push(`/erp/sales-orders/${o.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                        <tr key={o.id} onClick={() => router.push(`/dashboard/erp/sales-orders/${o.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0f172a]">{o.order_number}</p>
                             {o.notes && <p className="text-xs text-[#94a3b8] truncate max-w-[200px]">{o.notes}</p>}

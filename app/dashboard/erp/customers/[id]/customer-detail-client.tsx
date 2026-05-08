@@ -101,7 +101,7 @@ export default function CustomerDetailClient({ record }: { record: CustomerRecor
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/erp/customers")}>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/erp/customers")}>
           <ArrowLeft size={20} />
         </Button>
         <div className="flex-1">
@@ -209,7 +209,7 @@ export default function CustomerDetailClient({ record }: { record: CustomerRecor
               {record.quotations.map((q) => {
                 const qs = QUOTATION_STATUS[q.status] ?? QUOTATION_STATUS.DRAFT;
                 return (
-                  <TableRow key={q.id} className="cursor-pointer" onClick={() => router.push(`/erp/quotations/${q.id}`)}>
+                  <TableRow key={q.id} className="cursor-pointer" onClick={() => router.push(`/dashboard/erp/quotations/${q.id}`)}>
                     <TableCell className="px-5 font-medium text-[#0f172a]">{q.quotation_number}</TableCell>
                     <TableCell className="px-5">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${qs.badge}`}>{qs.label}</span>
@@ -243,7 +243,7 @@ export default function CustomerDetailClient({ record }: { record: CustomerRecor
               {record.sales_orders.map((o) => {
                 const os = SO_STATUS[o.status] ?? SO_STATUS.DRAFT;
                 return (
-                  <TableRow key={o.id} className="cursor-pointer" onClick={() => router.push(`/erp/sales-orders/${o.id}`)}>
+                  <TableRow key={o.id} className="cursor-pointer" onClick={() => router.push(`/dashboard/erp/sales-orders/${o.id}`)}>
                     <TableCell className="px-5 font-medium text-[#0f172a]">{o.order_number}</TableCell>
                     <TableCell className="px-5">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${os.badge}`}>{os.label}</span>
@@ -278,7 +278,7 @@ export default function CustomerDetailClient({ record }: { record: CustomerRecor
               {record.invoices.map((inv) => {
                 const is = INV_STATUS[inv.status] ?? INV_STATUS.DRAFT;
                 return (
-                  <TableRow key={inv.id} className="cursor-pointer" onClick={() => router.push(`/erp/accounts/${inv.id}`)}>
+                  <TableRow key={inv.id} className="cursor-pointer" onClick={() => router.push(`/dashboard/erp/accounts/${inv.id}`)}>
                     <TableCell className="px-5 font-medium text-[#0f172a]">{inv.invoice_number}</TableCell>
                     <TableCell className="px-5">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${is.badge}`}>{is.label}</span>

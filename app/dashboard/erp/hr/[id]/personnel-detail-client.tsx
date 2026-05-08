@@ -78,7 +78,7 @@ export default function PersonnelDetailClient({ record }: { record: PersonnelRec
           {/* Back */}
           <div className="flex items-center gap-4">
             <Link
-              href="/erp/hr"
+              href="/dashboard/erp/hr"
               className="inline-flex items-center gap-1 text-sm text-[#64748b] hover:text-[#1e3a5f] transition-colors"
             >
               <ArrowLeft size={16} /> Back to Personnel
@@ -234,7 +234,7 @@ export default function PersonnelDetailClient({ record }: { record: PersonnelRec
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <Link
-                            href={`/erp/projects/${pa.projects.id}`}
+                            href={`/dashboard/erp/projects/${pa.projects.id}`}
                             className="font-medium text-[#0f172a] hover:text-[#1e3a5f] transition-colors"
                           >
                             {pa.projects.project_name}
