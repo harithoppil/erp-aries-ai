@@ -11,7 +11,7 @@ import { useAppStore } from "@/store/useAppStore";
 import {
   Building2, Search, Plus, Mail, Phone, MapPin,
   CheckCircle, XCircle, DollarSign, Loader2,
-  Sparkles, Wand2, Download,
+  Sparkles, Wand2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
 
 const INDUSTRY_COLORS: Record<string, string> = {
@@ -215,9 +215,7 @@ export default function CustomersClient({ initialCustomers }: CustomersClientPro
               <p className="text-sm text-[#64748b] mt-1">{customers.length} total customers</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(c => ({ customer_name: c.customer_name, code: c.customer_code, industry: c.industry, contact_person: c.contact_person, email: c.email, phone: c.phone, tax_id: c.tax_id, credit_limit: c.credit_limit, status: c.status })), 'customers')}>
-                <Download size={16} /> Export CSV
-              </Button>
+              <ExportButton data={filtered.map(c => ({ customer_name: c.customer_name, code: c.customer_code, industry: c.industry, contact_person: c.contact_person, email: c.email, phone: c.phone, tax_id: c.tax_id, credit_limit: c.credit_limit, status: c.status }))} filename="customers" />
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
                 <Plus size={16} /> Add Customer
               </Button>

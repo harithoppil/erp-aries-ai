@@ -485,3 +485,62 @@ export function getAllRoles(): string[] {
 export function getAllDocTypes(): string[] {
   return [...ALL_DOCTYPES];
 }
+
+// ── Permission enforcement for server actions ────────────────────────────────
+
+/**
+ * Require permission for a DocType + action. Throws if the current user
+ * does not have the permission.
+ *
+ * Should be called at the TOP of every server action that modifies data.
+ * If a `token` is provided, it resolves the specific session tied to that token.
+ * If no token is provided, it falls back to the current session from cookies.
+ *
+ * @param doctype - The DocType being accessed
+ * @param action  - The action being performed
+ * @param token   - Optional session token; falls back to cookie session
+ * @throws Error if permission is denied
+ */
+export async function requirePermission(
+  doctype: string,
+  action: DocAction,
+  token?: string,
+): Promise<void> {
+  const result = await checkPermission(doctype, action, token);
+
+  if (!result.allowed) {
+    throw new Error(
+      result.reason || `Permission denied: ${action} on ${doctype}`,
+    );
+  }
+}
+
+// ── Permission wrapper for server actions ────────────────────────────────────
+
+/**
+ * Wrapper/decorator that checks permission before running a handler function.
+ * Use this to protect server actions that modify data.
+ *
+ * @param doctype - The DocType being accessed
+ * @param action  - The action being performed
+ * @param handler - The function to run if permission is granted
+ * @param token   - Optional session token; falls back to cookie session
+ * @returns The return value of the handler
+ * @throws Error if permission is denied
+ *
+ * @example
+ * ```typescript
+ * const result = await withPermission("Sales Invoice", "create", async () => {
+ *   return await createInvoice(data);
+ * }, token);
+ * ```
+ */
+export async function withPermission<T>(
+  doctype: string,
+  action: DocAction,
+  handler: () => Promise<T>,
+  token?: string,
+): Promise<T> {
+  await requirePermission(doctype, action, token);
+  return handler();
+}

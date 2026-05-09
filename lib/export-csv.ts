@@ -1,21 +1,19 @@
-export function exportToCSV(data: Record<string, any>[], filename: string) {
-  if (!data.length) return;
-  const headers = Object.keys(data[0]);
-  const csv = [
-    headers.join(','),
-    ...data.map(row => headers.map(h => {
-      const val = row[h];
-      const str = val === null || val === undefined ? '' : String(val);
-      return str.includes(',') || str.includes('"') || str.includes('\n')
-        ? `"${str.replace(/"/g, '""')}"`
-        : str;
-    }).join(','))
-  ].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${filename}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+/**
+ * Legacy CSV export — backward-compatible wrapper around the new export engine.
+ *
+ * @deprecated Import from `@/lib/export/csv-export` instead.
+ */
+
+import { exportToCSV as _exportToCSV, downloadCSV } from '@/lib/export/csv-export';
+
+/**
+ * Export data to CSV and trigger a browser download.
+ *
+ * @deprecated Use `ExportButton` component or `exportToCSV` + `downloadCSV` from `@/lib/export/csv-export`.
+ */
+export function exportToCSV(data: Record<string, unknown>[], filename: string): void {
+  const csv = _exportToCSV(data, filename);
+  if (csv) {
+    downloadCSV(csv, filename);
+  }
 }

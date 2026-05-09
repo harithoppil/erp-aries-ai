@@ -6,7 +6,7 @@ import { listProjects, listTasks, createProject, createTask, type ClientSafeProj
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   FolderKanban, CheckCircle, Clock, PauseCircle, Search,
-  MapPin, DollarSign, Plus, ListTodo, User, CheckSquare, Download,
+  MapPin, DollarSign, Plus, ListTodo, User, CheckSquare,
   Wand2, Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string; icon: React.ElementType }> = {
@@ -258,9 +258,7 @@ export default function ProjectsClient({ initialProjects, initialTasks }: Projec
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(activeTab === "projects" ? filtered.map(p => ({ project_name: p.project_name, project_code: p.project_code, project_type: p.project_type, customer_name: p.customer_name, project_location: p.project_location, day_rate: p.day_rate, status: p.status })) : tasks.map(t => ({ subject: t.subject, project_name: projects.find(p => p.id === t.project_id)?.project_name, assigned_to: t.assigned_to, status: t.status, progress: t.progress })), `projects-${activeTab}`)}>
-                <Download size={16} /> Export CSV
-              </Button>
+              <ExportButton data={activeTab === "projects" ? filtered.map(p => ({ project_name: p.project_name, project_code: p.project_code, project_type: p.project_type, customer_name: p.customer_name, project_location: p.project_location, day_rate: p.day_rate, status: p.status })) : tasks.map(t => ({ subject: t.subject, project_name: projects.find(p => p.id === t.project_id)?.project_name, assigned_to: t.assigned_to, status: t.status, progress: t.progress }))} filename={`projects-${activeTab}`} />
               <Button onClick={() => setTaskDialogOpen(true)} variant="outline" className="gap-2 rounded-xl">
                 <ListTodo size={16} /> Add Task
               </Button>

@@ -4,12 +4,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { listRFQs, createRFQ, type ClientSafeRFQ } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
-import { FileQuestion, Search, Plus, Download } from "lucide-react";
+import { FileQuestion, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
 const dt = (s: string | Date | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
@@ -41,7 +41,7 @@ export default function RfqClient({ initialRfqs }: { initialRfqs: ClientSafeRFQ[
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Request for Quotation</h2><p className="text-sm text-[#64748b] mt-1">{rfqs.length} RFQs</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(r => ({ name: r.name, company: r.company, date: dt(r.transaction_date), status: r.status })), 'rfqs')}><Download size={16} />Export</Button>
+            <ExportButton data={filtered.map(r => ({ name: r.name, company: r.company, date: dt(r.transaction_date), status: r.status }))} filename="rfqs" />
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New RFQ</Button>
           </div>
         </div>

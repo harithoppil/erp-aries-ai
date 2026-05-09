@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
 const STATUS_CONFIG: Record<
   string,
@@ -198,12 +199,15 @@ export default function MaterialRequestsClient({
                 {requests.length} total requests
               </p>
             </div>
-            <Button
-              onClick={() => setDialogOpen(true)}
-              className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"
-            >
-              <Plus size={16} /> New Request
-            </Button>
+            <div className="flex gap-2">
+              <ExportButton data={filtered.map(r => ({ request_number: r.request_number, purpose: r.purpose, project_id: r.project_id, requested_by: r.requested_by, status: r.status, created_at: r.created_at }))} filename="material-requests" />
+              <Button
+                onClick={() => setDialogOpen(true)}
+                className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"
+              >
+                <Plus size={16} /> New Request
+              </Button>
+            </div>
           </div>
 
           {/* Search */}

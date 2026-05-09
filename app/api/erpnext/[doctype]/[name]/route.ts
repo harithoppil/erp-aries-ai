@@ -17,6 +17,14 @@ import {
   getDelegate,
   getDelegateByAccessor,
 } from "@/lib/erpnext/prisma-delegate";
+import { validateDocument } from "@/lib/erpnext/validation";
+import { success, error, validationError, notFound, forbidden } from "@/lib/erpnext/api-response";
+import type { ApiResponse } from "@/lib/erpnext/api-response";
+import { withCors, corsPreflightResponse } from "@/lib/erpnext/cors";
+import {
+  logRequestStart,
+  logRequestEnd,
+} from "@/lib/erpnext/request-logger";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,29 +67,40 @@ function findChildAccessors(doctype: string): string[] {
   return results;
 }
 
+// ── OPTIONS — Preflight ────────────────────────────────────────────────────────
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
+
 // ── GET — Single Record ───────────────────────────────────────────────────────
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ doctype: string; name: string }> },
 ) {
+  const logCtx = logRequestStart("GET", _req.nextUrl.pathname);
   try {
     const { doctype, name } = await params;
     const resolved = getModel(doctype);
     if (!resolved) {
-      return NextResponse.json(
-        { error: `Unknown DocType: ${doctype}` },
+      const resp = NextResponse.json(
+        error(`Unknown DocType: ${doctype}`, "NOT_FOUND"),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
     const { model } = resolved;
 
     const record = await model.findUnique({ where: { name } });
     if (!record) {
-      return NextResponse.json(
-        { error: `${doctype} "${name}" not found` },
+      const resp = NextResponse.json(
+        notFound(doctype, name),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
 
     // Fetch child-table rows grouped by parentfield
@@ -106,15 +125,19 @@ export async function GET(
       }),
     );
 
-    return NextResponse.json({
-      data: { ...record, ...children },
-    });
-  } catch (error: any) {
-    console.error("[erpnext/read] Error:", error?.message);
-    return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+    const resp = NextResponse.json(
+      success({ ...record, ...children }),
+    );
+    logRequestEnd(logCtx, 200);
+    return withCors(resp);
+  } catch (e: any) {
+    console.error("[erpnext/read] Error:", e?.message);
+    const resp = NextResponse.json(
+      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
       { status: 500 },
     );
+    logRequestEnd(logCtx, 500);
+    return withCors(resp);
   }
 }
 
@@ -124,56 +147,80 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ doctype: string; name: string }> },
 ) {
+  const logCtx = logRequestStart("PUT", req.nextUrl.pathname);
   try {
     const { doctype, name } = await params;
     const resolved = getModel(doctype);
     if (!resolved) {
-      return NextResponse.json(
-        { error: `Unknown DocType: ${doctype}` },
+      const resp = NextResponse.json(
+        error(`Unknown DocType: ${doctype}`, "NOT_FOUND"),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
     const { model, accessor } = resolved;
 
     // Check record exists and is editable
     const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
     if (!existing) {
-      return NextResponse.json(
-        { error: `${doctype} "${name}" not found` },
+      const resp = NextResponse.json(
+        notFound(doctype, name),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
 
     const body = await req.json() as Record<string, unknown>;
 
     // Submitted (docstatus=1) and Cancelled (docstatus=2) records cannot be edited
     if (existing.docstatus === 1) {
-      return NextResponse.json(
-        { error: `Cannot update submitted ${doctype}. Cancel it first.` },
+      const resp = NextResponse.json(
+        forbidden("update", doctype),
         { status: 403 },
       );
+      logRequestEnd(logCtx, 403);
+      return withCors(resp);
     }
     if (existing.docstatus === 2) {
-      return NextResponse.json(
-        { error: `Cannot update cancelled ${doctype}` },
+      const resp = NextResponse.json(
+        error(`Cannot update cancelled ${doctype}`, "CANCELLED"),
         { status: 403 },
       );
+      logRequestEnd(logCtx, 403);
+      return withCors(resp);
     }
 
     // Prevent direct docstatus change via PUT (use /submit or /cancel endpoints)
     if ("docstatus" in body && body.docstatus !== existing.docstatus) {
-      return NextResponse.json(
-        { error: "Use /submit or /cancel endpoints to change docstatus" },
+      const resp = NextResponse.json(
+        error("Use /submit or /cancel endpoints to change docstatus", "INVALID_DOCSTATUS"),
         { status: 400 },
       );
+      logRequestEnd(logCtx, 400);
+      return withCors(resp);
     }
 
     // Prevent changing the primary key
     if ("name" in body && body.name !== name) {
-      return NextResponse.json(
-        { error: "Cannot change the 'name' (primary key) of a record" },
+      const resp = NextResponse.json(
+        error("Cannot change the 'name' (primary key) of a record", "IMMUTABLE_PK"),
         { status: 400 },
       );
+      logRequestEnd(logCtx, 400);
+      return withCors(resp);
+    }
+
+    // ── Zod schema validation ───────────────────────────────────────────
+    const validation = validateDocument(doctype, body);
+    if (!validation.valid) {
+      const resp = NextResponse.json(
+        validationError(validation.errors),
+        { status: 400 },
+      );
+      logRequestEnd(logCtx, 400);
+      return withCors(resp);
     }
 
     // Separate child-table arrays from parent fields
@@ -256,18 +303,27 @@ export async function PUT(
       return await txRecord[accessor].findUnique({ where: { name } });
     });
 
-    return NextResponse.json({ data: result });
-  } catch (error: any) {
-    console.error("[erpnext/update] Error:", error?.message);
+    const resp = NextResponse.json(success(result));
+    logRequestEnd(logCtx, 200);
+    return withCors(resp);
+  } catch (e: any) {
+    console.error("[erpnext/update] Error:", e?.message);
 
-    if (error?.code === "P2025") {
-      return NextResponse.json({ error: "Record not found" }, { status: 404 });
+    if (e?.code === "P2025") {
+      const resp = NextResponse.json(
+        error("Record not found", "NOT_FOUND"),
+        { status: 404 },
+      );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
 
-    return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+    const resp = NextResponse.json(
+      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
       { status: 500 },
     );
+    logRequestEnd(logCtx, 500);
+    return withCors(resp);
   }
 }
 
@@ -277,36 +333,43 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ doctype: string; name: string }> },
 ) {
+  const logCtx = logRequestStart("DELETE", _req.nextUrl.pathname);
   try {
     const { doctype, name } = await params;
     const resolved = getModel(doctype);
     if (!resolved) {
-      return NextResponse.json(
-        { error: `Unknown DocType: ${doctype}` },
+      const resp = NextResponse.json(
+        error(`Unknown DocType: ${doctype}`, "NOT_FOUND"),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
     const { model, accessor } = resolved;
 
     const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
     if (!existing) {
-      return NextResponse.json(
-        { error: `${doctype} "${name}" not found` },
+      const resp = NextResponse.json(
+        notFound(doctype, name),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
 
     // Only Draft (docstatus=0) records can be deleted
     if (existing.docstatus !== 0) {
-      return NextResponse.json(
-        {
-          error:
-            existing.docstatus === 1
-              ? `Cannot delete submitted ${doctype}. Cancel it first.`
-              : `Cannot delete cancelled ${doctype}`,
-        },
+      const message =
+        existing.docstatus === 1
+          ? `Cannot delete submitted ${doctype}. Cancel it first.`
+          : `Cannot delete cancelled ${doctype}`;
+      const code = existing.docstatus === 1 ? "SUBMITTED" : "CANCELLED";
+      const resp = NextResponse.json(
+        error(message, code),
         { status: 403 },
       );
+      logRequestEnd(logCtx, 403);
+      return withCors(resp);
     }
 
     // ── Dependency check ────────────────────────────────────────────────
@@ -361,28 +424,41 @@ export async function DELETE(
       await txRecord[accessor].delete({ where: { name } });
     });
 
-    return NextResponse.json({
-      message: `${doctype} "${name}" deleted successfully`,
-      deleted_children: childCount,
-    });
-  } catch (error: any) {
-    console.error("[erpnext/delete] Error:", error?.message);
+    const resp = NextResponse.json(
+      success({
+        message: `${doctype} "${name}" deleted successfully`,
+        deleted_children: childCount,
+      }),
+    );
+    logRequestEnd(logCtx, 200);
+    return withCors(resp);
+  } catch (e: any) {
+    console.error("[erpnext/delete] Error:", e?.message);
 
     // Foreign-key constraint violation
-    if (error?.code === "P2003") {
-      return NextResponse.json(
-        { error: "Cannot delete: other documents reference this record" },
+    if (e?.code === "P2003") {
+      const resp = NextResponse.json(
+        error("Cannot delete: other documents reference this record", "FK_CONSTRAINT"),
         { status: 409 },
       );
+      logRequestEnd(logCtx, 409);
+      return withCors(resp);
     }
 
-    if (error?.code === "P2025") {
-      return NextResponse.json({ error: "Record not found" }, { status: 404 });
+    if (e?.code === "P2025") {
+      const resp = NextResponse.json(
+        error("Record not found", "NOT_FOUND"),
+        { status: 404 },
+      );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
 
-    return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+    const resp = NextResponse.json(
+      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
       { status: 500 },
     );
+    logRequestEnd(logCtx, 500);
+    return withCors(resp);
   }
 }

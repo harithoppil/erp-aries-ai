@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
 import type { Prisma } from "@/prisma/client";
+import { safeTransaction } from "@/lib/erpnext/transaction-wrapper";
 
 export async function POST(
   _req: NextRequest,
@@ -55,7 +56,7 @@ export async function POST(
   const seName = generateShortCode("STE");
 
   // ── Create Stock Entry header + items atomically ───────────────────
-  const result = await prisma.$transaction(async (tx) => {
+  const txResult = await safeTransaction(async (tx) => {
     const se = await tx.stockEntry.create({
       data: {
         name: seName,
@@ -114,6 +115,13 @@ export async function POST(
 
     return se;
   });
+  if (!txResult.success) {
+    return NextResponse.json(
+      { error: txResult.error ?? "Transaction failed" },
+      { status: 500 },
+    );
+  }
+
 
   // ── Return the new SE with items ───────────────────────────────────
   const [seResult, seItems] = await Promise.all([

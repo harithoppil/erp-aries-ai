@@ -28,6 +28,14 @@ import {
   getDelegate,
   getDelegateByAccessor,
 } from "@/lib/erpnext/prisma-delegate";
+import { validateDocument } from "@/lib/erpnext/validation";
+import { success, error, validationError, notFound } from "@/lib/erpnext/api-response";
+import type { ApiResponse } from "@/lib/erpnext/api-response";
+import { withCors, corsPreflightResponse } from "@/lib/erpnext/cors";
+import {
+  logRequestStart,
+  logRequestEnd,
+} from "@/lib/erpnext/request-logger";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -164,20 +172,29 @@ function buildClause(triple: FilterTriple): WhereClause {
   }
 }
 
+// ── OPTIONS — Preflight ────────────────────────────────────────────────────────
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
+
 // ── GET — List ────────────────────────────────────────────────────────────────
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ doctype: string }> },
 ) {
+  const logCtx = logRequestStart("GET", req.nextUrl.pathname);
   try {
     const { doctype } = await params;
     const resolved = getModel(doctype);
     if (!resolved) {
-      return NextResponse.json(
-        { error: `Unknown DocType: ${doctype}` },
+      const resp = NextResponse.json(
+        error(`Unknown DocType: ${doctype}`, "NOT_FOUND"),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
     const { model } = resolved;
 
@@ -216,18 +233,25 @@ export async function GET(
       model.count({ where }),
     ]);
 
-    return NextResponse.json({
-      data,
-      total,
-      limit,
-      offset,
-    });
-  } catch (error: any) {
-    console.error("[erpnext/list] Error:", error?.message);
-    return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+    const page = Math.floor(offset / limit) + 1;
+    const resp = NextResponse.json(
+      success(data, {
+        page,
+        pageSize: limit,
+        total,
+        hasMore: offset + limit < total,
+      }),
+    );
+    logRequestEnd(logCtx, 200);
+    return withCors(resp);
+  } catch (e: any) {
+    console.error("[erpnext/list] Error:", e?.message);
+    const resp = NextResponse.json(
+      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
       { status: 500 },
     );
+    logRequestEnd(logCtx, 500);
+    return withCors(resp);
   }
 }
 
@@ -237,42 +261,62 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ doctype: string }> },
 ) {
+  const logCtx = logRequestStart("POST", req.nextUrl.pathname);
   try {
     const { doctype } = await params;
     const resolved = getModel(doctype);
     if (!resolved) {
-      return NextResponse.json(
-        { error: `Unknown DocType: ${doctype}` },
+      const resp = NextResponse.json(
+        error(`Unknown DocType: ${doctype}`, "NOT_FOUND"),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
     const { model } = resolved;
 
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
 
     // ── Validation ──────────────────────────────────────────────────────
     if (!body || typeof body !== "object") {
-      return NextResponse.json(
-        { error: "Request body must be a JSON object" },
+      const resp = NextResponse.json(
+        error("Request body must be a JSON object", "INVALID_BODY"),
         { status: 400 },
       );
+      logRequestEnd(logCtx, 400);
+      return withCors(resp);
     }
 
     // Ensure primary key `name` is present (erpnext_port models use name as @id)
     if (!body.name) {
-      return NextResponse.json(
-        { error: "Field 'name' (primary key) is required" },
+      const resp = NextResponse.json(
+        error("Field 'name' (primary key) is required", "MISSING_PK"),
         { status: 400 },
       );
+      logRequestEnd(logCtx, 400);
+      return withCors(resp);
     }
 
     // Enforce draft state on creation
     body.docstatus = body.docstatus ?? 0;
     if (body.docstatus !== 0) {
-      return NextResponse.json(
-        { error: "New documents must be created in Draft state (docstatus=0)" },
+      const resp = NextResponse.json(
+        error("New documents must be created in Draft state (docstatus=0)", "INVALID_DOCSTATUS"),
         { status: 400 },
       );
+      logRequestEnd(logCtx, 400);
+      return withCors(resp);
+    }
+
+    // ── Zod schema validation ───────────────────────────────────────────
+    const validation = validateDocument(doctype, body);
+    if (!validation.valid) {
+      const resp = NextResponse.json(
+        validationError(validation.errors),
+        { status: 400 },
+      );
+      logRequestEnd(logCtx, 400);
+      return withCors(resp);
     }
 
     // Stamp audit fields
@@ -347,32 +391,41 @@ export async function POST(
       }
 
       // Re-fetch the created record to return with all fields
-      return await txModel.findUnique({ where: { name: body.name } });
+      return await txModel.findUnique({ where: { name: body.name as string } });
     });
 
-    return NextResponse.json({ data: result }, { status: 201 });
-  } catch (error: any) {
-    console.error("[erpnext/create] Error:", error?.message);
+    const resp = NextResponse.json(success(result), { status: 201 });
+    logRequestEnd(logCtx, 201);
+    return withCors(resp);
+  } catch (e: any) {
+    console.error("[erpnext/create] Error:", e?.message);
 
     // Prisma unique constraint violation
-    if (error?.code === "P2002") {
-      return NextResponse.json(
-        { error: `A ${await params.then(p => p.doctype)} with this name already exists` },
+    if (e?.code === "P2002") {
+      const doctype = (await params).doctype;
+      const resp = NextResponse.json(
+        error(`A ${doctype} with this name already exists`, "DUPLICATE"),
         { status: 409 },
       );
+      logRequestEnd(logCtx, 409);
+      return withCors(resp);
     }
 
     // Prisma required-field violation
-    if (error?.code === "P2000" || error?.code === "P2012") {
-      return NextResponse.json(
-        { error: `Missing required field: ${error?.meta?.field_name || "unknown"}` },
+    if (e?.code === "P2000" || e?.code === "P2012") {
+      const resp = NextResponse.json(
+        error(`Missing required field: ${e?.meta?.field_name || "unknown"}`, "MISSING_FIELD"),
         { status: 400 },
       );
+      logRequestEnd(logCtx, 400);
+      return withCors(resp);
     }
 
-    return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+    const resp = NextResponse.json(
+      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
       { status: 500 },
     );
+    logRequestEnd(logCtx, 500);
+    return withCors(resp);
   }
 }

@@ -7,7 +7,7 @@ import { listCustomers, type ClientSafeCustomer } from "@/app/dashboard/erp/cust
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   FileText, Search, Plus, X, DollarSign, Calendar, CheckCircle,
-  Clock, XCircle, Send, TrendingUp, Download,
+  Clock, XCircle, Send, TrendingUp,
   Sparkles, Wand2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string; icon: React.ElementType }> = {
@@ -188,9 +188,7 @@ export default function QuotationsClient({ initialQuotations }: { initialQuotati
               <p className="text-sm text-[#64748b] mt-1">{quotations.length} total quotations</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(q => ({ quotation_number: q.quotation_number, customer_name: q.customer_name, project_type: q.project_type, valid_until: q.valid_until, total: q.total, status: q.status })), 'quotations')}>
-                <Download size={16} /> Export CSV
-              </Button>
+              <ExportButton data={filtered.map(q => ({ quotation_number: q.quotation_number, customer_name: q.customer_name, project_type: q.project_type, valid_until: q.valid_until, total: q.total, status: q.status }))} filename="quotations" />
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
                 <Plus size={16} /> New Quotation
               </Button>

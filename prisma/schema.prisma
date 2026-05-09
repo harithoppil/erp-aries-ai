@@ -936,21 +936,24 @@ model users {
   last_login    DateTime?  @db.Timestamptz(6)
   created_at    DateTime   @default(now()) @db.Timestamptz(6)
   updated_at    DateTime   @default(now()) @updatedAt @db.Timestamptz(6)
-  sessions      sessions[]
+  sessions               sessions[]
+  webauthn_credentials   webauthn_credentials[]
+  refresh_tokens         refresh_tokens[]
 
   @@schema("public")
 }
 
 model sessions {
-  id            String   @id @default(uuid()) @db.Uuid
-  user_id       String   @db.Uuid
-  session_token String   @unique @db.VarChar(500)
-  expires       DateTime @db.Timestamptz(6)
-  ip_address    String?  @db.VarChar(45)
+  id            String         @id @default(uuid()) @db.Uuid
+  user_id       String         @db.Uuid
+  session_token String         @unique @db.VarChar(500)
+  expires       DateTime       @db.Timestamptz(6)
+  ip_address    String?        @db.VarChar(45)
   user_agent    String?
-  is_active     Boolean  @default(true)
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
-  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  is_active     Boolean        @default(true)
+  created_at    DateTime       @default(now()) @db.Timestamptz(6)
+  users         users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  refresh_tokens refresh_tokens[]
 
   @@schema("public")
 }
@@ -18003,5 +18006,57 @@ enum taskstatus {
   REVIEW
   DONE
 
+  @@schema("public")
+}
+
+model webauthn_credentials {
+  id              String    @id @default(uuid()) @db.Uuid
+  user_id         String    @db.Uuid
+  credential_id   String    @unique @db.VarChar(255)
+  public_key      Bytes
+  counter         Int       @default(0)
+  transports      String?   @db.VarChar(200)
+  device_name     String?   @db.VarChar(200)
+  last_used       DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model refresh_tokens {
+  id           String    @id @default(uuid()) @db.Uuid
+  user_id      String    @db.Uuid
+  token        String    @unique @db.VarChar(500)
+  session_id   String?   @db.Uuid
+  expires      DateTime  @db.Timestamptz(6)
+  is_revoked   Boolean   @default(false)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  users        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  sessions     sessions? @relation(fields: [session_id], references: [id], onDelete: SetNull)
+
+  @@schema("public")
+}
+
+model email_tracking {
+  id              String                   @id @default(uuid()) @db.Uuid
+  user_id         String?                  @db.Uuid
+  email_address   String                   @db.VarChar(255)
+  email_type      String                   @db.VarChar(50)
+  template_id     String?                  @db.VarChar(100)
+  message_id      String?                  @db.VarChar(200)
+  subject         String?                  @db.VarChar(500)
+  status          String                   @default("sent") @db.VarChar(20)
+  error_message   String?                  @db.Text
+  metadata_json   String?
+  sent_at         DateTime                 @default(now()) @db.Timestamptz(6)
+  opened_at       DateTime?                @db.Timestamptz(6)
+  clicked_at      DateTime?                @db.Timestamptz(6)
+  created_at      DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id], map: "ix_email_tracking_user_id")
+  @@index([email_address], map: "ix_email_tracking_email_address")
+  @@index([email_type], map: "ix_email_tracking_email_type")
+  @@index([sent_at], map: "ix_email_tracking_sent_at")
   @@schema("public")
 }

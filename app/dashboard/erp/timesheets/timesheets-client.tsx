@@ -7,7 +7,7 @@ import { listProjects, type ClientSafeProject } from "@/app/dashboard/erp/projec
 import { listPersonnel, type ClientSafePersonnel } from "@/app/dashboard/erp/hr/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
-  Clock, Search, Plus, Calendar, Briefcase, User, CheckCircle, Download,
+  Clock, Search, Plus, Calendar, Briefcase, User, CheckCircle,
   Wand2, Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
 
 export default function TimesheetsClient({ initialTimesheets }: { initialTimesheets: ClientSafeTimesheet[] }) {
@@ -155,9 +155,7 @@ export default function TimesheetsClient({ initialTimesheets }: { initialTimeshe
               <p className="text-sm text-[#64748b] mt-1">{timesheets.length} entries · {stats.totalHours} total hours</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(t => ({ date: t.date, activity_type: t.activity_type, description: t.description, hours: t.hours, billable: t.billable })), 'timesheets')}>
-                <Download size={16} /> Export CSV
-              </Button>
+              <ExportButton data={filtered.map(t => ({ date: t.date, activity_type: t.activity_type, description: t.description, hours: t.hours, billable: t.billable }))} filename="timesheets" />
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
                 <Plus size={16} /> Add Entry
               </Button>

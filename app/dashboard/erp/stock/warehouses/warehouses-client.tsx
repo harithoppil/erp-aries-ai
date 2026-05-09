@@ -4,12 +4,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { listWarehouses, createWarehouse, type ClientSafeWarehouse } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
-import { Warehouse as WarehouseIcon, Search, Plus, Download } from "lucide-react";
+import { Warehouse as WarehouseIcon, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
 export default function WarehousesClient({ initialRecords }: { initialRecords: ClientSafeWarehouse[] }) {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function WarehousesClient({ initialRecords }: { initialRecords: C
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Warehouses</h2><p className="text-sm text-[#64748b] mt-1">{records.length} warehouses</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(w => ({ name: w.name, warehouse: w.warehouse_name, type: w.warehouse_type, company: w.company, is_group: w.is_group, disabled: w.disabled })), 'warehouses')}><Download size={16} />Export</Button>
+            <ExportButton data={filtered.map(w => ({ name: w.name, warehouse: w.warehouse_name, type: w.warehouse_type, company: w.company, is_group: w.is_group, disabled: w.disabled }))} filename="warehouses" />
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New Warehouse</Button>
           </div>
         </div>

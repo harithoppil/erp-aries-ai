@@ -6,7 +6,7 @@ import { listPayments, createPayment, type ClientSafePayment } from "@/app/dashb
 import { listInvoices, type ClientSafeInvoice } from "@/app/dashboard/erp/accounts/actions";
 import { usePageContext } from "@/hooks/usePageContext";
 import {
-  Wallet, Search, Plus, ArrowRightLeft, User, Download, Wand2, Sparkles,
+  Wallet, Search, Plus, ArrowRightLeft, User, Wand2, Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
 
 export default function PaymentsClient({ initialPayments, initialInvoices }: { initialPayments: ClientSafePayment[]; initialInvoices: ClientSafeInvoice[] }) {
@@ -140,9 +140,7 @@ export default function PaymentsClient({ initialPayments, initialInvoices }: { i
               <p className="text-sm text-[#64748b] mt-1">{payments.length} payment entries</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(p => ({ posting_date: p.posting_date, party_name: p.party_name, payment_type: p.payment_type, reference_number: p.reference_number, amount: p.amount })), 'payments')}>
-                <Download size={16} /> Export CSV
-              </Button>
+              <ExportButton data={filtered.map(p => ({ posting_date: p.posting_date, party_name: p.party_name, payment_type: p.payment_type, reference_number: p.reference_number, amount: p.amount }))} filename="payments" />
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
                 <Plus size={16} /> Record Payment
               </Button>

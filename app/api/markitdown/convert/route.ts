@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       mimetype: file.type || undefined,
     }, {
       geminiApiKey,
-      geminiModel: "gemini-2.0-flash",
+      geminiModel: "gemini-3-flash-preview",
       imagePrompt: "Describe this image in detail, including any text, tables, charts, or diagrams visible.",
     });
 

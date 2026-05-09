@@ -12,6 +12,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/prisma/client";
 import { getDelegate } from "@/lib/erpnext/prisma-delegate";
+import { success, error } from "@/lib/erpnext/api-response";
+import { withCors, corsPreflightResponse } from "@/lib/erpnext/cors";
+import {
+  logRequestStart,
+  logRequestEnd,
+} from "@/lib/erpnext/request-logger";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -129,12 +135,19 @@ function inferFieldMeta(
   };
 }
 
+// ── OPTIONS — Preflight ────────────────────────────────────────────────────────
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
+
 // ── GET — Schema ──────────────────────────────────────────────────────────────
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ doctype: string }> },
 ) {
+  const logCtx = logRequestStart("GET", _req.nextUrl.pathname);
   try {
     const { doctype } = await params;
 
@@ -143,10 +156,12 @@ export async function GET(
     const dmmfModel = dmmfModels.find((m) => m.name === doctype);
 
     if (!dmmfModel) {
-      return NextResponse.json(
-        { error: `Unknown DocType: ${doctype}` },
+      const resp = NextResponse.json(
+        error(`Unknown DocType: ${doctype}`, "NOT_FOUND"),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
 
     // ── Verify the Prisma client has this model ───────────────────────────
@@ -154,10 +169,12 @@ export async function GET(
     const delegate = getDelegate(prisma, doctype);
     const accessor = doctype.charAt(0).toLowerCase() + doctype.slice(1);
     if (!delegate) {
-      return NextResponse.json(
-        { error: `No Prisma delegate for ${doctype}` },
+      const resp = NextResponse.json(
+        error(`No Prisma delegate for ${doctype}`, "NOT_FOUND"),
         { status: 404 },
       );
+      logRequestEnd(logCtx, 404);
+      return withCors(resp);
     }
 
     // ── Build field metadata ──────────────────────────────────────────────
@@ -205,7 +222,7 @@ export async function GET(
       (idx: { fields: readonly string[] }) => [...idx.fields],
     );
 
-    return NextResponse.json({
+    const schemaData = {
       name: doctype,
       accessor,
       db_table: dmmfModel.dbName || doctype.toLowerCase(),
@@ -223,12 +240,18 @@ export async function GET(
       is_child_table: fields.some((f) => f.fieldname === "parent") &&
         fields.some((f) => f.fieldname === "parenttype"),
       field_count: fields.length,
-    });
-  } catch (error: any) {
-    console.error("[erpnext/schema] Error:", error?.message);
-    return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+    };
+
+    const resp = NextResponse.json(success(schemaData));
+    logRequestEnd(logCtx, 200);
+    return withCors(resp);
+  } catch (e: any) {
+    console.error("[erpnext/schema] Error:", e?.message);
+    const resp = NextResponse.json(
+      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
       { status: 500 },
     );
+    logRequestEnd(logCtx, 500);
+    return withCors(resp);
   }
 }

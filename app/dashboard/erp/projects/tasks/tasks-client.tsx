@@ -4,12 +4,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { listTasks, createTask, type ClientSafeTask } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
-import { CheckSquare, Search, Plus, Download } from "lucide-react";
+import { CheckSquare, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
 const STATUS: Record<string, { label: string; badge: string }> = {
   Open: { label: "Open", badge: "bg-blue-100 text-blue-700 border-blue-200" },
@@ -51,7 +51,7 @@ export default function TasksClient({ initialRecords }: { initialRecords: Client
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Tasks</h2><p className="text-sm text-[#64748b] mt-1">{records.length} tasks</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(t => ({ name: t.name, subject: t.subject, status: t.status, priority: t.priority, project: t.project, progress: t.progress })), 'tasks')}><Download size={16} />Export</Button>
+            <ExportButton data={filtered.map(t => ({ name: t.name, subject: t.subject, status: t.status, priority: t.priority, project: t.project, progress: t.progress }))} filename="tasks" />
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New Task</Button>
           </div>
         </div>

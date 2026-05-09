@@ -6,7 +6,7 @@ import { listAssets, createAsset, type ClientSafeAsset } from "@/app/dashboard/e
 import { usePageContext } from "@/hooks/usePageContext";
 import {
   Wrench, CheckCircle, AlertTriangle, XCircle,
-  Search, Package, Plus, X, Download,
+  Search, Package, Plus, X,
   Wand2, Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -183,9 +183,7 @@ export default function AssetsClient({ initialAssets }: { initialAssets: ClientS
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(a => ({ asset_name: a.asset_name, asset_code: a.asset_code, asset_category: a.asset_category, location: a.location, status: a.status })), 'assets')}>
-                <Download size={16} /> Export CSV
-              </Button>
+              <ExportButton data={filtered.map(a => ({ asset_name: a.asset_name, asset_code: a.asset_code, asset_category: a.asset_category, location: a.location, status: a.status }))} filename="assets" />
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
                 <Plus size={16} /> Add Asset
               </Button>

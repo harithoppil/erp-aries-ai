@@ -4,12 +4,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { listDeliveryNotes, createDeliveryNote, type ClientSafeDeliveryNote } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
-import { Truck, Search, Plus, Download } from "lucide-react";
+import { Truck, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
   Draft: { label: "Draft", badge: "bg-gray-100 text-gray-700 border-gray-200" },
@@ -67,9 +67,7 @@ export default function DeliveryNotesClient({ initialNotes }: { initialNotes: Cl
               <p className="text-sm text-[#64748b] mt-1">{notes.length} delivery notes</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(n => ({ name: n.name, customer: n.customer_name, date: date(n.posting_date), total: n.grand_total, status: n.status })), 'delivery-notes')}>
-                <Download size={16} /> Export
-              </Button>
+              <ExportButton data={filtered.map(n => ({ name: n.name, customer: n.customer_name, date: date(n.posting_date), total: n.grand_total, status: n.status }))} filename="delivery-notes" />
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
                 <Plus size={16} /> New Delivery Note
               </Button>

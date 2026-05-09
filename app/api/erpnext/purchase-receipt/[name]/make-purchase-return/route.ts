@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
 import type { Prisma } from "@/prisma/client";
+import { safeTransaction } from "@/lib/erpnext/transaction-wrapper";
 
 export async function POST(
   _req: NextRequest,
@@ -48,7 +49,7 @@ export async function POST(
   const retName = generateShortCode("PRRET");
 
   // ── Create return Purchase Receipt header + items + taxes atomically ─
-  const result = await prisma.$transaction(async (tx) => {
+  const txResult = await safeTransaction(async (tx) => {
     const ret = await tx.purchaseReceipt.create({
       data: {
         name: retName,
@@ -201,6 +202,13 @@ export async function POST(
 
     return ret;
   });
+  if (!txResult.success) {
+    return NextResponse.json(
+      { error: txResult.error ?? "Transaction failed" },
+      { status: 500 },
+    );
+  }
+
 
   // ── Return the new return PR with items ────────────────────────────
   const [prResult, prRetItems] = await Promise.all([

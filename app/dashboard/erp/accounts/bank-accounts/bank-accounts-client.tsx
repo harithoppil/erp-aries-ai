@@ -4,12 +4,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { listBankAccounts, createBankAccount, type ClientSafeBankAccount } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
-import { Landmark, Search, Plus, Download } from "lucide-react";
+import { Landmark, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
 export default function BankAccountsClient({ initialRecords }: { initialRecords: ClientSafeBankAccount[] }) {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function BankAccountsClient({ initialRecords }: { initialRecords:
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Bank Accounts</h2><p className="text-sm text-[#64748b] mt-1">{records.length} bank accounts</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(ba => ({ name: ba.name, account: ba.account_name, bank: ba.bank, type: ba.account_type, company: ba.company })), 'bank-accounts')}><Download size={16} />Export</Button>
+            <ExportButton data={filtered.map(ba => ({ name: ba.name, account: ba.account_name, bank: ba.bank, type: ba.account_type, company: ba.company }))} filename="bank-accounts" />
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New Bank Account</Button>
           </div>
         </div>

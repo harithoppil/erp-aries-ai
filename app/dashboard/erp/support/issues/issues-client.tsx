@@ -4,12 +4,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { listIssues, createIssue, type ClientSafeIssue } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
-import { AlertCircle, Search, Plus, Download } from "lucide-react";
+import { AlertCircle, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
 const STATUS: Record<string, { label: string; badge: string }> = {
   Open: { label: "Open", badge: "bg-blue-100 text-blue-700 border-blue-200" },
@@ -48,7 +48,7 @@ export default function IssuesClient({ initialIssues }: { initialIssues: ClientS
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Issues</h2><p className="text-sm text-[#64748b] mt-1">{issues.length} issues</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(i => ({ name: i.name, subject: i.subject, customer: i.customer, priority: i.priority, status: i.status })), 'issues')}><Download size={16} />Export</Button>
+            <ExportButton data={filtered.map(i => ({ name: i.name, subject: i.subject, customer: i.customer, priority: i.priority, status: i.status }))} filename="issues" />
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New Issue</Button>
           </div>
         </div>

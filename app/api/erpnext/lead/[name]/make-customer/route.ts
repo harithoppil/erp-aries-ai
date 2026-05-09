@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
 import type { Prisma } from "@/prisma/client";
+import { safeTransaction } from "@/lib/erpnext/transaction-wrapper";
 
 export async function POST(
   _req: NextRequest,
@@ -30,7 +31,7 @@ export async function POST(
   const custName = generateShortCode("CUST");
 
   // ── Create Customer atomically ─────────────────────────────────────
-  const result = await prisma.$transaction(async (tx) => {
+  const txResult = await safeTransaction(async (tx) => {
     const cust = await tx.customer.create({
       data: {
         name: custName,
@@ -57,6 +58,13 @@ export async function POST(
 
     return cust;
   });
+  if (!txResult.success) {
+    return NextResponse.json(
+      { error: txResult.error ?? "Transaction failed" },
+      { status: 500 },
+    );
+  }
+
 
   // ── Return the new Customer ────────────────────────────────────────
   const custResult = await prisma.customer.findUnique({

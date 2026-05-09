@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
 import type { Prisma } from "@/prisma/client";
+import { safeTransaction } from "@/lib/erpnext/transaction-wrapper";
 
 export async function POST(
   _req: NextRequest,
@@ -47,7 +48,7 @@ export async function POST(
   }
 
   // ── Create one Work Order per PP item atomically ───────────────────
-  const results = await prisma.$transaction(async (tx) => {
+  const txResult = await safeTransaction(async (tx) => {
     const woNames = ppItems.map(() => generateShortCode("WO"));
 
     const workOrders = await Promise.all(
@@ -84,5 +85,12 @@ export async function POST(
     return workOrders;
   });
 
-  return NextResponse.json({ data: results }, { status: 201 });
+  if (!txResult.success) {
+    return NextResponse.json(
+      { error: txResult.error ?? "Transaction failed" },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({ data: txResult.data }, { status: 201 });
 }

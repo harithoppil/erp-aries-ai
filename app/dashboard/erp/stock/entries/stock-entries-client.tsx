@@ -4,12 +4,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { listStockEntries, createStockEntry, type ClientSafeStockEntry } from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
-import { ArrowRightLeft, Search, Plus, Download } from "lucide-react";
+import { ArrowRightLeft, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { exportToCSV } from "@/lib/export-csv";
+import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
 const TYPE_COLORS: Record<string, string> = {
   "Material Receipt": "bg-green-100 text-green-700 border-green-200",
@@ -49,7 +49,7 @@ export default function StockEntriesClient({ initialEntries }: { initialEntries:
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Stock Entries</h2><p className="text-sm text-[#64748b] mt-1">{entries.length} entries</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(e => ({ name: e.name, type: e.stock_entry_type, date: dt(e.posting_date), from: e.from_warehouse, to: e.to_warehouse, value: e.value_difference })), 'stock-entries')}><Download size={16} />Export</Button>
+            <ExportButton data={filtered.map(e => ({ name: e.name, type: e.stock_entry_type, date: dt(e.posting_date), from: e.from_warehouse, to: e.to_warehouse, value: e.value_difference }))} filename="stock-entries" />
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New Entry</Button>
           </div>
         </div>
