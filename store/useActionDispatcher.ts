@@ -32,20 +32,20 @@ export interface UIAction {
 
 export interface UIActionHandler {
   name: string;
-  handler: (args: Record<string, any>) => void;
+  handler: (args: Record<string, unknown>) => void;
 }
 
 interface ActionDispatcherState {
   // Registered actions for current page
   actions: UIAction[];
-  handlers: Map<string, (args: Record<string, any>) => void>;
+  handlers: Map<string, (args: Record<string, unknown>) => void>;
 
   // Register/unregister
-  registerActions: (actions: UIAction[], handlers: Record<string, (args: Record<string, any>) => void>) => void;
+  registerActions: (actions: UIAction[], handlers: Record<string, (args: Record<string, unknown>) => void>) => void;
   unregisterActions: () => void;
 
   // Execute an action by name
-  executeAction: (name: string, args: Record<string, any>) => boolean;
+  executeAction: (name: string, args: Record<string, unknown>) => boolean;
 
   // Get action descriptions for prompt injection (slow track fallback)
   getActionDescriptions: () => string;
@@ -59,7 +59,7 @@ export const useActionDispatcher = create<ActionDispatcherState>((set, get) => (
   handlers: new Map(),
 
   registerActions: (actions, handlerMap) => {
-    const handlers = new Map<string, (args: Record<string, any>) => void>();
+    const handlers = new Map<string, (args: Record<string, unknown>) => void>();
     Object.entries(handlerMap).forEach(([name, handler]) => {
       handlers.set(name, handler);
     });

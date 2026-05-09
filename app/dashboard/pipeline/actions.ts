@@ -1,6 +1,8 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import type { PipelineDeal } from '@/lib/ai/types';
+import type { enquirystatus } from '@/prisma/client';
 
 export type PipelineStage = {
   id: string;
@@ -65,10 +67,10 @@ export async function listPipelineStages(): Promise<
 }
 
 export async function listPipelineDeals(stage?: string): Promise<
-  { success: true; deals: any[] } | { success: false; error: string }
+  { success: true; deals: PipelineDeal[] } | { success: false; error: string }
 > {
   try {
-    const where = stage ? { status: stage as any } : {};
+    const where = stage ? { status: stage as enquirystatus } : {};
     const rows = await prisma.enquiries.findMany({
       where,
       orderBy: { created_at: 'desc' },

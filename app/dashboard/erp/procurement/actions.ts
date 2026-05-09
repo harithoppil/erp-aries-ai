@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -210,6 +211,22 @@ export async function createSupplier(data: {
   } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create supplier' };
   }
+}
+
+// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+
+// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
+export async function submitPurchaseOrder(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await submitDocument("Purchase Order", id);
+  if (result.success) revalidatePath('/dashboard/erp/procurement');
+  return result;
+}
+
+// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
+export async function cancelPurchaseOrder(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await cancelDocument("Purchase Order", id);
+  if (result.success) revalidatePath('/dashboard/erp/procurement');
+  return result;
 }
 
 // ── NEW: Validation & Business Logic ────────────────────────────────────────

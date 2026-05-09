@@ -19,7 +19,7 @@ const TYPE_COLORS: Record<string, string> = {
   "Repack": "bg-amber-100 text-amber-700 border-amber-200",
 };
 const fmt = (v: number) => v.toLocaleString("en-AE", { style: "currency", currency: "AED" });
-const dt = (s: string | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+const dt = (s: string | Date | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 export default function StockEntriesClient({ initialEntries }: { initialEntries: ClientSafeStockEntry[] }) {
   const router = useRouter();
@@ -49,7 +49,7 @@ export default function StockEntriesClient({ initialEntries }: { initialEntries:
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Stock Entries</h2><p className="text-sm text-[#64748b] mt-1">{entries.length} entries</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(e => ({ name: e.name, type: e.stock_entry_type, date: dt(e.posting_date as any), from: e.from_warehouse, to: e.to_warehouse, value: e.value_difference })), 'stock-entries')}><Download size={16} />Export</Button>
+            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(e => ({ name: e.name, type: e.stock_entry_type, date: dt(e.posting_date), from: e.from_warehouse, to: e.to_warehouse, value: e.value_difference })), 'stock-entries')}><Download size={16} />Export</Button>
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New Entry</Button>
           </div>
         </div>
@@ -57,7 +57,7 @@ export default function StockEntriesClient({ initialEntries }: { initialEntries:
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {filtered.length === 0 ? (<div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]"><ArrowRightLeft size={48} className="mb-4 opacity-40" /><p className="text-lg font-medium">No stock entries found</p></div>) : (
             <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-gray-700 font-semibold">ID</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Type</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Date</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">From → To</th><th className="text-right px-4 py-3 text-gray-700 font-semibold">Value Diff</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{filtered.map((e) => { const tc = TYPE_COLORS[e.stock_entry_type] || "bg-gray-100 text-gray-700 border-gray-200"; return (<tr key={e.name} onClick={() => router.push(`/dashboard/erp/stock/entries/${e.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{e.name}</td><td className="px-4 py-3"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${tc}`}>{e.stock_entry_type}</span></td><td className="px-4 py-3 text-[#64748b]">{dt(e.posting_date as any)}</td><td className="px-4 py-3 text-xs text-[#64748b]">{e.from_warehouse || "—"} → {e.to_warehouse || "—"}</td><td className={`px-4 py-3 text-right font-semibold ${e.value_difference >= 0 ? "text-green-700" : "text-red-700"}`}>{fmt(Math.abs(e.value_difference))}</td></tr>); })}</tbody></table></div>
+            <tbody className="divide-y divide-gray-100">{filtered.map((e) => { const tc = TYPE_COLORS[e.stock_entry_type] || "bg-gray-100 text-gray-700 border-gray-200"; return (<tr key={e.name} onClick={() => router.push(`/dashboard/erp/stock/entries/${e.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{e.name}</td><td className="px-4 py-3"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${tc}`}>{e.stock_entry_type}</span></td><td className="px-4 py-3 text-[#64748b]">{dt(e.posting_date)}</td><td className="px-4 py-3 text-xs text-[#64748b]">{e.from_warehouse || "—"} → {e.to_warehouse || "—"}</td><td className={`px-4 py-3 text-right font-semibold ${e.value_difference >= 0 ? "text-green-700" : "text-red-700"}`}>{fmt(Math.abs(e.value_difference))}</td></tr>); })}</tbody></table></div>
           )}
         </div>
       </div></div>

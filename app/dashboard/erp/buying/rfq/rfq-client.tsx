@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { exportToCSV } from "@/lib/export-csv";
 
-const dt = (s: string | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+const dt = (s: string | Date | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 export default function RfqClient({ initialRfqs }: { initialRfqs: ClientSafeRFQ[] }) {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function RfqClient({ initialRfqs }: { initialRfqs: ClientSafeRFQ[
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Request for Quotation</h2><p className="text-sm text-[#64748b] mt-1">{rfqs.length} RFQs</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(r => ({ name: r.name, company: r.company, date: dt(r.transaction_date as any), status: r.status })), 'rfqs')}><Download size={16} />Export</Button>
+            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(r => ({ name: r.name, company: r.company, date: dt(r.transaction_date), status: r.status })), 'rfqs')}><Download size={16} />Export</Button>
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New RFQ</Button>
           </div>
         </div>
@@ -49,7 +49,7 @@ export default function RfqClient({ initialRfqs }: { initialRfqs: ClientSafeRFQ[
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {filtered.length === 0 ? (<div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]"><FileQuestion size={48} className="mb-4 opacity-40" /><p className="text-lg font-medium">No RFQs found</p></div>) : (
             <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-gray-700 font-semibold">ID</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Company</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Transaction Date</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Schedule Date</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Status</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{filtered.map((r) => (<tr key={r.name} onClick={() => router.push(`/dashboard/erp/buying/rfq/${r.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{r.name}</td><td className="px-4 py-3 font-medium text-[#0f172a]">{r.company}</td><td className="px-4 py-3 text-[#64748b]">{dt(r.transaction_date as any)}</td><td className="px-4 py-3 text-[#64748b]">{dt(r.schedule_date as any)}</td><td className="px-4 py-3"><span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border bg-gray-100 text-gray-700 border-gray-200">{r.status || "Draft"}</span></td></tr>))}</tbody></table></div>
+            <tbody className="divide-y divide-gray-100">{filtered.map((r) => (<tr key={r.name} onClick={() => router.push(`/dashboard/erp/buying/rfq/${r.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{r.name}</td><td className="px-4 py-3 font-medium text-[#0f172a]">{r.company}</td><td className="px-4 py-3 text-[#64748b]">{dt(r.transaction_date)}</td><td className="px-4 py-3 text-[#64748b]">{dt(r.schedule_date)}</td><td className="px-4 py-3"><span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border bg-gray-100 text-gray-700 border-gray-200">{r.status || "Draft"}</span></td></tr>))}</tbody></table></div>
           )}
         </div>
       </div></div>

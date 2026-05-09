@@ -94,22 +94,24 @@ export default function StockClient({ initialItems, initialWarehouses, initialEn
         }),
       ],
       {
-        create_stock_entry: (args: Record<string, any>) => {
+        create_stock_entry: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            entry_type: args.entry_type || prev.entry_type,
-            item_id: args.item_id || prev.item_id,
-            quantity: args.quantity != null ? String(args.quantity) : prev.quantity,
-            source_warehouse: args.source_warehouse || prev.source_warehouse,
-            target_warehouse: args.target_warehouse || prev.target_warehouse,
-            reference: args.reference || prev.reference,
+            entry_type: a.entry_type || prev.entry_type,
+            item_id: a.item_id || prev.item_id,
+            quantity: a.quantity != null ? String(a.quantity) : prev.quantity,
+            source_warehouse: a.source_warehouse || prev.source_warehouse,
+            target_warehouse: a.target_warehouse || prev.target_warehouse,
+            reference: a.reference || prev.reference,
           }));
           toast.info("AI opened and filled the stock entry form", { icon: <Wand2 size={14} /> });
         },
-        set_stock_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered stock by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_stock_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered stock by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

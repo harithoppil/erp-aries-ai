@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import type { StockBalanceRow, SalesAnalyticsRow } from '@/lib/erpnext/types';
 
 export type ReportFilters = {
   from_date?: string;
@@ -212,7 +213,7 @@ export async function getReportsSummary(): Promise<
 /* ── Existing report runners ────────────────────────────────────────────── */
 
 export async function runBalanceSheet(filters?: ReportFilters): Promise<
-  { success: true; data: any } | { success: false; error: string }
+  { success: true; data: BSData } | { success: false; error: string }
 > {
   try {
     const accounts = await prisma.accounts.findMany({
@@ -239,7 +240,7 @@ export async function runBalanceSheet(filters?: ReportFilters): Promise<
 }
 
 export async function runTrialBalance(filters?: ReportFilters): Promise<
-  { success: true; data: any } | { success: false; error: string }
+  { success: true; data: TBAccount[] } | { success: false; error: string }
 > {
   try {
     const fromDate = filters?.from_date ? new Date(filters.from_date) : new Date(new Date().getFullYear(), 0, 1);
@@ -278,7 +279,7 @@ export async function runTrialBalance(filters?: ReportFilters): Promise<
 }
 
 export async function runGeneralLedger(filters?: ReportFilters): Promise<
-  { success: true; data: any } | { success: false; error: string }
+  { success: true; data: GLEntry[] } | { success: false; error: string }
 > {
   const res = await getGeneralLedger(filters);
   if (res.success) return { success: true, data: res.entries };
@@ -286,7 +287,7 @@ export async function runGeneralLedger(filters?: ReportFilters): Promise<
 }
 
 export async function runStockBalance(filters?: ReportFilters): Promise<
-  { success: true; data: any } | { success: false; error: string }
+  { success: true; data: StockBalanceRow[] } | { success: false; error: string }
 > {
   try {
     const rows = await prisma.bins.findMany({
@@ -296,8 +297,8 @@ export async function runStockBalance(filters?: ReportFilters): Promise<
     return {
       success: true,
       data: rows.map((b) => ({
-        item_code: (b.items as any)?.item_code || b.item_id,
-        warehouse: (b.warehouses as any)?.name || b.warehouse_id,
+        item_code: (b.items as Record<string, unknown> | null)?.item_code as string || b.item_id,
+        warehouse: (b.warehouses as Record<string, unknown> | null)?.name as string || b.warehouse_id,
         actual_qty: b.quantity,
         projected_qty: b.quantity,
       })),
@@ -309,7 +310,7 @@ export async function runStockBalance(filters?: ReportFilters): Promise<
 }
 
 export async function runSalesAnalytics(filters?: ReportFilters): Promise<
-  { success: true; data: any } | { success: false; error: string }
+  { success: true; data: SalesAnalyticsRow[] } | { success: false; error: string }
 > {
   try {
     const fromDate = filters?.from_date ? new Date(filters.from_date) : new Date(new Date().getFullYear(), 0, 1);
@@ -359,7 +360,7 @@ export async function getTrialBalance(filters?: ReportFilters): Promise<
   { success: true; accounts: TBAccount[] } | { success: false; error: string }
 > {
   const res = await runTrialBalance(filters);
-  if (res.success) return { success: true, accounts: res.data as TBAccount[] };
+  if (res.success) return { success: true, accounts: res.data };
   return res;
 }
 

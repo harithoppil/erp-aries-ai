@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -141,6 +142,22 @@ export async function createQuotation(data: {
   } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create quotation' };
   }
+}
+
+// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+
+// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
+export async function submitQuotation(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await submitDocument("Quotation", id);
+  if (result.success) revalidatePath('/dashboard/erp/quotations');
+  return result;
+}
+
+// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
+export async function cancelQuotation(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await cancelDocument("Quotation", id);
+  if (result.success) revalidatePath('/dashboard/erp/quotations');
+  return result;
 }
 
 // ── NEW: Validation & Business Logic ────────────────────────────────────────

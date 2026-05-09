@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import type { PurchaseReceiptItemRow } from '@/lib/erpnext/types';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -128,7 +130,7 @@ export async function getPurchaseReceipt(
         remarks: receipt.remarks,
         net_total: Number(receipt.net_total || 0),
         total_taxes_and_charges: Number(receipt.total_taxes_and_charges || 0),
-        items: ((receipt as any)?.purchaseReceiptItems || []).map((i) => ({
+        items: ((receipt as Record<string, unknown>)?.purchaseReceiptItems as PurchaseReceiptItemRow[] || []).map((i) => ({
           name: i.name,
           item_code: i.item_code,
           item_name: i.item_name,
@@ -231,27 +233,13 @@ export async function createPurchaseReceipt(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitPurchaseReceipt(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const r = await prisma.purchaseReceipt.findUnique({ where: { name: id } });
-    if (!r) return { success: false, error: 'Not found' };
-    if (r.docstatus !== 0) return { success: false, error: 'Only draft documents can be submitted' };
-    await prisma.purchaseReceipt.update({ where: { name: id }, data: { docstatus: 1, status: 'Submitted' } });
-    revalidatePath('/dashboard/erp/stock/purchase-receipts');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to submit' };
-  }
+  const result = await submitDocument("Purchase Receipt", id);
+  if (result.success) revalidatePath('/dashboard/erp/stock/purchase-receipts');
+  return result;
 }
 
 export async function cancelPurchaseReceipt(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const r = await prisma.purchaseReceipt.findUnique({ where: { name: id } });
-    if (!r) return { success: false, error: 'Not found' };
-    if (r.docstatus !== 1) return { success: false, error: 'Only submitted documents can be cancelled' };
-    await prisma.purchaseReceipt.update({ where: { name: id }, data: { docstatus: 2, status: 'Cancelled' } });
-    revalidatePath('/dashboard/erp/stock/purchase-receipts');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to cancel' };
-  }
+  const result = await cancelDocument("Purchase Receipt", id);
+  if (result.success) revalidatePath('/dashboard/erp/stock/purchase-receipts');
+  return result;
 }

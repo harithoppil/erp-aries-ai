@@ -27,10 +27,10 @@ import type { UIAction } from "@/store/useActionDispatcher";
  * Gemini expects flat { name, description, parameters } with
  * parameters as a JSON Schema object.
  */
-export function toGeminiToolSpec(actions: UIAction[]): Record<string, any> {
+export function toGeminiToolSpec(actions: UIAction[]): Record<string, unknown> {
   return {
     functionDeclarations: actions.map((action) => {
-      const decl: Record<string, any> = {
+      const decl: Record<string, unknown> = {
         name: action.name,
         description: action.description,
       };
@@ -49,20 +49,22 @@ export function toGeminiToolSpec(actions: UIAction[]): Record<string, any> {
  * some advanced features (e.g., $ref, additionalProperties).
  * We strip anything Gemini doesn't need.
  */
-function convertSchemaToGemini(schema: Record<string, any>): Record<string, any> {
-  const result: Record<string, any> = {
+function convertSchemaToGemini(schema: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {
     type: schema.type || "object",
   };
 
   if (schema.properties) {
-    result.properties = {};
-    for (const [key, val] of Object.entries(schema.properties)) {
-      result.properties[key] = convertSchemaToGemini(val as Record<string, any>);
+    const props: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(schema.properties as Record<string, unknown>)) {
+      props[key] = convertSchemaToGemini(val as Record<string, unknown>);
     }
+    result.properties = props;
   }
 
-  if (schema.required && schema.required.length > 0) {
-    result.required = schema.required;
+  const required = schema.required as string[] | undefined;
+  if (required && required.length > 0) {
+    result.required = required;
   }
 
   if (schema.enum) {
@@ -74,7 +76,7 @@ function convertSchemaToGemini(schema: Record<string, any>): Record<string, any>
   }
 
   if (schema.type === "array" && schema.items) {
-    result.items = convertSchemaToGemini(schema.items as Record<string, any>);
+    result.items = convertSchemaToGemini(schema.items as Record<string, unknown>);
   }
 
   return result;
@@ -85,16 +87,18 @@ function convertSchemaToGemini(schema: Record<string, any>): Record<string, any>
  * Handles: candidate.content.parts[].functionCall
  * Args are already parsed objects (not JSON strings).
  */
-export function parseGeminiResponse(data: any): FunctionCallResult[] {
+export function parseGeminiResponse(data: Record<string, unknown>): FunctionCallResult[] {
   const calls: FunctionCallResult[] = [];
-  const candidates = data.candidates || [];
+  const candidates = (data.candidates as Array<Record<string, unknown>>) || [];
   for (const candidate of candidates) {
-    const parts = candidate.content?.parts || [];
+    const content = candidate.content as Record<string, unknown> | undefined;
+    const parts = (content?.parts as Array<Record<string, unknown>>) || [];
     for (const part of parts) {
-      if (part.functionCall) {
+      const functionCall = part.functionCall as Record<string, unknown> | undefined;
+      if (functionCall) {
         calls.push({
-          name: part.functionCall.name,
-          args: part.functionCall.args || {},
+          name: (functionCall.name || '') as string,
+          args: (functionCall.args || {}) as Record<string, unknown>,
         });
       }
     }
@@ -108,7 +112,7 @@ export function parseGeminiResponse(data: any): FunctionCallResult[] {
  * Convert UIAction[] to OpenAI tools format.
  * OpenAI wraps each function in { type: "function", function: { name, description, parameters } }
  */
-export function toOpenAIToolSpec(actions: UIAction[]): Record<string, any>[] {
+export function toOpenAIToolSpec(actions: UIAction[]): Record<string, unknown>[] {
   return actions.map((action) => ({
     type: "function" as const,
     function: {
@@ -124,24 +128,26 @@ export function toOpenAIToolSpec(actions: UIAction[]): Record<string, any>[] {
  * OpenAI returns tool_calls[] where arguments is a JSON STRING (must parse).
  * Each call has a unique id that must be echoed in the tool_result response.
  */
-export function parseOpenAIResponse(data: any): FunctionCallResult[] {
+export function parseOpenAIResponse(data: Record<string, unknown>): FunctionCallResult[] {
   const calls: FunctionCallResult[] = [];
-  const choices = data.choices || [];
+  const choices = (data.choices as Array<Record<string, unknown>>) || [];
   for (const choice of choices) {
-    const toolCalls = choice.message?.tool_calls || [];
+    const message = choice.message as Record<string, unknown> | undefined;
+    const toolCalls = (message?.tool_calls as Array<Record<string, unknown>>) || [];
     for (const tc of toolCalls) {
-      let args: Record<string, any> = {};
-      if (tc.function?.arguments) {
+      const fn = tc.function as Record<string, unknown> | undefined;
+      let args: Record<string, unknown> = {};
+      if (fn?.arguments) {
         try {
-          args = JSON.parse(tc.function.arguments);
+          args = JSON.parse(fn.arguments as string) as Record<string, unknown>;
         } catch (e) {
-          console.warn(`[OpenAI Adapter] Failed to parse arguments for ${tc.function.name}:`, e);
+          console.warn(`[OpenAI Adapter] Failed to parse arguments for ${fn?.name}:`, e);
         }
       }
       calls.push({
-        name: tc.function.name,
+        name: (fn?.name || '') as string,
         args,
-        callId: tc.id, // Must be preserved for tool_result response
+        callId: (tc.id || undefined) as string | undefined,
       });
     }
   }
@@ -155,7 +161,7 @@ export function parseOpenAIResponse(data: any): FunctionCallResult[] {
  * Anthropic uses { name, description, input_schema } where input_schema
  * is the same JSON Schema as Gemini's parameters.
  */
-export function toAnthropicToolSpec(actions: UIAction[]): Record<string, any>[] {
+export function toAnthropicToolSpec(actions: UIAction[]): Record<string, unknown>[] {
   return actions.map((action) => ({
     name: action.name,
     description: action.description,
@@ -169,15 +175,15 @@ export function toAnthropicToolSpec(actions: UIAction[]): Record<string, any>[] 
  * input is already a parsed object (like Gemini, not a JSON string).
  * Each has a unique id for the tool_result response.
  */
-export function parseAnthropicResponse(data: any): FunctionCallResult[] {
+export function parseAnthropicResponse(data: Record<string, unknown>): FunctionCallResult[] {
   const calls: FunctionCallResult[] = [];
-  const contentBlocks = data.content || [];
+  const contentBlocks = (data.content as Array<Record<string, unknown>>) || [];
   for (const block of contentBlocks) {
     if (block.type === "tool_use") {
       calls.push({
-        name: block.name,
-        args: block.input || {},
-        callId: block.id, // Must be preserved for tool_result response
+        name: (block.name || '') as string,
+        args: (block.input || {}) as Record<string, unknown>,
+        callId: (block.id || undefined) as string | undefined,
       });
     }
   }
@@ -189,7 +195,7 @@ export function parseAnthropicResponse(data: any): FunctionCallResult[] {
 /** Result of parsing a function/tool call from any provider. */
 export interface FunctionCallResult {
   name: string;
-  args: Record<string, any>;
+  args: Record<string, unknown>;
   /** OpenAI and Anthropic assign unique IDs per call. Gemini does not. */
   callId?: string;
 }
@@ -200,9 +206,9 @@ export type AIProvider = "gemini" | "openai" | "anthropic";
 
 export interface AIProviderAdapter {
   /** Convert canonical UIAction[] to provider-specific tool spec */
-  toToolSpec: (actions: UIAction[]) => any;
+  toToolSpec: (actions: UIAction[]) => Record<string, unknown> | Record<string, unknown>[];
   /** Parse provider response → FunctionCallResult[] */
-  parseResponse: (data: any) => FunctionCallResult[];
+  parseResponse: (data: Record<string, unknown>) => FunctionCallResult[];
 }
 
 const ADAPTERS: Record<AIProvider, AIProviderAdapter> = {
@@ -236,7 +242,7 @@ export function getAdapter(provider: AIProvider = "gemini"): AIProviderAdapter {
  */
 
 /** OpenAI tool result format */
-export function formatOpenAIToolResult(callId: string, content: string): Record<string, any> {
+export function formatOpenAIToolResult(callId: string, content: string): Record<string, unknown> {
   return {
     role: "tool",
     tool_call_id: callId,
@@ -249,7 +255,7 @@ export function formatAnthropicToolResult(
   toolUseId: string,
   content: string,
   isError: boolean = false
-): Record<string, any> {
+): Record<string, unknown> {
   return {
     type: "tool_result",
     tool_use_id: toolUseId,
@@ -259,7 +265,7 @@ export function formatAnthropicToolResult(
 }
 
 /** Gemini function response format */
-export function formatGeminiFunctionResponse(name: string, content: string): Record<string, any> {
+export function formatGeminiFunctionResponse(name: string, content: string): Record<string, unknown> {
   return {
     functionResponse: {
       name,

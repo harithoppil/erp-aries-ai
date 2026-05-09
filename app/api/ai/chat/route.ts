@@ -18,6 +18,15 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { AgentLoop, type AgentLoopEvent } from "@/lib/agent-loop";
 import { generateId } from "@/lib/uuid";
+import type {
+  ChatMessage,
+  SSEToolCallEvent,
+  SSEToolResultEvent,
+  SSETextDeltaEvent,
+  SSEDoneEvent,
+  SSEErrorEvent,
+  MessageRow,
+} from "@/lib/ai/types";
 
 // Force dynamic — no SSG
 export const dynamic = "force-dynamic";
@@ -81,14 +90,14 @@ export async function POST(req: NextRequest) {
   });
 
   // Build history in Chat Completions format
-  const history = historyMessages
-    .filter((m: { role: string }) => m.role !== "system")
-    .map((m: { role: string; content: string | null; tool_calls: string | null; tool_call_id: string | null }) => {
-      const msg: Record<string, unknown> = { role: m.role, content: m.content };
+  const history: ChatMessage[] = historyMessages
+    .filter((m: MessageRow) => m.role !== "system")
+    .map((m: MessageRow) => {
+      const msg: ChatMessage = { role: m.role as ChatMessage["role"], content: m.content };
       // Restore tool_calls if present
       if (m.tool_calls) {
         try {
-          msg.tool_calls = typeof m.tool_calls === "string" ? JSON.parse(m.tool_calls) : m.tool_calls;
+          msg.tool_calls = typeof m.tool_calls === "string" ? JSON.parse(m.tool_calls) : m.tool_calls as ChatMessage["tool_calls"];
         } catch {}
       }
       if (m.tool_call_id) {
@@ -134,12 +143,12 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const encoder = new TextEncoder();
 
-      function sendEvent(event: string, data: any) {
+      function sendEvent(event: string, data: SSEToolCallEvent | SSEToolResultEvent | SSETextDeltaEvent | SSEDoneEvent | SSEErrorEvent) {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       }
 
       try {
-        for await (const event of loop.runStream(message, history as any)) {
+        for await (const event of loop.runStream(message, history)) {
           switch (event.type) {
             case "tool_call":
               sendEvent("tool_call", {

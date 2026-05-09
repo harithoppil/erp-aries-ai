@@ -86,21 +86,23 @@ export default function QuotationsClient({ initialQuotations }: { initialQuotati
         }),
       ],
       {
-        create_quotation: (args: Record<string, any>) => {
+        create_quotation: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            customer_name: args.customer_name || prev.customer_name,
-            project_type: args.project_type || prev.project_type,
-            valid_until: args.valid_until || prev.valid_until,
-            tax_rate: args.tax_rate != null ? String(args.tax_rate) : prev.tax_rate,
-            notes: args.notes || prev.notes,
+            customer_name: a.customer_name || prev.customer_name,
+            project_type: a.project_type || prev.project_type,
+            valid_until: a.valid_until || prev.valid_until,
+            tax_rate: a.tax_rate != null ? String(a.tax_rate) : prev.tax_rate,
+            notes: a.notes || prev.notes,
           }));
           toast.info("AI opened and filled the quotation form", { icon: <Wand2 size={14} /> });
         },
-        set_quotation_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered quotations by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_quotation_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered quotations by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

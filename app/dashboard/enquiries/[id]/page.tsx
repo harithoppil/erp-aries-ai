@@ -84,7 +84,7 @@ export default function EnquiryDetailPage() {
     try {
       const result = await executeEnquiry(id as string);
       if (result.success) {
-        setExecutionResult(result.result as any);
+        setExecutionResult(result.result as { executions: ExecutionItem[] });
         await reload();
       } else {
         toast.error(result.error);

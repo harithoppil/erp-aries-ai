@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import type { OpportunityItemRow } from '@/lib/erpnext/types';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -138,7 +139,7 @@ export async function getOpportunity(
         transaction_date: opp.transaction_date,
         company: opp.company,
         creation: opp.creation,
-        items: ((opp as any)?.opportunityItems || []).map((i) => ({
+        items: ((opp as Record<string, unknown>)?.opportunityItems as OpportunityItemRow[] || []).map((i) => ({
           name: i.name,
           item_code: i.item_code,
           item_name: i.item_name,

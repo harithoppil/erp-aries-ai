@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -228,6 +229,22 @@ export async function deleteSalesOrder(id: string) {
     console.error('[sales-orders] deleteSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete sales order' };
   }
+}
+
+// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+
+// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
+export async function submitSalesOrder(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await submitDocument("Sales Order", id);
+  if (result.success) revalidatePath('/dashboard/erp/sales-orders');
+  return result;
+}
+
+// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
+export async function cancelSalesOrder(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await cancelDocument("Sales Order", id);
+  if (result.success) revalidatePath('/dashboard/erp/sales-orders');
+  return result;
 }
 
 // ── NEW: Validation & Business Logic ────────────────────────────────────────

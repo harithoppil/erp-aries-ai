@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import type { PrismaWhereClause } from '@/lib/ai/types';
+import type { enquirystatus } from '@/prisma/client';
 
 export type EnquiryStatus = string;
 
@@ -86,7 +88,7 @@ export async function listEnquiries(params?: {
   { success: true; enquiries: ClientSafeEnquiry[] } | { success: false; error: string }
 > {
   try {
-    const where = params?.status ? { status: params.status as any } : {};
+    const where = params?.status ? { status: params.status as enquirystatus } : {};
     const rows = await prisma.enquiries.findMany({
       where,
       orderBy: { created_at: 'desc' },
@@ -174,7 +176,7 @@ export async function updateEnquiryStatus(id: string, status: string): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await prisma.enquiries.update({ where: { id }, data: { status: status as any } });
+    await prisma.enquiries.update({ where: { id }, data: { status: status as enquirystatus } });
     revalidatePath('/enquiries');
     return { success: true };
   } catch (error: any) {
@@ -229,7 +231,7 @@ export async function updateEnquiry(
     if (data.status !== undefined) updateData.status = data.status;
     if (data.approved_by !== undefined) updateData.approved_by = data.approved_by;
 
-    await prisma.enquiries.update({ where: { id }, data: updateData as any });
+    await prisma.enquiries.update({ where: { id }, data: updateData as PrismaWhereClause });
     revalidatePath('/enquiries');
     return { success: true };
   } catch (error: any) {
@@ -270,13 +272,13 @@ export async function listEnquiryDocuments(id: string): Promise<
 // ── Legacy pipeline actions (kept for compatibility, use AI backend) ────────
 
 export async function runPipeline(enquiryId: string): Promise<
-  { success: true; result: any } | { success: false; error: string }
+  { success: true; result: Record<string, unknown> } | { success: false; error: string }
 > {
   return { success: true, result: { enquiry_id: enquiryId, status: 'processed', message: 'Pipeline run via local AI' } };
 }
 
 export async function executeEnquiry(id: string): Promise<
-  { success: true; result: any } | { success: false; error: string }
+  { success: true; result: Record<string, unknown> } | { success: false; error: string }
 > {
   return { success: true, result: { enquiry_id: id, status: 'executed', message: 'Enquiry executed locally' } };
 }

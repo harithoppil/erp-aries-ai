@@ -23,7 +23,7 @@ export interface MCPTool {
   name: string;
   description: string;
   server: string;
-  handler: (args: Record<string, any>) => Promise<string>;
+  handler: (args: Record<string, unknown>) => Promise<string>;
   requiresAuth: boolean;
   parameters?: Record<string, MCPToolParameter>;
 }
@@ -86,7 +86,7 @@ class MCPGateway {
     }));
   }
 
-  async callTool(toolName: string, kwargs: Record<string, any> = {}): Promise<string> {
+  async callTool(toolName: string, kwargs: Record<string, unknown> = {}): Promise<string> {
     const tool = this.toolIndex.get(toolName);
     if (!tool) throw new Error(`Tool not found: ${toolName}`);
     return tool.handler(kwargs);
@@ -115,6 +115,18 @@ export function getMCPGateway(): MCPGateway {
 }
 
 // ── Wiki API helper ────────────────────────────────────────────────────────
+
+/** Helper to safely extract string values from Record<string, unknown> args */
+function strArg(args: Record<string, unknown>, key: string, fallback: string = ''): string {
+  const val = args[key];
+  return typeof val === 'string' ? val : fallback;
+}
+
+/** Helper to safely extract number values from Record<string, unknown> args */
+function numArg(args: Record<string, unknown>, key: string, fallback: number = 0): number {
+  const val = args[key];
+  return typeof val === 'number' ? val : fallback;
+}
 
 async function wikiApiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}/wiki${path}`, {
@@ -175,8 +187,9 @@ function registerWikiServer(gw: MCPGateway): void {
     parameters: { path: { type: 'string', description: 'Wiki page path', required: true } },
     handler: async (args) => {
       try {
-        const page = await wikiApiFetch<{ content: string; path: string }>(`/pages/${encodeURIComponent(args.path || '')}`);
-        return page?.content || `Page not found: ${args.path}`;
+        const path = strArg(args, 'path');
+        const page = await wikiApiFetch<{ content: string; path: string }>(`/pages/${encodeURIComponent(path)}`);
+        return page?.content || `Page not found: ${path}`;
       } catch (e: any) {
         return `Error reading page: ${e?.message}`;
       }
@@ -198,12 +211,12 @@ function registerWikiServer(gw: MCPGateway): void {
         await wikiApiFetch('/pages', {
           method: 'POST',
           body: JSON.stringify({
-            path: args.path,
-            content: args.content,
-            commit_message: args.msg || 'MCP write',
+            path: strArg(args, 'path'),
+            content: strArg(args, 'content'),
+            commit_message: strArg(args, 'msg', 'MCP write'),
           }),
         });
-        return `Written: ${args.path}`;
+        return `Written: ${strArg(args, 'path')}`;
       } catch (e: any) {
         return `Error writing page: ${e?.message}`;
       }
@@ -218,8 +231,9 @@ function registerWikiServer(gw: MCPGateway): void {
     parameters: { q: { type: 'string', description: 'Search query', required: true } },
     handler: async (args) => {
       try {
+        const q = strArg(args, 'q');
         const results = await wikiApiFetch<{ path: string; title: string; snippet: string; score: number }[]>(
-          `/search?q=${encodeURIComponent(args.q || '')}`
+          `/search?q=${encodeURIComponent(q)}`
         );
         if (!results?.length) return 'No results';
         return results.map(r => `- [${r.title}] ${r.path}: ${r.snippet}`).join('\n');
@@ -262,7 +276,7 @@ function registerGeminiServer(gw: MCPGateway): void {
     },
     handler: async (args) => {
       try {
-        return await geminiQuery(args.question, args.ctx || '');
+        return await geminiQuery(strArg(args, 'question'), strArg(args, 'ctx'));
       } catch (e: any) {
         return `Error: ${e?.message}`;
       }
@@ -281,10 +295,13 @@ function registerGeminiServer(gw: MCPGateway): void {
     },
     handler: async (args) => {
       try {
+        const desc = strArg(args, 'desc');
+        const industry = strArg(args, 'industry', 'Unknown');
+        const client = strArg(args, 'client', 'Unknown');
         const prompt = `Classify this enquiry:
-Client: ${args.client || 'Unknown'}
-Industry: ${args.industry || 'Unknown'}
-Description: ${args.desc}
+Client: ${client}
+Industry: ${industry}
+Description: ${desc}
 
 Return JSON with: scope_category, complexity (low/medium/high), estimated_value, key_requirements.`;
         return await geminiQuery(prompt);
@@ -307,11 +324,15 @@ Return JSON with: scope_category, complexity (low/medium/high), estimated_value,
     },
     handler: async (args) => {
       try {
+        const client = strArg(args, 'client');
+        const desc = strArg(args, 'desc');
+        const industry = strArg(args, 'industry', 'Marine/Offshore');
+        const ctx = strArg(args, 'ctx');
         const prompt = `Draft a professional proposal for:
-Client: ${args.client}
-Industry: ${args.industry || 'Marine/Offshore'}
-Description: ${args.desc}
-${args.ctx ? `Context: ${args.ctx}` : ''}
+Client: ${client}
+Industry: ${industry}
+Description: ${desc}
+${ctx ? `Context: ${ctx}` : ''}
 
 Include: Executive summary, scope of work, methodology, timeline, pricing structure, terms and conditions.`;
         return await geminiQuery(prompt);
@@ -335,13 +356,14 @@ function registerERPServer(gw: MCPGateway): void {
     parameters: { name: { type: 'string', description: 'Customer name to search', required: true } },
     handler: async (args) => {
       try {
+        const name = strArg(args, 'name');
         const { listCustomers } = await import('@/app/dashboard/erp/customers/actions');
         const result = await listCustomers();
         if (!result.success) return `Error: ${result.error}`;
         const matches = result.customers.filter(c =>
-          c.customer_name?.toLowerCase().includes((args.name || '').toLowerCase())
+          c.customer_name?.toLowerCase().includes(name.toLowerCase())
         );
-        if (!matches.length) return `No customers found matching "${args.name}"`;
+        if (!matches.length) return `No customers found matching "${name}"`;
         return matches.map(c => `${c.customer_name} (${c.industry || 'N/A'})`).join('\n');
       } catch (e: any) {
         return `Error: ${e?.message}`;
@@ -357,14 +379,14 @@ function registerERPServer(gw: MCPGateway): void {
     parameters: { q: { type: 'string', description: 'Search query', required: true } },
     handler: async (args) => {
       try {
+        const q = strArg(args, 'q').toLowerCase();
         const { listItems } = await import('@/app/dashboard/erp/stock/actions');
         const result = await listItems();
         if (!result.success) return `Error: ${result.error}`;
-        const q = (args.q || '').toLowerCase();
         const matches = result.items.filter(i =>
           i.item_name?.toLowerCase().includes(q) || i.item_code?.toLowerCase().includes(q)
         );
-        if (!matches.length) return `No products found matching "${args.q}"`;
+        if (!matches.length) return `No products found matching "${strArg(args, 'q')}"`;
         return matches.slice(0, 10).map(i =>
           `${i.item_name} (${i.item_code}) — Rate: ${i.standard_rate || 'N/A'} ${i.item_group}`
         ).join('\n');
@@ -382,11 +404,12 @@ function registerERPServer(gw: MCPGateway): void {
     parameters: { sku: { type: 'string', description: 'Item code/SKU', required: true } },
     handler: async (args) => {
       try {
+        const sku = strArg(args, 'sku');
         const { listItems } = await import('@/app/dashboard/erp/stock/actions');
         const result = await listItems();
         if (!result.success) return `Error: ${result.error}`;
-        const item = result.items.find(i => i.item_code === args.sku);
-        if (!item) return `Item not found: ${args.sku}`;
+        const item = result.items.find(i => i.item_code === sku);
+        if (!item) return `Item not found: ${sku}`;
         return `${item.item_name} (${item.item_code}) — Safety stock: ${item.safety_stock || 'N/A'}, Rate: ${item.standard_rate || 'N/A'}`;
       } catch (e: any) {
         return `Error: ${e?.message}`;
@@ -405,12 +428,13 @@ function registerERPServer(gw: MCPGateway): void {
     },
     handler: async (args) => {
       try {
+        const sku = strArg(args, 'sku');
+        const qty = numArg(args, 'qty', 1);
         const { listItems } = await import('@/app/dashboard/erp/stock/actions');
         const result = await listItems();
         if (!result.success) return `Error: ${result.error}`;
-        const item = result.items.find(i => i.item_code === args.sku);
-        if (!item) return `Item not found: ${args.sku}`;
-        const qty = Number(args.qty) || 1;
+        const item = result.items.find(i => i.item_code === sku);
+        if (!item) return `Item not found: ${sku}`;
         const total = (item.standard_rate || 0) * qty;
         return `${item.item_name} — Unit rate: AED ${item.standard_rate || 0}, Qty: ${qty}, Total: AED ${total}`;
       } catch (e: any) {
@@ -431,7 +455,7 @@ function registerERPServer(gw: MCPGateway): void {
     handler: async (args) => {
       try {
         // Parse items and create a quotation (sales order creation needs customer)
-        return `Sales order creation requires customer selection. Enquiry: ${args.eid}, Items: ${args.items}. Use the ERP UI to complete this action.`;
+        return `Sales order creation requires customer selection. Enquiry: ${strArg(args, 'eid')}, Items: ${strArg(args, 'items')}. Use the ERP UI to complete this action.`;
       } catch (e: any) {
         return `Error: ${e?.message}`;
       }
@@ -456,8 +480,11 @@ function registerSearchServer(gw: MCPGateway): void {
     },
     handler: async (args) => {
       try {
+        const q = strArg(args, 'q');
+        const method = strArg(args, 'method', 'hybrid');
+        const limit = numArg(args, 'limit', 5);
         const { ragSearch } = await import('@/app/actions/rag');
-        const result = await ragSearch(args.q, args.method || 'hybrid', args.limit || 5);
+        const result = await ragSearch(q, method, limit);
         if (!result.success) return `Error: ${result.error}`;
         if (!result.results.length) return 'No results';
         return result.results.map(r =>
@@ -488,12 +515,13 @@ function registerMutatorServer(gw: MCPGateway): void {
     handler: async (args) => {
       try {
         const { generateId } = await import('@/lib/uuid');
+        const fields = strArg(args, 'fields');
         const dashboard = await prisma.ui_dashboards.create({
           data: {
             id: generateId(),
-            name: args.name || 'Untitled Form',
+            name: strArg(args, 'name', 'Untitled Form'),
             ui_type: 'form',
-            schema_json: JSON.stringify({ fields: args.fields ? JSON.parse(args.fields) : [], description: args.desc || '' }),
+            schema_json: JSON.stringify({ fields: fields ? JSON.parse(fields) : [], description: strArg(args, 'desc') }),
             is_active: true,
           },
         });
@@ -517,12 +545,13 @@ function registerMutatorServer(gw: MCPGateway): void {
     handler: async (args) => {
       try {
         const { generateId } = await import('@/lib/uuid');
+        const metrics = strArg(args, 'metrics');
         const dashboard = await prisma.ui_dashboards.create({
           data: {
             id: generateId(),
-            name: args.name || 'Untitled Dashboard',
+            name: strArg(args, 'name', 'Untitled Dashboard'),
             ui_type: 'dashboard',
-            schema_json: JSON.stringify({ metrics: args.metrics ? JSON.parse(args.metrics) : [], description: args.desc || '' }),
+            schema_json: JSON.stringify({ metrics: metrics ? JSON.parse(metrics) : [], description: strArg(args, 'desc') }),
             is_active: true,
           },
         });
@@ -546,12 +575,13 @@ function registerMutatorServer(gw: MCPGateway): void {
     handler: async (args) => {
       try {
         const { generateId } = await import('@/lib/uuid');
+        const sections = strArg(args, 'sections');
         const dashboard = await prisma.ui_dashboards.create({
           data: {
             id: generateId(),
-            name: args.name || 'Untitled Report',
+            name: strArg(args, 'name', 'Untitled Report'),
             ui_type: 'report',
-            schema_json: JSON.stringify({ sections: args.sections ? JSON.parse(args.sections) : [], description: args.desc || '' }),
+            schema_json: JSON.stringify({ sections: sections ? JSON.parse(sections) : [], description: strArg(args, 'desc') }),
             is_active: true,
           },
         });
@@ -575,12 +605,13 @@ function registerMutatorServer(gw: MCPGateway): void {
     handler: async (args) => {
       try {
         const { generateId } = await import('@/lib/uuid');
+        const columns = strArg(args, 'columns');
         const dashboard = await prisma.ui_dashboards.create({
           data: {
             id: generateId(),
-            name: args.name || 'Untitled Kanban',
+            name: strArg(args, 'name', 'Untitled Kanban'),
             ui_type: 'kanban',
-            schema_json: JSON.stringify({ columns: args.columns ? JSON.parse(args.columns) : [], description: args.desc || '' }),
+            schema_json: JSON.stringify({ columns: columns ? JSON.parse(columns) : [], description: strArg(args, 'desc') }),
             is_active: true,
           },
         });
@@ -615,9 +646,9 @@ function registerMediaServer(gw: MCPGateway): void {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'image',
-            prompt: args.prompt,
-            aspect_ratio: args.aspect_ratio || '1:1',
-            image_size: args.image_size || '1024x1024',
+            prompt: strArg(args, 'prompt'),
+            aspect_ratio: strArg(args, 'aspect_ratio', '1:1'),
+            image_size: strArg(args, 'image_size', '1024x1024'),
           }),
         });
         if (!res.ok) return `Error: Image generation failed (${res.status})`;
@@ -645,8 +676,8 @@ function registerMediaServer(gw: MCPGateway): void {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'speech',
-            text: args.text,
-            voice_name: args.voice_name || 'Kore',
+            text: strArg(args, 'text'),
+            voice_name: strArg(args, 'voice_name', 'Kore'),
           }),
         });
         if (!res.ok) return `Error: Speech generation failed (${res.status})`;
@@ -671,7 +702,7 @@ function registerSAPServer(gw: MCPGateway): void {
     requiresAuth: true,
     parameters: { q: { type: 'string', description: 'Search query', required: true } },
     handler: async (args) => {
-      return `SAP material master search for "${args.q}" — Not yet implemented. Requires SAP integration.`;
+      return `SAP material master search for "${strArg(args, 'q')}" — Not yet implemented. Requires SAP integration.`;
     },
   });
 
@@ -682,7 +713,7 @@ function registerSAPServer(gw: MCPGateway): void {
     requiresAuth: true,
     parameters: { sku: { type: 'string', description: 'SKU', required: true } },
     handler: async (args) => {
-      return `SAP stock check for "${args.sku}" — Not yet implemented. Requires SAP integration.`;
+      return `SAP stock check for "${strArg(args, 'sku')}" — Not yet implemented. Requires SAP integration.`;
     },
   });
 
@@ -696,7 +727,7 @@ function registerSAPServer(gw: MCPGateway): void {
       items: { type: 'string', description: 'JSON array of items' },
     },
     handler: async (args) => {
-      return `SAP sales order for enquiry ${args.eid} — Not yet implemented. Requires SAP integration.`;
+      return `SAP sales order for enquiry ${strArg(args, 'eid')} — Not yet implemented. Requires SAP integration.`;
     },
   });
 }
@@ -717,7 +748,7 @@ function registerOutlookServer(gw: MCPGateway): void {
       body: { type: 'string', description: 'Email body' },
     },
     handler: async (args) => {
-      return `Email to ${args.to} — Not yet implemented. Requires Outlook/Microsoft Graph integration.`;
+      return `Email to ${strArg(args, 'to')} — Not yet implemented. Requires Outlook/Microsoft Graph integration.`;
     },
   });
 
@@ -733,7 +764,7 @@ function registerOutlookServer(gw: MCPGateway): void {
       duration: { type: 'number', description: 'Duration in minutes' },
     },
     handler: async (args) => {
-      return `Meeting "${args.subject}" — Not yet implemented. Requires Outlook/Microsoft Graph integration.`;
+      return `Meeting "${strArg(args, 'subject')}" — Not yet implemented. Requires Outlook/Microsoft Graph integration.`;
     },
   });
 }
@@ -760,9 +791,9 @@ function registerDocumentOutputServer(gw: MCPGateway): void {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'proposal_pdf',
-            enquiry_id: args.eid,
-            content: args.content,
-            client_name: args.client,
+            enquiry_id: strArg(args, 'eid'),
+            content: strArg(args, 'content'),
+            client_name: strArg(args, 'client'),
           }),
         });
         if (!res.ok) return `Error: Document generation failed (${res.status})`;
@@ -790,8 +821,8 @@ function registerDocumentOutputServer(gw: MCPGateway): void {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'quote_file',
-            enquiry_id: args.eid,
-            pricing_data: args.pricing,
+            enquiry_id: strArg(args, 'eid'),
+            pricing_data: strArg(args, 'pricing'),
           }),
         });
         if (!res.ok) return `Error: Quote generation failed (${res.status})`;
@@ -819,8 +850,8 @@ function registerDocumentOutputServer(gw: MCPGateway): void {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'internal_summary',
-            enquiry_id: args.eid,
-            summary: args.summary,
+            enquiry_id: strArg(args, 'eid'),
+            summary: strArg(args, 'summary'),
           }),
         });
         if (!res.ok) return `Error: Summary generation failed (${res.status})`;

@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-responsive";
 import { getAccountTree } from "@/app/dashboard/erp/accounts/actions";
+import type { AccountTreeNode } from "@/lib/erpnext/types";
 
 export default function ChartOfAccountsClient() {
   const isMobile = useIsMobile();
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<AccountTreeNode[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

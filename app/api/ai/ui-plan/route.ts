@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdapter } from "@/lib/ai-tool-adapters";
+import type { APIToolCall, ParsedFunctionCall, UIActionSpec } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ Decide which UI actions (if any) to execute immediately. Only call functions dir
     const tools = adapter.toToolSpec(actions);
 
     // Build request payload
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       model,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 1024,
@@ -58,7 +59,7 @@ Decide which UI actions (if any) to execute immediately. Only call functions dir
     if (provider === "gemini") {
       // For Gemini Chat Completions, we need OpenAI-style tools
       // Re-convert from Gemini functionDeclarations to OpenAI format
-      const openAITools = actions.map((a: any) => ({
+      const openAITools = actions.map((a: UIActionSpec) => ({
         type: "function",
         function: {
           name: a.name,
@@ -89,7 +90,7 @@ Decide which UI actions (if any) to execute immediately. Only call functions dir
 
     // Parse tool calls from response
     const toolCalls = data.choices?.[0]?.message?.tool_calls || [];
-    const functionCalls = toolCalls.map((tc: any) => ({
+    const functionCalls: ParsedFunctionCall[] = toolCalls.map((tc: APIToolCall) => ({
       name: tc.function.name,
       args: JSON.parse(tc.function.arguments || "{}"),
     }));

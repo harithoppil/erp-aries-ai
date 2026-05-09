@@ -106,19 +106,21 @@ export default function MaterialRequestsClient({
         }),
       ],
       {
-        create_material_request: (args: Record<string, any>) => {
+        create_material_request: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string | undefined>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            requested_by: args.requested_by || prev.requested_by,
-            project_id: args.project_id || prev.project_id,
-            purpose: args.purpose || prev.purpose,
+            requested_by: a.requested_by || prev.requested_by,
+            project_id: a.project_id || prev.project_id,
+            purpose: a.purpose || prev.purpose,
           }));
           toast.info("AI opened and filled the material request form", { icon: <Wand2 size={14} /> });
         },
-        set_material_request_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered material requests by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_material_request_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered material requests by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

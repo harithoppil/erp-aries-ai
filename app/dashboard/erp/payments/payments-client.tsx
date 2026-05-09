@@ -58,18 +58,20 @@ export default function PaymentsClient({ initialPayments, initialInvoices }: { i
         }),
       ],
       {
-        create_payment: (args: Record<string, any>) => {
+        create_payment: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            amount: args.amount != null ? String(args.amount) : prev.amount,
-            reference_number: args.reference_number || prev.reference_number,
+            amount: a.amount != null ? String(a.amount) : prev.amount,
+            reference_number: a.reference_number || prev.reference_number,
           }));
           toast.info("AI opened and filled the payment form", { icon: <Wand2 size={14} /> });
         },
-        set_payment_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered payments by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_payment_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered payments by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

@@ -18,7 +18,7 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
 };
 
 const fmt = (v: number, ccy = "AED") => v.toLocaleString("en-AE", { style: "currency", currency: ccy });
-const date = (s: string | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+const date = (s: string | Date | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 export default function DeliveryNotesClient({ initialNotes }: { initialNotes: ClientSafeDeliveryNote[] }) {
   const router = useRouter();
@@ -67,7 +67,7 @@ export default function DeliveryNotesClient({ initialNotes }: { initialNotes: Cl
               <p className="text-sm text-[#64748b] mt-1">{notes.length} delivery notes</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(n => ({ name: n.name, customer: n.customer_name, date: date(n.posting_date as any), total: n.grand_total, status: n.status })), 'delivery-notes')}>
+              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(n => ({ name: n.name, customer: n.customer_name, date: date(n.posting_date), total: n.grand_total, status: n.status })), 'delivery-notes')}>
                 <Download size={16} /> Export
               </Button>
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
@@ -104,7 +104,7 @@ export default function DeliveryNotesClient({ initialNotes }: { initialNotes: Cl
                         <tr key={n.name} onClick={() => router.push(`/dashboard/erp/stock/delivery-notes/${n.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{n.name}</td>
                           <td className="px-4 py-3 font-medium text-[#0f172a]">{n.customer_name || n.customer}</td>
-                          <td className="px-4 py-3 text-[#64748b]">{date(n.posting_date as any)}</td>
+                          <td className="px-4 py-3 text-[#64748b]">{date(n.posting_date)}</td>
                           <td className="px-4 py-3 text-right font-semibold">{fmt(n.grand_total, n.currency)}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${cfg.badge}`}>{cfg.label}</span>

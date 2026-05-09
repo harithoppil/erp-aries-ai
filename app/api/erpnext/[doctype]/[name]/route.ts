@@ -9,18 +9,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/prisma/client";
+import {
+  PrismaDelegate,
+  DmmfField,
+  DmmfModel,
+  toAccessor,
+  getDelegate,
+  getDelegateByAccessor,
+} from "@/lib/erpnext/prisma-delegate";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function toAccessor(doctype: string): string {
-  return doctype.charAt(0).toLowerCase() + doctype.slice(1);
-}
-
-function getModel(doctype: string): { model: any; accessor: string } | null {
+function getModel(doctype: string): { model: PrismaDelegate; accessor: string } | null {
   const accessor = toAccessor(doctype);
-  const delegate = (prisma as any)[accessor];
-  if (!delegate || typeof delegate.findUnique !== "function") return null;
-  return { model: delegate, accessor };
+  const model = getDelegate(prisma, doctype);
+  if (!model) return null;
+  return { model, accessor };
 }
 
 /**
@@ -30,22 +34,22 @@ function getModel(doctype: string): { model: any; accessor: string } | null {
  */
 function findChildAccessors(doctype: string): string[] {
   const results: string[] = [];
-  const dmmfModels = Prisma.dmmf.datamodel.models;
+  const dmmfModels = Prisma.dmmf.datamodel.models as DmmfModel[];
 
   for (const m of dmmfModels) {
     // Has parenttype field → is a child table
-    const hasParentType = m.fields.some((f: any) => f.name === "parenttype");
-    const hasParent = m.fields.some((f: any) => f.name === "parent");
-    const hasParentfield = m.fields.some((f: any) => f.name === "parentfield");
+    const hasParentType = m.fields.some((f: DmmfField) => f.name === "parenttype");
+    const hasParent = m.fields.some((f: DmmfField) => f.name === "parent");
+    const hasParentfield = m.fields.some((f: DmmfField) => f.name === "parentfield");
     if (hasParentType && hasParent && hasParentfield) {
       // Check if any field's default value references the parent doctype,
       // or if the model name starts with the parent doctype (naming convention)
       const defaultMatchesParent = m.fields.some(
-        (f: any) =>
+        (f: DmmfField) =>
           f.name === "parenttype" &&
-          f.default &&
+          f.default != null &&
           (String(f.default) === doctype ||
-            (typeof f.default === "object" && f.default !== null && String((f.default as any).value) === doctype)),
+            (typeof f.default === "object" && f.default !== null && String((f.default as { value: string }).value) === doctype)),
       );
       if (defaultMatchesParent || m.name.startsWith(doctype)) {
         results.push(toAccessor(m.name));
@@ -82,19 +86,19 @@ export async function GET(
 
     // Fetch child-table rows grouped by parentfield
     const childAccessors = findChildAccessors(doctype);
-    const children: Record<string, any[]> = {};
+    const children: Record<string, unknown[]> = {};
 
     await Promise.all(
       childAccessors.map(async (accessor) => {
-        const childModel = (prisma as any)[accessor];
-        if (childModel && typeof childModel.findMany === "function") {
+        const childModel = getDelegateByAccessor(prisma as unknown as Record<string, unknown>, accessor);
+        if (childModel) {
           const rows = await childModel.findMany({
             where: { parent: name },
             orderBy: { idx: "asc" },
           });
           // Group rows by parentfield
-          for (const row of rows) {
-            const field = row.parentfield || "items";
+          for (const row of rows as Record<string, unknown>[]) {
+            const field = (row.parentfield as string) || "items";
             if (!children[field]) children[field] = [];
             children[field].push(row);
           }
@@ -132,7 +136,7 @@ export async function PUT(
     const { model, accessor } = resolved;
 
     // Check record exists and is editable
-    const existing = await model.findUnique({ where: { name } });
+    const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
     if (!existing) {
       return NextResponse.json(
         { error: `${doctype} "${name}" not found` },
@@ -140,7 +144,7 @@ export async function PUT(
       );
     }
 
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
 
     // Submitted (docstatus=1) and Cancelled (docstatus=2) records cannot be edited
     if (existing.docstatus === 1) {
@@ -173,12 +177,12 @@ export async function PUT(
     }
 
     // Separate child-table arrays from parent fields
-    const childTables: Record<string, any[]> = {};
-    const parentFields: Record<string, any> = {};
+    const childTables: Record<string, unknown[]> = {};
+    const parentFields: Record<string, unknown> = {};
 
     for (const [key, val] of Object.entries(body)) {
       if (Array.isArray(val)) {
-        childTables[key] = val as any[];
+        childTables[key] = val;
       } else {
         parentFields[key] = val;
       }
@@ -193,8 +197,9 @@ export async function PUT(
     delete parentFields.owner;
 
     // Update parent + children atomically in a transaction
-    const result = await prisma.$transaction(async (tx: any) => {
-      const updated = await tx[resolved.accessor].update({
+    const result = await prisma.$transaction(async (tx) => {
+      const txRecord = tx as unknown as Record<string, PrismaDelegate>;
+      const updated = await txRecord[accessor].update({
         where: { name },
         data: parentFields,
       });
@@ -204,14 +209,14 @@ export async function PUT(
       for (const [field, rows] of Object.entries(childTables)) {
         // Find the child model that handles this parentfield
         let childAccessor: string | null = null;
-        for (const accessor of childAccessors) {
-          const childDelegate = tx[accessor];
-          if (childDelegate && typeof childDelegate.findFirst === "function") {
+        for (const ca of childAccessors) {
+          const childDelegate = txRecord[ca];
+          if (childDelegate) {
             const sample = await childDelegate.findFirst({
               where: { parent: name, parentfield: field },
             });
             if (sample) {
-              childAccessor = accessor;
+              childAccessor = ca;
               break;
             }
           }
@@ -220,34 +225,35 @@ export async function PUT(
         if (!childAccessor) {
           // Try naming convention: doctype + field name
           const candidate = toAccessor(doctype) + field.charAt(0).toUpperCase() + field.slice(1);
-          const delegate = tx[candidate];
-          if (delegate && typeof delegate.deleteMany === "function") {
+          const delegate = getDelegateByAccessor(tx as unknown as Record<string, unknown>, candidate);
+          if (delegate) {
             childAccessor = candidate;
           }
         }
 
         if (childAccessor) {
+          const childModel = txRecord[childAccessor];
           // Delete existing child rows for this parentfield
-          await tx[childAccessor].deleteMany({
+          await childModel.deleteMany({
             where: { parent: name, parentfield: field },
           });
 
           // Re-insert with updated data
           if (rows.length > 0) {
-            const childRows = rows.map((row: any, i: number) => ({
+            const childRows = rows.map((row: Record<string, unknown>, i: number) => ({
               ...row,
               parent: name,
               parentfield: field,
               parenttype: doctype,
               idx: row.idx ?? i + 1,
             }));
-            await tx[childAccessor].createMany({ data: childRows });
+            await childModel.createMany({ data: childRows });
           }
         }
       }
 
       // Re-fetch to return updated record
-      return await tx[resolved.accessor].findUnique({ where: { name } });
+      return await txRecord[accessor].findUnique({ where: { name } });
     });
 
     return NextResponse.json({ data: result });
@@ -282,7 +288,7 @@ export async function DELETE(
     }
     const { model, accessor } = resolved;
 
-    const existing = await model.findUnique({ where: { name } });
+    const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
     if (!existing) {
       return NextResponse.json(
         { error: `${doctype} "${name}" not found` },
@@ -308,8 +314,8 @@ export async function DELETE(
     const childAccessors = findChildAccessors(doctype);
     let childCount = 0;
     for (const childAccessor of childAccessors) {
-      const childModel = (prisma as any)[childAccessor];
-      if (childModel && typeof childModel.count === "function") {
+      const childModel = getDelegateByAccessor(prisma as unknown as Record<string, unknown>, childAccessor);
+      if (childModel) {
         childCount += await childModel.count({ where: { parent: name } });
       }
     }
@@ -317,7 +323,7 @@ export async function DELETE(
     // Also check for common link-back references.
     // Many doctypes have an `amended_from` or reference field that points
     // to other documents — we check if *other* documents reference this one.
-    const dmmfModel = Prisma.dmmf.datamodel.models.find(
+    const dmmfModel = (Prisma.dmmf.datamodel.models as DmmfModel[]).find(
       (m) => m.name === doctype,
     );
 
@@ -341,17 +347,18 @@ export async function DELETE(
     }
 
     // Delete child rows + parent atomically in a transaction
-    await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx) => {
+      const txRecord = tx as unknown as Record<string, PrismaDelegate>;
       // Delete child rows first
       for (const childAccessor of childAccessors) {
-        const childDelegate = tx[childAccessor];
-        if (childDelegate && typeof childDelegate.deleteMany === "function") {
+        const childDelegate = txRecord[childAccessor];
+        if (childDelegate) {
           await childDelegate.deleteMany({ where: { parent: name } });
         }
       }
 
       // Delete the parent record
-      await tx[accessor].delete({ where: { name } });
+      await txRecord[accessor].delete({ where: { name } });
     });
 
     return NextResponse.json({

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ export interface ClientSafeDeliveryNoteDetail extends ClientSafeDeliveryNote {
   transporter_name: string | null;
   lr_no: string | null;
   shipping_address: string | null;
-  remarks: string | null;
+  instructions: string | null;
   net_total: number;
   total_taxes_and_charges: number;
 }
@@ -242,50 +243,26 @@ export async function createDeliveryNote(
   }
 }
 
-// ── Submit (change docstatus to 1) ────────────────────────────────────────────
+// ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitDeliveryNote(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const note = await prisma.deliveryNote.findUnique({ where: { name: id } });
-    if (!note) return { success: false, error: 'Delivery Note not found' };
-    if (note.docstatus !== 0) return { success: false, error: 'Only draft documents can be submitted' };
-
-    await prisma.deliveryNote.update({
-      where: { name: id },
-      data: { docstatus: 1, status: 'Submitted' },
-    });
-
+  const result = await submitDocument("Delivery Note", id);
+  if (result.success) {
     revalidatePath('/dashboard/erp/stock/delivery-notes');
     revalidatePath(`/dashboard/erp/stock/delivery-notes/${id}`);
-    return { success: true };
-  } catch (error: any) {
-    console.error('[delivery-notes] submitDeliveryNote failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to submit delivery note' };
   }
+  return result;
 }
-
-// ── Cancel (change docstatus to 2) ────────────────────────────────────────────
 
 export async function cancelDeliveryNote(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const note = await prisma.deliveryNote.findUnique({ where: { name: id } });
-    if (!note) return { success: false, error: 'Delivery Note not found' };
-    if (note.docstatus !== 1) return { success: false, error: 'Only submitted documents can be cancelled' };
-
-    await prisma.deliveryNote.update({
-      where: { name: id },
-      data: { docstatus: 2, status: 'Cancelled' },
-    });
-
+  const result = await cancelDocument("Delivery Note", id);
+  if (result.success) {
     revalidatePath('/dashboard/erp/stock/delivery-notes');
     revalidatePath(`/dashboard/erp/stock/delivery-notes/${id}`);
-    return { success: true };
-  } catch (error: any) {
-    console.error('[delivery-notes] cancelDeliveryNote failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to cancel delivery note' };
   }
+  return result;
 }

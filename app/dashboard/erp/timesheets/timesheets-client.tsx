@@ -64,21 +64,23 @@ export default function TimesheetsClient({ initialTimesheets }: { initialTimeshe
         }),
       ],
       {
-        create_timesheet: (args: Record<string, any>) => {
+        create_timesheet: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            date: args.date || prev.date,
-            hours: args.hours != null ? String(args.hours) : prev.hours,
-            activity_type: args.activity_type || prev.activity_type,
-            description: args.description || prev.description,
-            billable: args.billable != null ? args.billable : prev.billable,
+            date: a.date || prev.date,
+            hours: a.hours != null ? String(a.hours) : prev.hours,
+            activity_type: a.activity_type || prev.activity_type,
+            description: a.description || prev.description,
+            billable: args.billable != null ? !!args.billable : prev.billable,
           }));
           toast.info("AI opened and filled the timesheet form", { icon: <Wand2 size={14} /> });
         },
-        set_timesheet_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered timesheets by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_timesheet_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered timesheets by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

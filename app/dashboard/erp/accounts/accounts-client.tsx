@@ -88,20 +88,22 @@ export default function AccountsClient({ initialAccounts, initialInvoices }: {
         }),
       ],
       {
-        create_invoice: (args: Record<string, any>) => {
+        create_invoice: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            customer_name: args.customer_name || prev.customer_name,
-            customer_email: args.customer_email || prev.customer_email,
-            tax_rate: args.tax_rate != null ? String(args.tax_rate) : prev.tax_rate,
-            due_date_days: args.due_date_days != null ? String(args.due_date_days) : prev.due_date_days,
+            customer_name: a.customer_name || prev.customer_name,
+            customer_email: a.customer_email || prev.customer_email,
+            tax_rate: a.tax_rate != null ? String(a.tax_rate) : prev.tax_rate,
+            due_date_days: a.due_date_days != null ? String(a.due_date_days) : prev.due_date_days,
           }));
           toast.info("AI opened and filled the invoice form", { icon: <Wand2 size={14} /> });
         },
-        set_invoice_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered invoices by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_invoice_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered invoices by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

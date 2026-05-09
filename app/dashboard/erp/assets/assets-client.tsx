@@ -83,23 +83,25 @@ export default function AssetsClient({ initialAssets }: { initialAssets: ClientS
         }),
       ],
       {
-        create_asset: (args: Record<string, any>) => {
+        create_asset: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            asset_name: args.asset_name || prev.asset_name,
-            asset_code: args.asset_code || prev.asset_code,
-            asset_category: args.asset_category || prev.asset_category,
-            location: args.location || prev.location,
-            purchase_cost: args.purchase_cost != null ? String(args.purchase_cost) : prev.purchase_cost,
-            calibration_date: args.calibration_date || prev.calibration_date,
-            next_calibration_date: args.next_calibration_date || prev.next_calibration_date,
+            asset_name: a.asset_name || prev.asset_name,
+            asset_code: a.asset_code || prev.asset_code,
+            asset_category: a.asset_category || prev.asset_category,
+            location: a.location || prev.location,
+            purchase_cost: a.purchase_cost != null ? String(a.purchase_cost) : prev.purchase_cost,
+            calibration_date: a.calibration_date || prev.calibration_date,
+            next_calibration_date: a.next_calibration_date || prev.next_calibration_date,
           }));
           toast.info("AI opened and filled the asset form", { icon: <Wand2 size={14} /> });
         },
-        set_asset_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered assets by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_asset_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered assets by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

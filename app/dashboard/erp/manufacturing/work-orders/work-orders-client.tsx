@@ -20,7 +20,7 @@ const STATUS: Record<string, { label: string; badge: string }> = {
   Cancelled: { label: "Cancelled", badge: "bg-gray-200 text-gray-600 border-gray-300" },
 };
 const fmt = (v: number) => v.toLocaleString("en-AE", { style: "currency", currency: "AED" });
-const dt = (s: string | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+const dt = (s: string | Date | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 export default function WorkOrdersClient({ initialOrders }: { initialOrders: ClientSafeWorkOrder[] }) {
   const router = useRouter();
@@ -58,7 +58,7 @@ export default function WorkOrdersClient({ initialOrders }: { initialOrders: Cli
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {filtered.length === 0 ? (<div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]"><Factory size={48} className="mb-4 opacity-40" /><p className="text-lg font-medium">No work orders found</p></div>) : (
             <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-gray-700 font-semibold">ID</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Item</th><th className="text-right px-4 py-3 text-gray-700 font-semibold">Qty</th><th className="text-right px-4 py-3 text-gray-700 font-semibold">Produced</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Start Date</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Status</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{filtered.map((o) => { const c = STATUS[o.status] || STATUS.Draft; return (<tr key={o.name} onClick={() => router.push(`/dashboard/erp/manufacturing/work-orders/${o.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{o.name}</td><td className="px-4 py-3"><p className="font-medium text-[#0f172a]">{o.item_name || o.production_item}</p><p className="text-xs text-[#94a3b8]">BOM: {o.bom_no}</p></td><td className="px-4 py-3 text-right">{o.qty}</td><td className="px-4 py-3 text-right">{o.produced_qty}</td><td className="px-4 py-3 text-[#64748b]">{dt(o.planned_start_date as any)}</td><td className="px-4 py-3"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${c.badge}`}>{c.label}</span></td></tr>); })}</tbody></table></div>
+            <tbody className="divide-y divide-gray-100">{filtered.map((o) => { const c = STATUS[o.status] || STATUS.Draft; return (<tr key={o.name} onClick={() => router.push(`/dashboard/erp/manufacturing/work-orders/${o.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{o.name}</td><td className="px-4 py-3"><p className="font-medium text-[#0f172a]">{o.item_name || o.production_item}</p><p className="text-xs text-[#94a3b8]">BOM: {o.bom_no}</p></td><td className="px-4 py-3 text-right">{o.qty}</td><td className="px-4 py-3 text-right">{o.produced_qty}</td><td className="px-4 py-3 text-[#64748b]">{dt(o.planned_start_date)}</td><td className="px-4 py-3"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${c.badge}`}>{c.label}</span></td></tr>); })}</tbody></table></div>
           )}
         </div>
       </div></div>

@@ -92,23 +92,25 @@ export default function HRClient({ initialPersonnel }: HRClientProps) {
         }),
       ],
       {
-        create_personnel: (args: Record<string, any>) => {
+        create_personnel: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            employee_id: args.employee_id || prev.employee_id,
-            first_name: args.first_name || prev.first_name,
-            last_name: args.last_name || prev.last_name,
-            email: args.email || prev.email,
-            designation: args.designation || prev.designation,
-            department: args.department || prev.department,
-            day_rate: args.day_rate != null ? String(args.day_rate) : prev.day_rate,
+            employee_id: a.employee_id || prev.employee_id,
+            first_name: a.first_name || prev.first_name,
+            last_name: a.last_name || prev.last_name,
+            email: a.email || prev.email,
+            designation: a.designation || prev.designation,
+            department: a.department || prev.department,
+            day_rate: a.day_rate != null ? String(a.day_rate) : prev.day_rate,
           }));
           toast.info("AI opened and filled the personnel form", { icon: <Wand2 size={14} /> });
         },
-        set_personnel_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered personnel by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_personnel_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered personnel by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

@@ -56,7 +56,7 @@ export interface AgentLoopOptions {
 
 export interface ToolCallRecord {
   name: string;
-  args: Record<string, any>;
+  args: Record<string, unknown>;
   result: string;
   callId: string;
 }
@@ -69,7 +69,7 @@ export interface AgentLoopResult {
 }
 
 export type AgentLoopEvent =
-  | { type: "tool_call"; name: string; args: Record<string, any>; callId: string }
+  | { type: "tool_call"; name: string; args: Record<string, unknown>; callId: string }
   | { type: "tool_result"; name: string; result: string; callId: string }
   | { type: "text_delta"; content: string }
   | { type: "done"; result: AgentLoopResult }
@@ -90,12 +90,56 @@ interface ChatToolCall {
   function: { name: string; arguments: string };
 }
 
+// ── API response types (for Chat Completions non-streaming) ────────────────
+
+interface ChatCompletionChoice {
+  index?: number;
+  message?: {
+    role?: string;
+    content?: string | null;
+    tool_calls?: ChatToolCall[];
+  };
+  finish_reason?: string;
+}
+
+interface ChatCompletionResponse {
+  id?: string;
+  choices?: ChatCompletionChoice[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+}
+
+// ── Streaming delta types ───────────────────────────────────────────────────
+
+interface StreamDeltaToolCall {
+  index?: number;
+  id?: string;
+  type?: string;
+  function?: { name?: string; arguments?: string };
+}
+
+interface StreamDelta {
+  role?: string;
+  content?: string;
+  tool_calls?: StreamDeltaToolCall[];
+}
+
+interface StreamChoice {
+  index?: number;
+  delta?: StreamDelta;
+  finish_reason?: string | null;
+}
+
+interface StreamChunk {
+  id?: string;
+  choices?: StreamChoice[];
+}
+
 interface ChatCompletionTool {
   type: "function";
   function: {
     name: string;
     description: string;
-    parameters: Record<string, any>;
+    parameters: Record<string, unknown>;
   };
 }
 
@@ -158,7 +202,7 @@ export class AgentLoop {
       for (const tc of toolCalls) {
         const fn = tc.function;
         const toolName = fn.name;
-        let toolArgs: Record<string, any> = {};
+        let toolArgs: Record<string, unknown> = {};
         try {
           toolArgs = JSON.parse(fn.arguments);
         } catch {
@@ -302,7 +346,7 @@ export class AgentLoop {
       for (const tc of toolCallsBuffer) {
         const fn = tc.function;
         const toolName = fn.name;
-        let toolArgs: Record<string, any> = {};
+        let toolArgs: Record<string, unknown> = {};
         try {
           toolArgs = JSON.parse(fn.arguments);
         } catch {
@@ -423,12 +467,12 @@ export class AgentLoop {
   /**
    * Convert MCPTool.parameters to JSON Schema for Chat Completions.
    */
-  private mcpToolToSchema(tool: MCPTool): Record<string, any> {
+  private mcpToolToSchema(tool: MCPTool): Record<string, unknown> {
     if (!tool.parameters) {
       return { type: "object", properties: {} };
     }
 
-    const properties: Record<string, any> = {};
+    const properties: Record<string, unknown> = {};
     const required: string[] = [];
 
     for (const [key, param] of Object.entries(tool.parameters)) {
@@ -457,7 +501,7 @@ export class AgentLoop {
     tools: ChatCompletionTool[],
     model: string,
     stream: boolean = false
-  ): Promise<any> {
+  ): Promise<ChatCompletionResponse> {
     const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
     const url = apiKey
       ? `${this.chatUrl}?key=${apiKey}`
@@ -475,7 +519,7 @@ export class AgentLoop {
       }
     }
 
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       model,
       messages,
       max_tokens: 8192,
@@ -508,7 +552,7 @@ export class AgentLoop {
     messages: ChatMessage[],
     tools: ChatCompletionTool[],
     model: string
-  ): AsyncGenerator<any> {
+  ): AsyncGenerator<StreamChunk> {
     const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
     const url = apiKey
       ? `${this.chatUrl}?key=${apiKey}`
@@ -525,7 +569,7 @@ export class AgentLoop {
       }
     }
 
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       model,
       messages,
       max_tokens: 8192,

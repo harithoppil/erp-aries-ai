@@ -105,19 +105,20 @@ export default function CustomersClient({ initialCustomers }: CustomersClientPro
       ],
       {
         // One-shot handler: opens dialog AND fills all provided fields
-        create_customer: (args: Record<string, any>) => {
+        create_customer: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            customer_name: args.customer_name || prev.customer_name,
-            customer_code: args.customer_code || prev.customer_code,
-            contact_person: args.contact_person || prev.contact_person,
-            email: args.email || prev.email,
-            phone: args.phone || prev.phone,
-            address: args.address || prev.address,
-            industry: args.industry || prev.industry,
-            tax_id: args.tax_id || prev.tax_id,
-            credit_limit: args.credit_limit != null ? String(args.credit_limit) : prev.credit_limit,
+            customer_name: a.customer_name || prev.customer_name,
+            customer_code: a.customer_code || prev.customer_code,
+            contact_person: a.contact_person || prev.contact_person,
+            email: a.email || prev.email,
+            phone: a.phone || prev.phone,
+            address: a.address || prev.address,
+            industry: a.industry || prev.industry,
+            tax_id: a.tax_id || prev.tax_id,
+            credit_limit: a.credit_limit != null ? String(a.credit_limit) : prev.credit_limit,
           }));
           // Briefly highlight all filled fields
           const filledFields = Object.keys(args).filter(k => k !== "customer_name" && k !== "customer_code");
@@ -127,12 +128,14 @@ export default function CustomersClient({ initialCustomers }: CustomersClientPro
           }
           toast.info("AI opened and filled the customer form", { icon: <Wand2 size={14} /> });
         },
-        set_customer_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered customers by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_customer_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered customers by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
-        navigate_to_customer: (args: Record<string, any>) => {
-          router.push(`/dashboard/erp/customers/${args.customer_id}`);
+        navigate_to_customer: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          router.push(`/dashboard/erp/customers/${a.customer_id}`);
         },
       }
     );

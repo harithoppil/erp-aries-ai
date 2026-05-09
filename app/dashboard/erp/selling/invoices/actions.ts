@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import type { SalesInvoiceItemRow } from '@/lib/erpnext/types';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -148,7 +150,7 @@ export async function getSalesInvoice(
         company: invoice.company,
         project: invoice.project,
         creation: invoice.creation,
-        items: ((invoice as any)?.salesInvoiceItems || []).map((i) => ({
+        items: ((invoice as Record<string, unknown>)?.salesInvoiceItems as SalesInvoiceItemRow[] || []).map((i) => ({
           name: i.name,
           item_code: i.item_code,
           item_name: i.item_name,
@@ -278,27 +280,13 @@ export async function createSalesInvoice(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitSalesInvoice(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const i = await prisma.salesInvoice.findUnique({ where: { name: id } });
-    if (!i) return { success: false, error: 'Not found' };
-    if (i.docstatus !== 0) return { success: false, error: 'Only draft documents can be submitted' };
-    await prisma.salesInvoice.update({ where: { name: id }, data: { docstatus: 1, status: 'Unpaid' } });
-    revalidatePath('/dashboard/erp/selling/invoices');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to submit' };
-  }
+  const result = await submitDocument("Sales Invoice", id);
+  if (result.success) revalidatePath('/dashboard/erp/selling/invoices');
+  return result;
 }
 
 export async function cancelSalesInvoice(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const i = await prisma.salesInvoice.findUnique({ where: { name: id } });
-    if (!i) return { success: false, error: 'Not found' };
-    if (i.docstatus !== 1) return { success: false, error: 'Only submitted documents can be cancelled' };
-    await prisma.salesInvoice.update({ where: { name: id }, data: { docstatus: 2, status: 'Cancelled' } });
-    revalidatePath('/dashboard/erp/selling/invoices');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to cancel' };
-  }
+  const result = await cancelDocument("Sales Invoice", id);
+  if (result.success) revalidatePath('/dashboard/erp/selling/invoices');
+  return result;
 }

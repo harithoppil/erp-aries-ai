@@ -17,7 +17,7 @@ const STATUS: Record<string, { label: string; badge: string }> = {
   Cancelled: { label: "Cancelled", badge: "bg-red-100 text-red-700 border-red-200" },
 };
 const fmt = (v: number, c = "AED") => v.toLocaleString("en-AE", { style: "currency", currency: c });
-const dt = (s: string | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+const dt = (s: string | Date | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 export default function PurchaseReceiptsClient({ initialReceipts }: { initialReceipts: ClientSafePurchaseReceipt[] }) {
   const router = useRouter();
@@ -47,7 +47,7 @@ export default function PurchaseReceiptsClient({ initialReceipts }: { initialRec
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Purchase Receipts</h2><p className="text-sm text-[#64748b] mt-1">{receipts.length} receipts</p></div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(r => ({ name: r.name, supplier: r.supplier_name, date: dt(r.posting_date as any), total: r.grand_total, status: r.status })), 'purchase-receipts')}><Download size={16} />Export</Button>
+            <Button variant="outline" className="gap-2 rounded-xl" onClick={() => exportToCSV(filtered.map(r => ({ name: r.name, supplier: r.supplier_name, date: dt(r.posting_date), total: r.grand_total, status: r.status })), 'purchase-receipts')}><Download size={16} />Export</Button>
             <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New Receipt</Button>
           </div>
         </div>
@@ -55,7 +55,7 @@ export default function PurchaseReceiptsClient({ initialReceipts }: { initialRec
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {filtered.length === 0 ? (<div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]"><PackageOpen size={48} className="mb-4 opacity-40" /><p className="text-lg font-medium">No purchase receipts found</p></div>) : (
             <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-gray-700 font-semibold">ID</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Date</th><th className="text-right px-4 py-3 text-gray-700 font-semibold">Grand Total</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Status</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{filtered.map((r) => { const c = STATUS[r.status] || STATUS.Draft; return (<tr key={r.name} onClick={() => router.push(`/dashboard/erp/stock/purchase-receipts/${r.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{r.name}</td><td className="px-4 py-3 font-medium text-[#0f172a]">{r.supplier_name || r.supplier}</td><td className="px-4 py-3 text-[#64748b]">{dt(r.posting_date as any)}</td><td className="px-4 py-3 text-right font-semibold">{fmt(r.grand_total, r.currency)}</td><td className="px-4 py-3"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${c.badge}`}>{c.label}</span></td></tr>); })}</tbody></table></div>
+            <tbody className="divide-y divide-gray-100">{filtered.map((r) => { const c = STATUS[r.status] || STATUS.Draft; return (<tr key={r.name} onClick={() => router.push(`/dashboard/erp/stock/purchase-receipts/${r.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{r.name}</td><td className="px-4 py-3 font-medium text-[#0f172a]">{r.supplier_name || r.supplier}</td><td className="px-4 py-3 text-[#64748b]">{dt(r.posting_date)}</td><td className="px-4 py-3 text-right font-semibold">{fmt(r.grand_total, r.currency)}</td><td className="px-4 py-3"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${c.badge}`}>{c.label}</span></td></tr>); })}</tbody></table></div>
           )}
         </div>
       </div></div>

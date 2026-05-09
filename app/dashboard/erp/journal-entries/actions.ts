@@ -1,6 +1,9 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { revalidatePath } from 'next/cache';
+import type { journalentrytype } from '@/prisma/client';
 
 export type ClientSafeJournalEntry = {
   id: string;
@@ -85,7 +88,7 @@ export async function createJournalEntry(data: {
         account: data.account || (accounts[0]?.account ?? null),
         party_type: data.party_type || null,
         party_name: data.party_name || null,
-        entry_type: data.entry_type as any,
+        entry_type: (data.entry_type?.toUpperCase() === 'CREDIT' ? 'CREDIT' : 'DEBIT') as journalentrytype,
         amount: data.amount || totalDebit || totalCredit || 0,
         currency: 'USD',
         notes: data.remarks || data.notes || data.reference || null,
@@ -112,4 +115,20 @@ export async function createJournalEntry(data: {
   } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create journal entry' };
   }
+}
+
+// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+
+// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
+export async function submitJournalEntry(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await submitDocument("Journal Entry", id);
+  if (result.success) revalidatePath('/dashboard/erp/journal-entries');
+  return result;
+}
+
+// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
+export async function cancelJournalEntry(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await cancelDocument("Journal Entry", id);
+  if (result.success) revalidatePath('/dashboard/erp/journal-entries');
+  return result;
 }

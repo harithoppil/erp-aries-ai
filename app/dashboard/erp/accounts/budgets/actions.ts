@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -193,29 +194,15 @@ export async function createBudget(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitBudget(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const b = await prisma.budget.findUnique({ where: { name: id } });
-    if (!b) return { success: false, error: 'Not found' };
-    if (b.docstatus !== 0) return { success: false, error: 'Only draft budgets can be submitted' };
-    await prisma.budget.update({ where: { name: id }, data: { docstatus: 1 } });
-    revalidatePath('/dashboard/erp/accounts/budgets');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to submit budget' };
-  }
+  const result = await submitDocument("Budget", id);
+  if (result.success) revalidatePath('/dashboard/erp/accounts/budgets');
+  return result;
 }
 
 export async function cancelBudget(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const b = await prisma.budget.findUnique({ where: { name: id } });
-    if (!b) return { success: false, error: 'Not found' };
-    if (b.docstatus !== 1) return { success: false, error: 'Only submitted budgets can be cancelled' };
-    await prisma.budget.update({ where: { name: id }, data: { docstatus: 2 } });
-    revalidatePath('/dashboard/erp/accounts/budgets');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to cancel budget' };
-  }
+  const result = await cancelDocument("Budget", id);
+  if (result.success) revalidatePath('/dashboard/erp/accounts/budgets');
+  return result;
 }
 
 // ── Delete ──────────────────────────────────────────────────────────────────────

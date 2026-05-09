@@ -88,21 +88,23 @@ export default function SalesOrdersClient({ initialOrders }: { initialOrders: Cl
         }),
       ],
       {
-        create_sales_order: (args: Record<string, any>) => {
+        create_sales_order: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            customer_name: args.customer_name || prev.customer_name,
-            project_type: args.project_type || prev.project_type,
-            delivery_date: args.delivery_date || prev.delivery_date,
-            tax_rate: args.tax_rate != null ? String(args.tax_rate) : prev.tax_rate,
-            notes: args.notes || prev.notes,
+            customer_name: a.customer_name || prev.customer_name,
+            project_type: a.project_type || prev.project_type,
+            delivery_date: a.delivery_date || prev.delivery_date,
+            tax_rate: a.tax_rate != null ? String(a.tax_rate) : prev.tax_rate,
+            notes: a.notes || prev.notes,
           }));
           toast.info("AI opened and filled the sales order form", { icon: <Wand2 size={14} /> });
         },
-        set_sales_order_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered sales orders by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_sales_order_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered sales orders by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

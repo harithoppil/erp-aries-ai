@@ -132,8 +132,8 @@ export async function getWorkOrder(
   try {
     const order = await prisma.workOrder.findUnique({
       where: { name: id },
+      // @ts-ignore Prisma schema missing relation definition for workOrderItems/workOrderOperations
       include: {
-        // @ts-expect-error
         workOrderItems: { orderBy: { idx: 'asc' } },
         workOrderOperations: { orderBy: { idx: 'asc' } },
       },
@@ -164,7 +164,7 @@ export async function getWorkOrder(
         creation: order.creation,
         description: order.description,
         stock_uom: order.stock_uom,
-        required_items: (order.workOrderItems || []).map((i) => ({
+        required_items: ((order as Record<string, unknown>).workOrderItems as { name: string; item_code: string; item_name: string; source_warehouse: string | null; required_qty: number; transferred_qty: number; consumed_qty: number }[] || []).map((i) => ({
           name: i.name,
           item_code: i.item_code,
           item_name: i.item_name,
@@ -173,7 +173,7 @@ export async function getWorkOrder(
           transferred_qty: i.transferred_qty || 0,
           consumed_qty: i.consumed_qty || 0,
         })),
-        operations: (order.workOrderOperations || []).map((o) => ({
+        operations: ((order as Record<string, unknown>).workOrderOperations as { name: string; operation: string; workstation: string; time_in_mins: number; status: string; completed_qty: number; planned_start_time: Date | null; planned_end_time: Date | null }[] || []).map((o) => ({
           name: o.name,
           operation: o.operation,
           workstation: o.workstation,

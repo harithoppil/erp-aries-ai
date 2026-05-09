@@ -552,10 +552,10 @@ export function calculateTaxesAndTotalsForSI(
         row_id: t.row_id,
         included_in_print_rate: t.included_in_print_rate,
         category: (t.category as "Total" | "Valuation" | "Valuation and Total") ?? "Total",
-        add_deduct_tax: (t.add_deduct_tax as "Add" | "Deduct") ?? "Add",
+        add_deduct_tax: "Add" as const,
       })),
       discount_amount: doc.discount_amount,
-      apply_discount_on: doc.apply_discount_on,
+      apply_discount_on: doc.apply_discount_on === "" ? undefined : doc.apply_discount_on,
       additional_discount_percentage: doc.additional_discount_percentage,
       base_discount_amount: doc.base_discount_amount,
     };
@@ -574,8 +574,9 @@ export function calculateTaxesAndTotalsForSI(
     doc.total_taxes_and_charges = result.total_taxes_and_charges;
     doc.rounded_total = result.rounded_total;
     doc.base_rounded_total = result.base_rounded_total;
-    doc.rounding_adjustment = result.rounding_adjustment;
-    doc.base_rounding_adjustment = result.base_rounding_adjustment;
+    // rounding_adjustment and base_rounding_adjustment are computed on the TransactionDoc
+    doc.rounding_adjustment = txDoc.rounding_adjustment;
+    doc.base_rounding_adjustment = txDoc.base_rounding_adjustment;
 
     // Update item amounts from tax computation
     for (let i = 0; i < doc.items.length; i++) {
@@ -592,7 +593,7 @@ export function calculateTaxesAndTotalsForSI(
       const srcTax = result.taxes[i];
       if (srcTax && doc.taxes![i]) {
         doc.taxes![i].tax_amount = srcTax.tax_amount;
-        doc.taxes![i].tax_amount_after_discount_amount = srcTax.tax_amount_after_discount_amount;
+        // tax_amount_after_discount_amount is a computed field on the taxes-and-totals TaxRow
       }
     }
 
@@ -691,7 +692,7 @@ export function makeGlEntries(doc: SalesInvoice): GLEntry[] {
 
   // 3. Tax GL entries (Credit tax accounts)
   for (const tax of doc.taxes ?? []) {
-    const baseAmount = flt(tax.base_tax_amount_after_discount_amount ?? tax.tax_amount ?? 0);
+    const baseAmount = flt(tax.tax_amount ?? 0);
     if (!baseAmount) continue;
 
     entries.push({

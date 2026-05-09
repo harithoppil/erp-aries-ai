@@ -18,20 +18,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/prisma/client";
+import {
+  PrismaDelegate,
+  DmmfField,
+  DmmfModel,
+  FilterTriple,
+  WhereClause,
+  toAccessor,
+  getDelegate,
+  getDelegateByAccessor,
+} from "@/lib/erpnext/prisma-delegate";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Convert PascalCase DocType name to the camelCase Prisma accessor. */
-function toAccessor(doctype: string): string {
-  return doctype.charAt(0).toLowerCase() + doctype.slice(1);
-}
-
 /** Safely resolve a Prisma delegate from a doctype string. */
-function getModel(doctype: string): { model: any; accessor: string } | null {
+function getModel(doctype: string): { model: PrismaDelegate; accessor: string } | null {
   const accessor = toAccessor(doctype);
-  const delegate = (prisma as any)[accessor];
-  if (!delegate || typeof delegate.findMany !== "function") return null;
-  return { model: delegate, accessor };
+  const model = getDelegate(prisma, doctype);
+  if (!model) return null;
+  return { model, accessor };
 }
 
 /**
@@ -41,21 +46,21 @@ function getModel(doctype: string): { model: any; accessor: string } | null {
  */
 function findChildAccessors(doctype: string): string[] {
   const results: string[] = [];
-  const dmmfModels = Prisma.dmmf.datamodel.models;
+  const dmmfModels = Prisma.dmmf.datamodel.models as DmmfModel[];
 
   for (const m of dmmfModels) {
-    const hasParentType = m.fields.some((f: any) => f.name === "parenttype");
-    const hasParent = m.fields.some((f: any) => f.name === "parent");
-    const hasParentfield = m.fields.some((f: any) => f.name === "parentfield");
+    const hasParentType = m.fields.some((f: DmmfField) => f.name === "parenttype");
+    const hasParent = m.fields.some((f: DmmfField) => f.name === "parent");
+    const hasParentfield = m.fields.some((f: DmmfField) => f.name === "parentfield");
     if (hasParentType && hasParent && hasParentfield) {
       // Check if any field's default value references the parent doctype,
       // or if the model name starts with the parent doctype (naming convention)
       const defaultMatchesParent = m.fields.some(
-        (f: any) =>
+        (f: DmmfField) =>
           f.name === "parenttype" &&
-          f.default &&
+          f.default != null &&
           (String(f.default) === doctype ||
-            (typeof f.default === "object" && f.default !== null && String((f.default as any).value) === doctype)),
+            (typeof f.default === "object" && f.default !== null && String((f.default as { value: string }).value) === doctype)),
       );
       if (defaultMatchesParent || m.name.startsWith(doctype)) {
         results.push(toAccessor(m.name));
@@ -75,8 +80,8 @@ function findChildAccessors(doctype: string): string[] {
  *
  * Operators: =, !=, <, >, <=, >=, like, not like, in, not in, is, between
  */
-function parseFilters(filtersRaw: string): any {
-  let parsed: any[];
+function parseFilters(filtersRaw: string): WhereClause {
+  let parsed: unknown[];
   try {
     parsed = JSON.parse(filtersRaw);
   } catch {
@@ -87,25 +92,25 @@ function parseFilters(filtersRaw: string): any {
 
   // Detect OR-group: outermost array whose first element is also an array of filters
   // e.g. [[["f1","=","v1"],["f2","=","v2"]],[["f3","=","v3"]]]
-  const isOrGroup = Array.isArray(parsed[0]) && Array.isArray(parsed[0][0]);
+  const isOrGroup = Array.isArray(parsed[0]) && Array.isArray((parsed[0] as unknown[])[0]);
 
   if (isOrGroup) {
     return {
-      OR: parsed.map((group: any[]) => {
-        const andClauses = group.map(buildClause).filter(Boolean);
+      OR: (parsed as unknown[][]).map((group: unknown[]) => {
+        const andClauses = (group as FilterTriple[]).map(buildClause).filter(Boolean);
         return andClauses.length === 1 ? andClauses[0] : { AND: andClauses };
       }),
     };
   }
 
   // Flat AND array
-  const clauses = parsed.map(buildClause).filter(Boolean);
+  const clauses = (parsed as FilterTriple[]).map(buildClause).filter(Boolean);
   if (clauses.length === 0) return {};
   if (clauses.length === 1) return clauses[0];
   return { AND: clauses };
 }
 
-function buildClause(triple: any[]): any {
+function buildClause(triple: FilterTriple): WhereClause {
   if (!Array.isArray(triple) || triple.length < 3) return {};
   const [field, op, value] = triple;
 
@@ -280,20 +285,21 @@ export async function POST(
 
     // Separate child-table arrays from parent fields
     // Child tables are arrays of objects with parent/parentfield/parenttype
-    const childTables: Record<string, any[]> = {};
-    const parentFields: Record<string, any> = {};
+    const childTables: Record<string, unknown[]> = {};
+    const parentFields: Record<string, unknown> = {};
 
     for (const [key, val] of Object.entries(body)) {
       if (Array.isArray(val) && val.length > 0 && typeof val[0] === "object") {
-        childTables[key] = val as any[];
+        childTables[key] = val;
       } else {
         parentFields[key] = val;
       }
     }
 
     // Create parent + children atomically in a transaction
-    const result = await prisma.$transaction(async (tx: any) => {
-      const created = await tx[resolved.accessor].create({
+    const result = await prisma.$transaction(async (tx) => {
+      const txModel = (tx as Record<string, unknown>)[resolved.accessor] as PrismaDelegate;
+      const created = await txModel.create({
         data: parentFields,
       });
 
@@ -318,8 +324,8 @@ export async function POST(
             toAccessor(doctype.replace(/s$/, "")) + toAccessor(field),
           ];
           for (const candidate of childAccessorCandidates) {
-            const delegate = tx[candidate];
-            if (delegate && typeof delegate.createMany === "function") {
+            const delegate = getDelegateByAccessor(tx as Record<string, unknown>, candidate);
+            if (delegate) {
               childAccessor = candidate;
               break;
             }
@@ -327,20 +333,21 @@ export async function POST(
         }
 
         if (childAccessor) {
-          const childRows = rows.map((row: any, i: number) => ({
+          const childModel = (tx as Record<string, unknown>)[childAccessor] as PrismaDelegate;
+          const childRows = rows.map((row: Record<string, unknown>, i: number) => ({
             ...row,
             parent: body.name,
             parentfield: field,
             parenttype: doctype,
-            idx: row.idx ?? i + 1,
-            docstatus: row.docstatus ?? 0,
+            idx: (row as Record<string, unknown>).idx ?? i + 1,
+            docstatus: (row as Record<string, unknown>).docstatus ?? 0,
           }));
-          await tx[childAccessor].createMany({ data: childRows });
+          await childModel.createMany({ data: childRows });
         }
       }
 
       // Re-fetch the created record to return with all fields
-      return await tx[resolved.accessor].findUnique({ where: { name: body.name } });
+      return await txModel.findUnique({ where: { name: body.name } });
     });
 
     return NextResponse.json({ data: result }, { status: 201 });

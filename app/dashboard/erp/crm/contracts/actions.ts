@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -183,29 +184,15 @@ export async function createContract(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitContract(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const c = await prisma.contract.findUnique({ where: { name: id } });
-    if (!c) return { success: false, error: 'Not found' };
-    if (c.docstatus !== 0) return { success: false, error: 'Only draft contracts can be submitted' };
-    await prisma.contract.update({ where: { name: id }, data: { docstatus: 1, status: 'Active' } });
-    revalidatePath('/dashboard/erp/crm/contracts');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to submit contract' };
-  }
+  const result = await submitDocument("Contract", id);
+  if (result.success) revalidatePath('/dashboard/erp/crm/contracts');
+  return result;
 }
 
 export async function cancelContract(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const c = await prisma.contract.findUnique({ where: { name: id } });
-    if (!c) return { success: false, error: 'Not found' };
-    if (c.docstatus !== 1) return { success: false, error: 'Only submitted contracts can be cancelled' };
-    await prisma.contract.update({ where: { name: id }, data: { docstatus: 2, status: 'Cancelled' } });
-    revalidatePath('/dashboard/erp/crm/contracts');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to cancel contract' };
-  }
+  const result = await cancelDocument("Contract", id);
+  if (result.success) revalidatePath('/dashboard/erp/crm/contracts');
+  return result;
 }
 
 // ── Delete ──────────────────────────────────────────────────────────────────────

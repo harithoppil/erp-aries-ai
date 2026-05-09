@@ -64,23 +64,25 @@ export default function JournalEntriesClient({ initialEntries }: { initialEntrie
         }),
       ],
       {
-        create_journal_entry: (args: Record<string, any>) => {
+        create_journal_entry: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            account: args.account || prev.account,
-            entry_type: args.entry_type || prev.entry_type,
-            amount: args.amount != null ? String(args.amount) : prev.amount,
-            party_type: args.party_type || prev.party_type,
-            party_name: args.party_name || prev.party_name,
-            reference: args.reference || prev.reference,
-            notes: args.notes || prev.notes,
+            account: a.account || prev.account,
+            entry_type: a.entry_type || prev.entry_type,
+            amount: a.amount != null ? String(a.amount) : prev.amount,
+            party_type: a.party_type || prev.party_type,
+            party_name: a.party_name || prev.party_name,
+            reference: a.reference || prev.reference,
+            notes: a.notes || prev.notes,
           }));
           toast.info("AI opened and filled the journal entry form", { icon: <Wand2 size={14} /> });
         },
-        set_journal_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered journal entries by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_journal_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered journal entries by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

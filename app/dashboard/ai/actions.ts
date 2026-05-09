@@ -4,6 +4,13 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { AgentLoop } from '@/lib/agent-loop';
 import { generateId, generateShortCode } from '@/lib/uuid';
+import type {
+  ChatMessage,
+  PersonaRow,
+  PrismaWhereClause,
+  ConversationRow,
+  MessageRow,
+} from '@/lib/ai/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,7 +37,7 @@ export type ClientSafePersona = {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function parsePersona(p: any): ClientSafePersona {
+function parsePersona(p: PersonaRow): ClientSafePersona {
   return {
     id: p.id,
     username: p.username,
@@ -62,7 +69,7 @@ export async function listPersonas(filters?: {
   { success: true; personas: ClientSafePersona[] } | { success: false; error: string }
 > {
   try {
-    const where: any = {};
+    const where: PrismaWhereClause = {};
     if (filters?.category) where.category = filters.category;
     if (filters?.enabled !== undefined) where.enabled = filters.enabled;
 
@@ -74,7 +81,7 @@ export async function listPersonas(filters?: {
     // List view: truncate about/greeting for performance
     return {
       success: true,
-      personas: personas.map((p: { about: string | null; greeting: string | null }) => ({
+      personas: personas.map((p: PersonaRow & { about: string | null; greeting: string | null }) => ({
         ...parsePersona(p),
         about: p.about ? p.about.slice(0, 200) + (p.about.length > 200 ? '...' : '') : null,
         greeting: p.greeting ? p.greeting.slice(0, 100) + (p.greeting.length > 100 ? '...' : '') : null,
@@ -166,7 +173,7 @@ export async function updatePersona(id: string, data: {
   { success: true; persona: ClientSafePersona } | { success: false; error: string }
 > {
   try {
-    const updateData: any = { updated_at: new Date() };
+    const updateData: PrismaWhereClause = { updated_at: new Date() };
     if (data.nickname !== undefined) updateData.nickname = data.nickname;
     if (data.position !== undefined) updateData.position = data.position;
     if (data.category !== undefined) updateData.category = data.category;
@@ -314,13 +321,13 @@ export async function chatWithPersona(
     });
 
     // Build history in Chat Completions format
-    const history = historyMessages
-      .filter((m: { role: string }) => m.role !== 'system')
-      .map((m: { role: string; content: string | null; tool_calls: string | null; tool_call_id: string | null }) => {
-        const msg: Record<string, unknown> = { role: m.role, content: m.content };
+    const history: ChatMessage[] = historyMessages
+      .filter((m: MessageRow) => m.role !== 'system')
+      .map((m: MessageRow) => {
+        const msg: ChatMessage = { role: m.role as ChatMessage["role"], content: m.content };
         if (m.tool_calls) {
           try {
-            msg.tool_calls = typeof m.tool_calls === 'string' ? JSON.parse(m.tool_calls) : m.tool_calls;
+            msg.tool_calls = typeof m.tool_calls === 'string' ? JSON.parse(m.tool_calls) : m.tool_calls as ChatMessage["tool_calls"];
           } catch { /* ignore parse errors */ }
         }
         if (m.tool_call_id) {
@@ -361,7 +368,7 @@ export async function chatWithPersona(
       },
     });
 
-    const result = await loop.run(message, history as any);
+    const result = await loop.run(message, history);
 
     // Save assistant message
     const assistantMsg = await prisma.ai_messages.create({
@@ -392,10 +399,10 @@ export async function chatWithPersona(
 // ── Conversations (now uses Prisma directly — no Python needed) ──────────
 
 export async function listConversations(personaId?: string): Promise<
-  { success: true; conversations: any[] } | { success: false; error: string }
+  { success: true; conversations: ConversationRow[] } | { success: false; error: string }
 > {
   try {
-    const where: any = {};
+    const where: PrismaWhereClause = {};
     if (personaId) where.persona_id = personaId;
     const conversations = await prisma.ai_conversations.findMany({
       where,
@@ -410,7 +417,7 @@ export async function listConversations(personaId?: string): Promise<
 }
 
 export async function getConversationMessages(conversationId: string): Promise<
-  { success: true; messages: any[] } | { success: false; error: string }
+  { success: true; messages: MessageRow[] } | { success: false; error: string }
 > {
   try {
     const messages = await prisma.ai_messages.findMany({

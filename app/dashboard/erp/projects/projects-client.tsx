@@ -111,37 +111,40 @@ export default function ProjectsClient({ initialProjects, initialTasks }: Projec
         }),
       ],
       {
-        create_project: (args: Record<string, any>) => {
+        create_project: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            project_name: args.project_name || prev.project_name,
-            project_type: args.project_type || prev.project_type,
-            customer_name: args.customer_name || prev.customer_name,
-            project_location: args.project_location || prev.project_location,
-            vessel_name: args.vessel_name || prev.vessel_name,
-            estimated_cost: args.estimated_cost != null ? String(args.estimated_cost) : prev.estimated_cost,
-            day_rate: args.day_rate != null ? String(args.day_rate) : prev.day_rate,
-            expected_start: args.expected_start || prev.expected_start,
-            expected_end: args.expected_end || prev.expected_end,
+            project_name: a.project_name || prev.project_name,
+            project_type: a.project_type || prev.project_type,
+            customer_name: a.customer_name || prev.customer_name,
+            project_location: a.project_location || prev.project_location,
+            vessel_name: a.vessel_name || prev.vessel_name,
+            estimated_cost: a.estimated_cost != null ? String(a.estimated_cost) : prev.estimated_cost,
+            day_rate: a.day_rate != null ? String(a.day_rate) : prev.day_rate,
+            expected_start: a.expected_start || prev.expected_start,
+            expected_end: a.expected_end || prev.expected_end,
           }));
           toast.info("AI opened and filled the project form", { icon: <Wand2 size={14} /> });
         },
-        create_task: (args: Record<string, any>) => {
+        create_task: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string | undefined>;
           setTaskDialogOpen(true);
           setTaskForm((prev) => ({
             ...prev,
-            subject: args.subject || prev.subject,
-            description: args.description || prev.description,
-            assigned_to: args.assigned_to || prev.assigned_to,
-            start_date: args.start_date || prev.start_date,
-            end_date: args.end_date || prev.end_date,
+            subject: a.subject || prev.subject,
+            description: a.description || prev.description,
+            assigned_to: a.assigned_to || prev.assigned_to,
+            start_date: a.start_date || prev.start_date,
+            end_date: a.end_date || prev.end_date,
           }));
           toast.info("AI opened and filled the task form", { icon: <Wand2 size={14} /> });
         },
-        set_project_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered projects by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_project_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered projects by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );

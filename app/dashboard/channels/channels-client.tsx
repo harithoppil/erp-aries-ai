@@ -84,14 +84,14 @@ export default function ChannelsClient({
         }),
       ],
       {
-        create_connector: (args: Record<string, any>) => {
+        create_connector: (args: Record<string, unknown>) => {
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            name: args.name || prev.name,
-            channel_type: args.channel_type || prev.channel_type,
-            webhook_url: args.webhook_url || prev.webhook_url,
-            default_persona_id: args.default_persona_id || prev.default_persona_id,
+            name: (args.name as string) || prev.name,
+            channel_type: (args.channel_type as string) || prev.channel_type,
+            webhook_url: (args.webhook_url as string) || prev.webhook_url,
+            default_persona_id: (args.default_persona_id as string) || prev.default_persona_id,
           }));
           toast.info("AI opened and filled the connector form", { icon: <Wand2 size={14} /> });
         },

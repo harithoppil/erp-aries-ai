@@ -3,7 +3,7 @@ import { getMCPGateway } from '@/lib/mcp-gateway';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: { tool_name?: string; kwargs?: Record<string, unknown> } = await request.json();
     const { tool_name, kwargs } = body;
 
     if (!tool_name) {

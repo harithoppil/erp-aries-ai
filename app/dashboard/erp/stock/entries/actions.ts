@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import type { StockEntryDetailRow } from '@/lib/erpnext/types';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -134,7 +136,7 @@ export async function getStockEntry(
         work_order: entry.work_order,
         remarks: entry.remarks,
         creation: entry.creation,
-        items: ((entry as any)?.stockEntryDetails || []).map((d) => ({
+        items: ((entry as Record<string, unknown>)?.stockEntryDetails as StockEntryDetailRow[] || []).map((d) => ({
           name: d.name,
           item_code: d.item_code,
           item_name: d.item_name,
@@ -234,27 +236,13 @@ export async function createStockEntry(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitStockEntry(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const e = await prisma.stockEntry.findUnique({ where: { name: id } });
-    if (!e) return { success: false, error: 'Not found' };
-    if (e.docstatus !== 0) return { success: false, error: 'Only draft documents can be submitted' };
-    await prisma.stockEntry.update({ where: { name: id }, data: { docstatus: 1 } });
-    revalidatePath('/dashboard/erp/stock/entries');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to submit' };
-  }
+  const result = await submitDocument("Stock Entry", id);
+  if (result.success) revalidatePath('/dashboard/erp/stock/entries');
+  return result;
 }
 
 export async function cancelStockEntry(id: string): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const e = await prisma.stockEntry.findUnique({ where: { name: id } });
-    if (!e) return { success: false, error: 'Not found' };
-    if (e.docstatus !== 1) return { success: false, error: 'Only submitted documents can be cancelled' };
-    await prisma.stockEntry.update({ where: { name: id }, data: { docstatus: 2 } });
-    revalidatePath('/dashboard/erp/stock/entries');
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to cancel' };
-  }
+  const result = await cancelDocument("Stock Entry", id);
+  if (result.success) revalidatePath('/dashboard/erp/stock/entries');
+  return result;
 }

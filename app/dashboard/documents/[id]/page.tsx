@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { API_BASE } from "@/lib/api";
 import { listPersonas, chatWithPersona, type ClientSafePersona } from "@/app/dashboard/ai/actions";
+import type { ExtractedData, ExtractedItem } from "@/lib/ai/types";
 import {
   ArrowLeft, Bot, User, Send, FileText, Image as ImageIcon,
   CheckCircle, XCircle, Loader2, Eye, Sparkles,
@@ -24,7 +25,7 @@ interface DocRecord {
   entity_type: string | null;
   entity_id: string | null;
   processing_status: "pending" | "converting" | "processing" | "completed" | "failed";
-  extracted_data: Record<string, any> | null;
+  extracted_data: ExtractedData | null;
   markdown_content: string | null;
   confidence_score: number | null;
   error_message: string | null;
@@ -376,7 +377,7 @@ export default function DocumentViewerPage() {
                     )}
 
                     {/* Items table */}
-                    {doc.extracted_data.items?.length > 0 && (
+                    {doc.extracted_data.items && doc.extracted_data.items.length > 0 && (
                       <div>
                         <p className="text-[10px] font-medium uppercase text-[#94a3b8] mb-2">Line Items</p>
                         <div className="overflow-x-auto rounded-xl border border-gray-100">
@@ -390,7 +391,7 @@ export default function DocumentViewerPage() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                              {doc.extracted_data.items.map((item: any, i: number) => (
+                              {doc.extracted_data.items!.map((item: ExtractedItem, i: number) => (
                                 <tr key={i} className="hover:bg-gray-50">
                                   <td className="px-3 py-2 text-[#0f172a]">{item.description}</td>
                                   <td className="px-3 py-2 text-right text-[#64748b]">{item.quantity || "—"}</td>

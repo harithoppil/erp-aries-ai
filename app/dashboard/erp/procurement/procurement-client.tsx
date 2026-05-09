@@ -69,18 +69,20 @@ export default function ProcurementClient({ initialSuppliers, initialPurchaseOrd
         }),
       ],
       {
-        create_supplier: (args: Record<string, any>) => {
+        create_supplier: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string | undefined>;
           setDialogOpen(true);
           setForm((prev) => ({
             ...prev,
-            supplier_name: args.supplier_name || prev.supplier_name,
-            supplier_code: args.supplier_code || prev.supplier_code,
+            supplier_name: a.supplier_name || prev.supplier_name,
+            supplier_code: a.supplier_code || prev.supplier_code,
           }));
           toast.info("AI opened and filled the supplier form", { icon: <Wand2 size={14} /> });
         },
-        set_procurement_search: (args: Record<string, any>) => {
-          setSearch(args.term);
-          toast.info(`AI filtered procurement by "${args.term}"`, { icon: <Sparkles size={14} /> });
+        set_procurement_search: (args: Record<string, unknown>) => {
+          const a = args as Record<string, string>;
+          setSearch(a.term);
+          toast.info(`AI filtered procurement by "${a.term}"`, { icon: <Sparkles size={14} /> });
         },
       }
     );
