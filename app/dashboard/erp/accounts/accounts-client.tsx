@@ -146,7 +146,7 @@ export default function AccountsClient({ initialAccounts, initialInvoices }: {
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) {
+    } catch (error: any) {
       toast.error(error.message || "Network error");
     } finally { setSaving(false); }
   };

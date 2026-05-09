@@ -56,7 +56,7 @@ export default function RAGSettingsPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) {
+    } catch (error: any) {
       toast.error(error.message || "Indexing failed");
     } finally {
       setIndexingAll(false);
@@ -76,7 +76,7 @@ export default function RAGSettingsPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) {
+    } catch (error: any) {
       toast.error(error.message || "Indexing failed");
     } finally {
       setIndexingPage(false);
@@ -90,7 +90,7 @@ export default function RAGSettingsPage() {
       const result = await ragSearch(searchQuery, searchMethod);
       if (result.success) setSearchResults(result.results);
       else toast.error(result.error);
-    } catch (error:any) {
+    } catch (error: any) {
       toast.error(error.message || "Search failed");
     } finally {
       setSearching(false);

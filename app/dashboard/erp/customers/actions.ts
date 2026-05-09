@@ -55,7 +55,7 @@ export async function listCustomers(): Promise<
         created_at: c.created_at,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching customers:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch customers' };
   }
@@ -107,7 +107,7 @@ export async function createCustomer(data: {
         created_at: customer.created_at,
       } as ClientSafeCustomer,
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error creating customer:', error?.message);
     return { success: false as const, error: error?.message || 'Failed to create customer' };
   }
@@ -141,7 +141,7 @@ export async function searchCustomers(query: string): Promise<
         created_at: c.created_at,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     return { success: false, error: error?.message };
   }
 }
@@ -171,7 +171,7 @@ export async function validateCustomer(
 
     // Territory and customer_group validations removed — no corresponding Prisma models
     return { success: true, valid: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[customers] validateCustomer failed:', error?.message);
     return { success: false, error: error?.message || 'Customer validation failed' };
   }
@@ -213,7 +213,7 @@ export async function getCustomerOutstanding(
     const totalOutstanding = invoiceOutstanding + orderOutstanding;
 
     return { success: true, outstanding: Math.round(totalOutstanding * 100) / 100 };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[customers] getCustomerOutstanding failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to get customer outstanding' };
   }
@@ -270,7 +270,7 @@ export async function checkCreditLimit(
       creditLimit,
       projectedOutstanding: Math.round(projectedOutstanding * 100) / 100,
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[customers] checkCreditLimit failed:', error?.message);
     return { success: false, error: error?.message || 'Credit limit check failed' };
   }

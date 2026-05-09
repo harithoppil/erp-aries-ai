@@ -1,6 +1,34 @@
 import { prisma } from '@/lib/prisma';
 import CustomerDetailClient from '@/app/dashboard/erp/customers/[id]/customer-detail-client';
 
+interface QuotationSummary {
+  id: string;
+  quotation_number: string;
+  total: number;
+  status: string;
+  valid_until: Date | null;
+  created_at: Date;
+}
+
+interface SalesOrderSummary {
+  id: string;
+  order_number: string;
+  total: number;
+  status: string;
+  created_at: Date;
+}
+
+interface InvoiceSummary {
+  id: string;
+  invoice_number: string;
+  total: number;
+  outstanding_amount: number;
+  status: string;
+  posting_date: Date;
+  due_date: Date | null;
+  created_at: Date;
+}
+
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -42,7 +70,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       tax_id: customer.tax_id || null,
       credit_limit: customer.credit_limit || null,
       status: customer.status === 'Inactive' ? 'Inactive' : 'Active',
-      quotations: quotations.map((q: any) => ({
+      quotations: quotations.map((q: QuotationSummary) => ({
         id: q.id,
         quotation_number: q.quotation_number,
         customer_name: customer.customer_name,
@@ -51,7 +79,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         valid_until: q.valid_until ? q.valid_until.toISOString().slice(0, 10) : null,
         created_at: q.created_at ? q.created_at.toISOString() : new Date().toISOString(),
       })),
-      sales_orders: salesOrders.map((o: any) => ({
+      sales_orders: salesOrders.map((o: SalesOrderSummary) => ({
         id: o.id,
         order_number: o.order_number,
         customer_name: customer.customer_name,
@@ -59,7 +87,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         status: o.status === 'DRAFT' ? 'DRAFT' : 'SUBMITTED',
         created_at: o.created_at ? o.created_at.toISOString() : new Date().toISOString(),
       })),
-      invoices: invoices.map((inv: any) => ({
+      invoices: invoices.map((inv: InvoiceSummary) => ({
         id: inv.id,
         invoice_number: inv.invoice_number,
         customer_name: customer.customer_name,

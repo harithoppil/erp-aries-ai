@@ -56,7 +56,7 @@ export async function GET() {
       expires_at: new Date(cachedToken.expiresAt).toISOString(),
       project_id: projectId,
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[api/ai/token] Failed:", error?.message);
     return NextResponse.json(
       { error: error?.message || "Failed to mint token" },

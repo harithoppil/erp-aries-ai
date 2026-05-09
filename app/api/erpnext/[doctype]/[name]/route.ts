@@ -109,7 +109,7 @@ export async function GET(
     return NextResponse.json({
       data: { ...record, ...children },
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[erpnext/read] Error:", error?.message);
     return NextResponse.json(
       { error: error?.message || "Internal server error" },
@@ -257,7 +257,7 @@ export async function PUT(
     });
 
     return NextResponse.json({ data: result });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[erpnext/update] Error:", error?.message);
 
     if (error?.code === "P2025") {
@@ -365,7 +365,7 @@ export async function DELETE(
       message: `${doctype} "${name}" deleted successfully`,
       deleted_children: childCount,
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[erpnext/delete] Error:", error?.message);
 
     // Foreign-key constraint violation

@@ -195,7 +195,7 @@ export async function POST(
     }));
 
     if (piTaxRows.length > 0) {
-      await tx.purchaseTaxesAndCharges.createMany({ data: piTaxRows as any });
+      await tx.purchaseTaxesAndCharges.createMany({ data: piTaxRows as unknown as Prisma.PurchaseTaxesAndChargesCreateManyInput[] });
     }
 
     return pi;

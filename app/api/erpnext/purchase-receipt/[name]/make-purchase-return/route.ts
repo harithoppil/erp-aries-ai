@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -47,7 +48,6 @@ export async function POST(
   const retName = generateShortCode("PRRET");
 
   // ── Create return Purchase Receipt header + items + taxes atomically ─
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await prisma.$transaction(async (tx) => {
     const ret = await tx.purchaseReceipt.create({
       data: {
@@ -101,7 +101,7 @@ export async function POST(
         owner: "Administrator",
         modified_by: "Administrator",
         status: "Draft",
-      } as any,
+      } as unknown as Prisma.PurchaseReceiptCreateInput,
     });
 
     // ── Create return items with NEGATIVE qty ──────────────────────────
@@ -161,7 +161,7 @@ export async function POST(
     }));
 
     if (retItemRows.length > 0) {
-      await tx.purchaseReceiptItem.createMany({ data: retItemRows as any });
+      await tx.purchaseReceiptItem.createMany({ data: retItemRows as unknown as Prisma.PurchaseReceiptItemCreateManyInput[] });
     }
 
     // ── Copy taxes ──────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ export async function POST(
 
     if (retTaxRows.length > 0) {
       await tx.purchaseTaxesAndCharges.createMany({
-        data: retTaxRows as any,
+        data: retTaxRows as unknown as Prisma.PurchaseTaxesAndChargesCreateManyInput[],
       });
     }
 

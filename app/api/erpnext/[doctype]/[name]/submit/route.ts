@@ -39,7 +39,7 @@ export async function POST(
       stock_entries_count: result.stock_entries_count,
       message: `${doctype} "${name}" submitted successfully`,
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[erpnext/submit] Error:", error?.message);
     return NextResponse.json(
       { error: error?.message || "Internal server error" },

@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -47,7 +48,6 @@ export async function POST(
   const dnName = generateShortCode("DN");
 
   // ── Create Delivery Note header + items + taxes atomically ────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await prisma.$transaction(async (tx) => {
     const dn = await tx.deliveryNote.create({
       data: {
@@ -109,7 +109,7 @@ export async function POST(
         owner: "Administrator",
         modified_by: "Administrator",
         status: "Draft",
-      } as any,
+      } as unknown as Prisma.DeliveryNoteCreateInput,
     });
 
     // ── Create DN items from SO items ─────────────────────────────────
@@ -163,7 +163,7 @@ export async function POST(
     }));
 
     if (dnItemRows.length > 0) {
-      await tx.deliveryNoteItem.createMany({ data: dnItemRows as any });
+      await tx.deliveryNoteItem.createMany({ data: dnItemRows as unknown as Prisma.DeliveryNoteItemCreateManyInput[] });
     }
 
     // ── Copy taxes ────────────────────────────────────────────────────
@@ -198,7 +198,7 @@ export async function POST(
 
     if (dnTaxRows.length > 0) {
       await tx.salesTaxesAndCharges.createMany({
-        data: dnTaxRows as any,
+        data: dnTaxRows as unknown as Prisma.SalesTaxesAndChargesCreateManyInput[],
       });
     }
 

@@ -92,7 +92,7 @@ export async function listCompanies(
         creation: c.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[company] listCompanies failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch companies' };
   }
@@ -138,7 +138,7 @@ export async function getCompany(
         date_of_establishment: company.date_of_establishment,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[company] getCompany failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch company' };
   }
@@ -184,7 +184,7 @@ export async function createCompany(
         creation: company.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[company] createCompany failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create company' };
   }
@@ -214,7 +214,7 @@ export async function updateCompany(
 
     revalidatePath('/dashboard/erp/setup/company');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[company] updateCompany failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update company' };
   }
@@ -233,7 +233,7 @@ export async function deleteCompany(
     await prisma.company.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/setup/company');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[company] deleteCompany failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete company' };
   }

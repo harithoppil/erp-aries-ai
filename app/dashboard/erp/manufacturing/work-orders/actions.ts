@@ -118,7 +118,7 @@ export async function listWorkOrders(
         creation: o.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[work-orders] listWorkOrders failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch work orders' };
   }
@@ -185,7 +185,7 @@ export async function getWorkOrder(
         })),
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[work-orders] getWorkOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch work order' };
   }
@@ -246,7 +246,7 @@ export async function createWorkOrder(
         creation: order.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[work-orders] createWorkOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create work order' };
   }
@@ -262,7 +262,7 @@ export async function submitWorkOrder(id: string): Promise<{ success: true } | {
     await prisma.workOrder.update({ where: { name: id }, data: { docstatus: 1, status: 'Not Started' } });
     revalidatePath('/dashboard/erp/manufacturing/work-orders');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     return { success: false, error: error?.message || 'Failed to submit' };
   }
 }
@@ -275,7 +275,7 @@ export async function cancelWorkOrder(id: string): Promise<{ success: true } | {
     await prisma.workOrder.update({ where: { name: id }, data: { docstatus: 2, status: 'Cancelled' } });
     revalidatePath('/dashboard/erp/manufacturing/work-orders');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     return { success: false, error: error?.message || 'Failed to cancel' };
   }
 }

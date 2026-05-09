@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -44,7 +45,6 @@ export async function POST(
   const scrName = generateShortCode("SCR");
 
   // ── Create Subcontracting Receipt header + items atomically ─────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await prisma.$transaction(async (tx) => {
     const scr = await tx.subcontractingReceipt.create({
       data: {
@@ -76,7 +76,7 @@ export async function POST(
         owner: "Administrator",
         modified_by: "Administrator",
         status: "Draft",
-      } as any,
+      } as unknown as Prisma.SubcontractingReceiptCreateInput,
     });
 
     // ── Create SCR items from SCO items ─────────────────────────────────
@@ -109,7 +109,7 @@ export async function POST(
 
     if (scrItemRows.length > 0) {
       await tx.subcontractingReceiptItem.createMany({
-        data: scrItemRows as any,
+        data: scrItemRows as unknown as Prisma.SubcontractingReceiptItemCreateManyInput[],
       });
     }
 

@@ -35,7 +35,7 @@ export async function POST(
       data: result.data,
       message: `${doctype} "${name}" cancelled successfully`,
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[erpnext/cancel] Error:", error?.message);
     return NextResponse.json(
       { error: error?.message || "Internal server error" },

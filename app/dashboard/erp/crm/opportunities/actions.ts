@@ -104,7 +104,7 @@ export async function listOpportunities(
         creation: o.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[opportunities] listOpportunities failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch opportunities' };
   }
@@ -163,7 +163,7 @@ export async function getOpportunity(
         opportunity_owner: opp.opportunity_owner,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[opportunities] getOpportunity failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch opportunity' };
   }
@@ -236,7 +236,7 @@ export async function createOpportunity(
         creation: opp.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[opportunities] createOpportunity failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create opportunity' };
   }
@@ -259,7 +259,7 @@ export async function updateOpportunityStatus(
     });
     revalidatePath('/dashboard/erp/crm/opportunities');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     return { success: false, error: error?.message || 'Failed to update status' };
   }
 }

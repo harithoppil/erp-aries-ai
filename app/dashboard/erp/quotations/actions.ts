@@ -71,7 +71,7 @@ export async function listQuotations(): Promise<
         notes: q.notes || null,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching quotations:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch quotations' };
   }
@@ -140,7 +140,7 @@ export async function createQuotation(data: {
         notes: data.notes || null,
       } as ClientSafeQuotation,
     };
-  } catch (error:any) {
+  } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create quotation' };
   }
 }
@@ -202,9 +202,9 @@ export async function validateQuotation(
         return { success: false, error: 'Validity period of this quotation has ended' };
       }
     }
-error:any
+
     return { success: true, valid: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[quotations] validateQuotation failed:', error?.message);
     return { success: false, error: error?.message || 'Quotation validation failed' };
   }
@@ -262,9 +262,9 @@ export async function makeSalesOrder(
     });
 
     revalidatePath('/erp/sales-orders');
-    revaliderrorany/erp/quotations');
+    revalidatePath('/erp/quotations');
     return { success: true, salesOrder: { name: so.order_number } };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[quotations] makeSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create Sales Order from Quotation' };
   }
@@ -317,9 +317,9 @@ export async function getQuotationMargin(
       total: Math.round(total * 100) / 100,
       cost: Math.round(cost * 100) / 100,
       margin: Math.round(margin * 100) / 100,
-      margierrorany
+      marginPercent: Math.round(marginPercent * 100) / 100,
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[quotations] getQuotationMargin failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to calculate quotation margin' };
   }

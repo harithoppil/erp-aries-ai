@@ -192,7 +192,7 @@ export default function NotebookEditorPage() {
           setAiResponse(accumulated || "No response received");
         }
       }
-    } catch (error:any) {
+    } catch (error: any) {
       console.error("[notebook] AI assist failed:", error);
       toast.error(error.message || "AI request failed — check network connection");
     } finally {

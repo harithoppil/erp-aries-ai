@@ -92,8 +92,8 @@ export async function listSalesOrders(params?: {
         notes: o.notes || null,
         created_at: o.created_at || new Date(),
       })),
-    };error:any
-  } catch (errorany) {
+    };
+  } catch (error: any) {
     console.error('Error fetching sales orders:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch sales orders' };
   }
@@ -165,8 +165,8 @@ export async function createSalesOrder(data: {
         notes: data.notes || null,
         created_at: new Date(),
       } as ClientSafeSalesOrder,
-    };error:any
-  } catch (errorany) {
+    };
+  } catch (error: any) {
     console.error('Error creating sales order:', error?.message);
     return { success: false as const, error: error?.message || 'Failed to create sales order' };
   }
@@ -188,8 +188,8 @@ export async function updateSalesOrderStatus(id: string, status: string) {
       });
     }
     revalidatePath('/erp/sales-orders');
-    return error:anys: true };
-  } catch (errorany) {
+    return { success: true };
+  } catch (error: any) {
     console.error('[sales-orders] updateSalesOrderStatus failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update sales order status' };
   }
@@ -211,8 +211,8 @@ export async function updateSalesOrder(
       },
     });
     revalidatePath('/erp/sales-orders');
-    return error:anys: true };
-  } catch (errorany) {
+    return { success: true };
+  } catch (error: any) {
     console.error('[sales-orders] updateSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update sales order' };
   }
@@ -225,8 +225,8 @@ export async function deleteSalesOrder(id: string) {
       data: { status: 'CANCELLED' },
     });
     revalidatePath('/erp/sales-orders');
-    return error:anys: true };
-  } catch (errorany) {
+    return { success: true };
+  } catch (error: any) {
     console.error('[sales-orders] deleteSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete sales order' };
   }
@@ -325,8 +325,8 @@ export async function validateSalesOrder(
       }
     }
 
-    return error:anys: true, valid: true };
-  } catch (errorany) {
+    return { success: true, valid: true };
+  } catch (error: any) {
     console.error('[sales-orders] validateSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Validation failed' };
   }
@@ -370,8 +370,8 @@ export async function getSalesOrderStatus(
       billingStatus: 'Not Billed',
       perDelivered: 0,
       perBilled: 0,
-    };error:any
-  } catch (errorany) {
+    };
+  } catch (error: any) {
     console.error('[sales-orders] getSalesOrderStatus failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to get sales order status' };
   }

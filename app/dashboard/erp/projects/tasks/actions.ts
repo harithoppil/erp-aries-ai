@@ -88,7 +88,7 @@ export async function listTasks(
         creation: t.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[tasks] listTasks failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch tasks' };
   }
@@ -128,7 +128,7 @@ export async function getTask(
         company: t.company,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[tasks] getTask failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch task' };
   }
@@ -177,7 +177,7 @@ export async function createTask(
         creation: t.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[tasks] createTask failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create task' };
   }
@@ -210,7 +210,7 @@ export async function updateTask(
 
     revalidatePath('/dashboard/erp/projects/tasks');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[tasks] updateTask failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update task' };
   }
@@ -229,7 +229,7 @@ export async function deleteTask(
     await prisma.task.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/projects/tasks');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[tasks] deleteTask failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete task' };
   }

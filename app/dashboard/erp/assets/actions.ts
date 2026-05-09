@@ -60,7 +60,7 @@ export async function listAssets(): Promise<
         updated_at: a.updated_at,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching assets:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch assets' };
   }
@@ -119,7 +119,7 @@ export async function createAsset(data: {
         updated_at: asset.updated_at,
       } as ClientSafeAsset,
     };
-  } catch (error:any) {
+  } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create asset' };
   }
 }
@@ -161,7 +161,7 @@ export async function listCalibrationDue(): Promise<
         updated_at: a.updated_at,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching calibration due:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch calibration alerts' };
   }

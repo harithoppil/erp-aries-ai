@@ -85,7 +85,7 @@ export async function listBankAccounts(
         creation: ba.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[bank-accounts] listBankAccounts failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch bank accounts' };
   }
@@ -123,7 +123,7 @@ export async function getBankAccount(
         integration_id: ba.integration_id,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[bank-accounts] getBankAccount failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch bank account' };
   }
@@ -170,7 +170,7 @@ export async function createBankAccount(
         creation: ba.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[bank-accounts] createBankAccount failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create bank account' };
   }
@@ -188,7 +188,7 @@ export async function deleteBankAccount(
     await prisma.bankAccount.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/accounts/bank-accounts');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[bank-accounts] deleteBankAccount failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete bank account' };
   }

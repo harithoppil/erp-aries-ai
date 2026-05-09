@@ -1,6 +1,16 @@
 import { prisma } from '@/lib/prisma';
 import PersonnelDetailClient from '@/app/dashboard/erp/hr/[id]/personnel-detail-client';
 
+interface CertificationSummary {
+  id: string;
+  cert_type: string | null;
+  cert_number: string | null;
+  issuing_body: string | null;
+  issue_date: Date | null;
+  expiry_date: Date | null;
+  status: string;
+}
+
 export default async function PersonnelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -21,7 +31,7 @@ export default async function PersonnelDetailPage({ params }: { params: Promise<
       department: employee.department || null,
       status: employee.status || 'Active',
       date_of_joining: null,
-      certifications: certifications.map((c: any) => ({
+      certifications: certifications.map((c: CertificationSummary) => ({
         id: c.id,
         personnel_id: id,
         cert_type: c.cert_type || 'Certification',

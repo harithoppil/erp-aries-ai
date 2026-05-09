@@ -77,7 +77,7 @@ export async function listProjects(): Promise<
         day_rate: p.day_rate || null,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching projects:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch projects' };
   }
@@ -141,7 +141,7 @@ export async function createProject(data: {
         day_rate: data.day_rate || null,
       } as ClientSafeProject,
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error creating project:', error?.message);
     return { success: false as const, error: error?.message || 'Failed to create project' };
   }
@@ -172,7 +172,7 @@ export async function listTasks(projectId?: string): Promise<
         description: t.description || null,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching tasks:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch tasks' };
   }
@@ -201,7 +201,7 @@ export async function listTimesheets(_projectId?: string): Promise<
         status: 'Draft',
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching timesheets:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch timesheets' };
   }
@@ -246,7 +246,7 @@ export async function createTask(data: {
         description: data.description || null,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error creating task:', error?.message);
     return { success: false, error: error?.message || 'Failed to create task' };
   }

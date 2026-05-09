@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -84,7 +85,7 @@ export async function POST(
         modified: new Date(),
         owner: "Administrator",
         modified_by: "Administrator",
-      } as any,
+      } as unknown as Prisma.StockEntryCreateInput,
     });
 
     // ── Create Stock Entry Detail items ───────────────────────────────
@@ -137,7 +138,7 @@ export async function POST(
       };
 
       await tx.stockEntryDetail.createMany({
-        data: [...rawItemRows, fgRow] as any,
+        data: [...rawItemRows, fgRow] as unknown as Prisma.StockEntryDetailCreateManyInput[],
       });
     } else {
       // Material Transfer for Manufacture: all items from source → WIP
@@ -165,7 +166,7 @@ export async function POST(
       }));
 
       if (transferItemRows.length > 0) {
-        await tx.stockEntryDetail.createMany({ data: transferItemRows as any });
+        await tx.stockEntryDetail.createMany({ data: transferItemRows as unknown as Prisma.StockEntryDetailCreateManyInput[] });
       }
     }
 

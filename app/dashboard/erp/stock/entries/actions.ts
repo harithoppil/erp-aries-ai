@@ -101,7 +101,7 @@ export async function listStockEntries(
         creation: e.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock-entries] listStockEntries failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch stock entries' };
   }
@@ -152,7 +152,7 @@ export async function getStockEntry(
         })),
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock-entries] getStockEntry failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch stock entry' };
   }
@@ -228,7 +228,7 @@ export async function createStockEntry(
         creation: entry.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock-entries] createStockEntry failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create stock entry' };
   }
@@ -237,13 +237,15 @@ export async function createStockEntry(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitStockEntry(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Stock Entry", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Stock Entry", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/stock/entries');
   return result;
 }
 
 export async function cancelStockEntry(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Stock Entry", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Stock Entry", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/stock/entries');
   return result;
 }

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { PurchaseReceiptItemRow } from '@/lib/erpnext/types';
@@ -93,7 +94,7 @@ export async function listPurchaseReceipts(
         creation: r.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[purchase-receipts] listPurchaseReceipts failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase receipts' };
   }
@@ -143,7 +144,7 @@ export async function getPurchaseReceipt(
         })),
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[purchase-receipts] getPurchaseReceipt failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase receipt' };
   }
@@ -224,7 +225,7 @@ export async function createPurchaseReceipt(
         creation: receipt.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[purchase-receipts] createPurchaseReceipt failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create purchase receipt' };
   }
@@ -233,13 +234,15 @@ export async function createPurchaseReceipt(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitPurchaseReceipt(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Purchase Receipt", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Purchase Receipt", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/stock/purchase-receipts');
   return result;
 }
 
 export async function cancelPurchaseReceipt(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Purchase Receipt", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Purchase Receipt", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/stock/purchase-receipts');
   return result;
 }

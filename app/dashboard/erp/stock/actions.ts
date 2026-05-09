@@ -298,7 +298,7 @@ export async function validateItem(
     if (count > 0) {
       return { success: false, error: `Item Code ${data.item_code} already exists` };
     }
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] validateItem count failed:', error?.message);
     // If count fails, we continue; insert will catch duplicates anyway
   }
@@ -444,7 +444,7 @@ export async function getStockBalance(
       actual_qty: bin.quantity || 0,
       projected_qty: bin.quantity || 0, // Simplified; full projected qty requires ordered/reserved quantities
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] getStockBalance failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch stock balance' };
   }
@@ -477,7 +477,7 @@ export async function getItemValuationRate(
     }
 
     return { success: true, valuation_rate: bin.valuation_rate || 0 };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] getItemValuationRate failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch valuation rate' };
   }
@@ -557,7 +557,7 @@ export async function updateBin(
         stock_value: newBin.stock_value,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] updateBin failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update bin' };
   }
@@ -590,7 +590,7 @@ export async function checkNegativeStock(
     }
 
     return { success: true, allowed: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] checkNegativeStock failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to check negative stock' };
   }
@@ -677,7 +677,7 @@ export async function makeStockTransfer(
         created_at: entry.created_at,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] makeStockTransfer failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create stock transfer' };
   }
@@ -714,7 +714,7 @@ export async function getWarehouseTree(): Promise<WarehouseTreeResult> {
     }
 
     return { success: true, tree: roots };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] getWarehouseTree failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch warehouse tree' };
   }
@@ -734,7 +734,7 @@ export async function listItems(): Promise<ItemListResult> {
       success: true,
       items: items.map(toClientItem),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching items:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch items' };
   }
@@ -790,7 +790,7 @@ export async function createItem(
         created_at: item.created_at,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     if (error?.message?.includes('Duplicate')) {
       return { success: false, error: 'Item code already exists' };
     }
@@ -817,7 +817,7 @@ export async function updateItem(
     });
     revalidatePath('/erp/stock');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] updateItem failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update item' };
   }
@@ -830,7 +830,7 @@ export async function deleteItem(
     await prisma.items.delete({ where: { id } });
     revalidatePath('/erp/stock');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] deleteItem failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete item' };
   }
@@ -854,7 +854,7 @@ export async function listWarehouses(): Promise<WarehouseListResult> {
         is_group: w.is_group,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     return { success: false, error: error?.message || 'Failed to fetch warehouses' };
   }
 }
@@ -886,7 +886,7 @@ export async function listStockEntries(): Promise<StockEntryListResult> {
         };
       }),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching stock entries:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch stock entries' };
   }
@@ -942,7 +942,7 @@ export async function createStockEntry(
         created_at: entry.created_at,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[stock] createStockEntry failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create stock entry' };
   }
@@ -961,7 +961,7 @@ export async function listBins(): Promise<BinListResult> {
       success: true,
       bins: bins.map(toClientBin),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching bins:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch stock levels' };
   }

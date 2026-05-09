@@ -63,7 +63,7 @@ export default function AIChatPage() {
         } else {
           toast.error(result.error);
         }
-      } catch (error:any) {
+      } catch (error: any) {
         console.error("Failed to load personas:", error);
         toast.error(error.message || "Failed to load AI personas");
       } finally {

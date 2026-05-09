@@ -1,6 +1,16 @@
 import { prisma } from '@/lib/prisma';
 import PODetailClient from '@/app/dashboard/erp/procurement/[id]/po-detail-client';
 
+interface POItemSummary {
+  id: string;
+  po_id: string;
+  item_code: string | null;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}
+
 export default async function PODetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -35,7 +45,7 @@ export default async function PODetailPage({ params }: { params: Promise<{ id: s
       created_at: purchaseOrder.created_at
         ? purchaseOrder.created_at.toISOString()
         : new Date().toISOString(),
-      po_items: items.map((item: any) => ({
+      po_items: items.map((item: POItemSummary) => ({
         id: item.id,
         po_id: item.po_id,
         item_code: item.item_code || '',

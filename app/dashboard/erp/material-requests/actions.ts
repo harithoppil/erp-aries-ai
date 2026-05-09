@@ -35,7 +35,7 @@ export async function listMaterialRequests(): Promise<
         created_at: r.created_at,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching material requests:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch material requests' };
   }
@@ -75,7 +75,7 @@ export async function createMaterialRequest(data: {
         created_at: record.created_at,
       } as ClientSafeMaterialRequest,
     };
-  } catch (error:any) {
+  } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create material request' };
   }
 }

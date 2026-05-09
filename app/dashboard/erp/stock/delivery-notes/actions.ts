@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
@@ -98,7 +99,7 @@ export async function listDeliveryNotes(
         creation: n.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[delivery-notes] listDeliveryNotes failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch delivery notes' };
   }
@@ -151,7 +152,7 @@ export async function getDeliveryNote(
         })),
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[delivery-notes] getDeliveryNote failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch delivery note' };
   }
@@ -237,7 +238,7 @@ export async function createDeliveryNote(
         creation: note.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[delivery-notes] createDeliveryNote failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create delivery note' };
   }
@@ -248,7 +249,8 @@ export async function createDeliveryNote(
 export async function submitDeliveryNote(
   id: string
 ): Promise<SubmitResult> {
-  const result = await submitDocument("Delivery Note", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Delivery Note", id, { token });
   if (result.success) {
     revalidatePath('/dashboard/erp/stock/delivery-notes');
     revalidatePath(`/dashboard/erp/stock/delivery-notes/${id}`);
@@ -259,7 +261,8 @@ export async function submitDeliveryNote(
 export async function cancelDeliveryNote(
   id: string
 ): Promise<CancelResult> {
-  const result = await cancelDocument("Delivery Note", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Delivery Note", id, { token });
   if (result.success) {
     revalidatePath('/dashboard/erp/stock/delivery-notes');
     revalidatePath(`/dashboard/erp/stock/delivery-notes/${id}`);

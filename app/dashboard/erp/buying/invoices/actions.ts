@@ -113,7 +113,7 @@ export async function listPurchaseInvoices(
         bill_no: i.bill_no,
         creation: i.creation,
       })),
-    };error:any
+    };
   } catch (error: any) {
     console.error('[purchase-invoices] listPurchaseInvoices failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase invoices' };
@@ -172,7 +172,7 @@ export async function getPurchaseInvoice(
         remarks: invoice.remarks,
         tax_id: invoice.tax_id,
       },
-    };error:any
+    };
   } catch (error: any) {
     console.error('[purchase-invoices] getPurchaseInvoice failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase invoice' };
@@ -272,7 +272,7 @@ export async function createPurchaseInvoice(
         bill_no: invoice.bill_no,
         creation: invoice.creation,
       },
-    };error:any
+    };
   } catch (error: any) {
     console.error('[purchase-invoices] createPurchaseInvoice failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create purchase invoice' };

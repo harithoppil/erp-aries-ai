@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       title: result.title,
       filename: file.name,
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[MarkItDown] Conversion failed:", error?.message || error);
 
     const status = error?.name === "UnsupportedFormatError" ? 415 : 500;

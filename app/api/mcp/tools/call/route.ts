@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const gateway = getMCPGateway();
     const result = await gateway.callTool(tool_name, kwargs || {});
     return NextResponse.json({ result });
-  } catch (error:any) {
+  } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Tool call failed' },
       { status: 500 }

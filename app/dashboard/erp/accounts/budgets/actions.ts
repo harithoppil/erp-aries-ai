@@ -93,7 +93,7 @@ export async function listBudgets(
         creation: b.creation,
       })),
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[budgets] listBudgets failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch budgets' };
   }
@@ -134,7 +134,7 @@ export async function getBudget(
         budget_end_date: b.budget_end_date,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[budgets] getBudget failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch budget' };
   }
@@ -186,7 +186,7 @@ export async function createBudget(
         creation: b.creation,
       },
     };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[budgets] createBudget failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create budget' };
   }
@@ -221,7 +221,7 @@ export async function deleteBudget(
     await prisma.budget.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/accounts/budgets');
     return { success: true };
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('[budgets] deleteBudget failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete budget' };
   }

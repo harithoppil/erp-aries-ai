@@ -163,7 +163,7 @@ function WorkflowCard({
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) {
+    } catch (error: any) {
       toast.error(error.message || "Failed to load executions");
     } finally {
       setLoadingExec(false);
@@ -298,7 +298,7 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
       } else {
         setError(result.error);
       }
-    } catch (error:any) {
+    } catch (error: any) {
       setError(error.message || "Failed to refresh workflows");
     }
   }, []);
@@ -321,7 +321,7 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) {
+    } catch (error: any) {
       toast.error(error.message || "Failed to create workflow");
     } finally {
       setCreating(false);
@@ -338,7 +338,7 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) {
+    } catch (error: any) {
       toast.error(error.message || "Failed to execute workflow");
     } finally {
       setExecuting(null);

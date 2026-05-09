@@ -112,8 +112,8 @@ function inferFieldMeta(
       ? {
           relation: {
             model: field.type,
-            fromFields: field.relationFromFields,
-            toFields: field.relationToFields,
+            fromFields: [...(field.relationFromFields ?? [])],
+            toFields: [...(field.relationToFields ?? [])],
           },
         }
       : {}),
@@ -121,8 +121,8 @@ function inferFieldMeta(
       ? {
           relation: {
             model: field.type,
-            fromFields: field.relationFromFields ?? [],
-            toFields: field.relationToFields ?? [],
+            fromFields: [...(field.relationFromFields ?? [])],
+            toFields: [...(field.relationToFields ?? [])],
           },
         }
       : {}),
@@ -202,7 +202,7 @@ export async function GET(
     // ── Identify unique constraints ────────────────────────────────────────
     const uniqueFields = dmmfModel.uniqueFields || [];
     const uniqueIndexes = (dmmfModel.uniqueIndexes || []).map(
-      (idx: { fields: string[] }) => idx.fields,
+      (idx: { fields: readonly string[] }) => [...idx.fields],
     );
 
     return NextResponse.json({
@@ -224,7 +224,7 @@ export async function GET(
         fields.some((f) => f.fieldname === "parenttype"),
       field_count: fields.length,
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[erpnext/schema] Error:", error?.message);
     return NextResponse.json(
       { error: error?.message || "Internal server error" },

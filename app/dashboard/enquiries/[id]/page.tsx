@@ -30,7 +30,7 @@ export default function EnquiryDetailPage() {
       const result = await getEnquiry(id as string);
       if (result.success) setEnquiry(result.enquiry);
       else setError(result.error);
-    } catch (error:any) {
+    } catch (error: any) {
       setError(error.message);
     } finally {
       setLoading(false);
@@ -67,7 +67,7 @@ export default function EnquiryDetailPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) { toast.error(error.message); } finally { setActing(false); }
+    } catch (error: any) { toast.error(error.message); } finally { setActing(false); }
   };
 
   const handleApprove = async () => {
@@ -76,7 +76,7 @@ export default function EnquiryDetailPage() {
       const result = await approveEnquiry(id as string, "Current User");
       if (result.success) await reload();
       else toast.error(result.error);
-    } catch (error:any) { toast.error(error.message); } finally { setActing(false); }
+    } catch (error: any) { toast.error(error.message); } finally { setActing(false); }
   };
 
   const handleExecute = async () => {
@@ -89,7 +89,7 @@ export default function EnquiryDetailPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) { toast.error(error.message); } finally { setActing(false); }
+    } catch (error: any) { toast.error(error.message); } finally { setActing(false); }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,7 +106,7 @@ export default function EnquiryDetailPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error:any) { toast.error("Upload failed: " + error.message); } finally { setActing(false); }
+    } catch (error: any) { toast.error("Upload failed: " + error.message); } finally { setActing(false); }
   };
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading...</div>;

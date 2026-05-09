@@ -1,6 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import AssetDetailClient from '@/app/dashboard/erp/assets/[id]/asset-detail-client';
 
+interface MaintenanceRecord {
+  name: string;
+  maintenance_type?: string | null;
+  completion_date?: string | null;
+  maintenance_status?: string | null;
+}
+
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -9,7 +16,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
 
     if (!asset) throw new Error('Asset not found');
 
-    const maintenance: any[] = [];
+    const maintenance: MaintenanceRecord[] = [];
 
     const record = {
       ...asset,
@@ -34,7 +41,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       warehouses: null,
       personnel: null,
       projects: null,
-      maintenance_records: maintenance.map((m: any) => ({
+      maintenance_records: maintenance.map((m: MaintenanceRecord) => ({
         id: m.name,
         asset_id: id,
         maintenance_type: m.maintenance_type || 'General',

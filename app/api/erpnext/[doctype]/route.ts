@@ -222,7 +222,7 @@ export async function GET(
       limit,
       offset,
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[erpnext/list] Error:", error?.message);
     return NextResponse.json(
       { error: error?.message || "Internal server error" },
@@ -351,7 +351,7 @@ export async function POST(
     });
 
     return NextResponse.json({ data: result }, { status: 201 });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("[erpnext/create] Error:", error?.message);
 
     // Prisma unique constraint violation
