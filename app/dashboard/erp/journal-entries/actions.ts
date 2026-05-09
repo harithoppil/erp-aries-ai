@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import { revalidatePath } from 'next/cache';
 import type { journalentrytype } from '@/prisma/client';
 
@@ -120,14 +120,14 @@ export async function createJournalEntry(data: {
 // ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
-export async function submitJournalEntry(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function submitJournalEntry(id: string): Promise<SubmitResult> {
   const result = await submitDocument("Journal Entry", id);
   if (result.success) revalidatePath('/dashboard/erp/journal-entries');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
-export async function cancelJournalEntry(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function cancelJournalEntry(id: string): Promise<CancelResult> {
   const result = await cancelDocument("Journal Entry", id);
   if (result.success) revalidatePath('/dashboard/erp/journal-entries');
   return result;

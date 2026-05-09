@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -147,14 +147,14 @@ export async function createQuotation(data: {
 // ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
-export async function submitQuotation(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function submitQuotation(id: string): Promise<SubmitResult> {
   const result = await submitDocument("Quotation", id);
   if (result.success) revalidatePath('/dashboard/erp/quotations');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
-export async function cancelQuotation(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function cancelQuotation(id: string): Promise<CancelResult> {
   const result = await cancelDocument("Quotation", id);
   if (result.success) revalidatePath('/dashboard/erp/quotations');
   return result;

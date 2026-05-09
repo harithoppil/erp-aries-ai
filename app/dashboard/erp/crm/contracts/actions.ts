@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -183,13 +183,13 @@ export async function createContract(
 
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
-export async function submitContract(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function submitContract(id: string): Promise<SubmitResult> {
   const result = await submitDocument("Contract", id);
   if (result.success) revalidatePath('/dashboard/erp/crm/contracts');
   return result;
 }
 
-export async function cancelContract(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function cancelContract(id: string): Promise<CancelResult> {
   const result = await cancelDocument("Contract", id);
   if (result.success) revalidatePath('/dashboard/erp/crm/contracts');
   return result;

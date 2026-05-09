@@ -764,7 +764,7 @@ export function makeGlEntries(doc: PurchaseInvoice): GLEntry[] {
     if (doc.is_internal_supplier) continue;
 
     const expenseAccount = item.enable_deferred_expense && !doc.is_return
-      ? item.deferred_expense_account ?? item.expense_account
+      ? item.deferred_expense_account ?? item.expense_account ?? "Purchase"
       : item.expense_account ?? "Purchase";
 
     const baseAmount = flt(item.base_net_amount ?? 0);

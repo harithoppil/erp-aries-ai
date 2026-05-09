@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { PurchaseInvoiceItemRow } from '@/lib/erpnext/types';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
@@ -280,13 +280,13 @@ export async function createPurchaseInvoice(
 
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
-export async function submitPurchaseInvoice(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function submitPurchaseInvoice(id: string): Promise<SubmitResult> {
   const result = await submitDocument("Purchase Invoice", id);
   if (result.success) revalidatePath('/dashboard/erp/buying/invoices');
   return result;
 }
 
-export async function cancelPurchaseInvoice(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function cancelPurchaseInvoice(id: string): Promise<CancelResult> {
   const result = await cancelDocument("Purchase Invoice", id);
   if (result.success) revalidatePath('/dashboard/erp/buying/invoices');
   return result;

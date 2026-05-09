@@ -58,7 +58,7 @@ export function toAccessor(doctype: string): string {
 /** Safely resolve a Prisma model delegate from a DocType name. */
 export function getDelegate(prisma: PrismaClient, doctype: string): PrismaDelegate | null {
   const accessor = toAccessor(doctype);
-  const delegate = (prisma as Record<string, unknown>)[accessor];
+  const delegate = (prisma as unknown as Record<string, unknown>)[accessor];
   if (!delegate || typeof delegate !== "object" || !("findMany" in (delegate as object))) return null;
   return delegate as PrismaDelegate;
 }
@@ -76,7 +76,7 @@ export function getDelegateByAccessor(
   client: PrismaClient | Record<string, unknown>,
   accessor: string,
 ): PrismaDelegate | null {
-  const delegate = (client as Record<string, unknown>)[accessor];
+  const delegate = (client as unknown as Record<string, unknown>)[accessor];
   if (!delegate || typeof delegate !== "object" || !("findMany" in (delegate as object))) return null;
   return delegate as PrismaDelegate;
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { PurchaseReceiptItemRow } from '@/lib/erpnext/types';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
@@ -232,13 +232,13 @@ export async function createPurchaseReceipt(
 
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
-export async function submitPurchaseReceipt(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function submitPurchaseReceipt(id: string): Promise<SubmitResult> {
   const result = await submitDocument("Purchase Receipt", id);
   if (result.success) revalidatePath('/dashboard/erp/stock/purchase-receipts');
   return result;
 }
 
-export async function cancelPurchaseReceipt(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function cancelPurchaseReceipt(id: string): Promise<CancelResult> {
   const result = await cancelDocument("Purchase Receipt", id);
   if (result.success) revalidatePath('/dashboard/erp/stock/purchase-receipts');
   return result;

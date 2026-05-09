@@ -34,7 +34,7 @@ function getModel(doctype: string): { model: PrismaDelegate; accessor: string } 
  */
 function findChildAccessors(doctype: string): string[] {
   const results: string[] = [];
-  const dmmfModels = Prisma.dmmf.datamodel.models as DmmfModel[];
+  const dmmfModels = Prisma.dmmf.datamodel.models as unknown as DmmfModel[];
 
   for (const m of dmmfModels) {
     // Has parenttype field → is a child table
@@ -240,7 +240,7 @@ export async function PUT(
 
           // Re-insert with updated data
           if (rows.length > 0) {
-            const childRows = rows.map((row: Record<string, unknown>, i: number) => ({
+            const childRows = (rows as Record<string, unknown>[]).map((row, i) => ({
               ...row,
               parent: name,
               parentfield: field,
@@ -323,7 +323,7 @@ export async function DELETE(
     // Also check for common link-back references.
     // Many doctypes have an `amended_from` or reference field that points
     // to other documents — we check if *other* documents reference this one.
-    const dmmfModel = (Prisma.dmmf.datamodel.models as DmmfModel[]).find(
+    const dmmfModel = (Prisma.dmmf.datamodel.models as unknown as DmmfModel[]).find(
       (m) => m.name === doctype,
     );
 

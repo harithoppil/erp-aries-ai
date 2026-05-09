@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -247,7 +247,7 @@ export async function createDeliveryNote(
 
 export async function submitDeliveryNote(
   id: string
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<SubmitResult> {
   const result = await submitDocument("Delivery Note", id);
   if (result.success) {
     revalidatePath('/dashboard/erp/stock/delivery-notes');
@@ -258,7 +258,7 @@ export async function submitDeliveryNote(
 
 export async function cancelDeliveryNote(
   id: string
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<CancelResult> {
   const result = await cancelDocument("Delivery Note", id);
   if (result.success) {
     revalidatePath('/dashboard/erp/stock/delivery-notes');

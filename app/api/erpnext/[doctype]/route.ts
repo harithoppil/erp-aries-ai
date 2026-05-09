@@ -46,7 +46,7 @@ function getModel(doctype: string): { model: PrismaDelegate; accessor: string } 
  */
 function findChildAccessors(doctype: string): string[] {
   const results: string[] = [];
-  const dmmfModels = Prisma.dmmf.datamodel.models as DmmfModel[];
+  const dmmfModels = Prisma.dmmf.datamodel.models as unknown as DmmfModel[];
 
   for (const m of dmmfModels) {
     const hasParentType = m.fields.some((f: DmmfField) => f.name === "parenttype");
@@ -334,13 +334,13 @@ export async function POST(
 
         if (childAccessor) {
           const childModel = (tx as Record<string, unknown>)[childAccessor] as PrismaDelegate;
-          const childRows = rows.map((row: Record<string, unknown>, i: number) => ({
+          const childRows = (rows as Record<string, unknown>[]).map((row, i) => ({
             ...row,
             parent: body.name,
             parentfield: field,
             parenttype: doctype,
-            idx: (row as Record<string, unknown>).idx ?? i + 1,
-            docstatus: (row as Record<string, unknown>).docstatus ?? 0,
+            idx: row.idx ?? i + 1,
+            docstatus: row.docstatus ?? 0,
           }));
           await childModel.createMany({ data: childRows });
         }

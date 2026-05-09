@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -216,14 +216,14 @@ export async function createSupplier(data: {
 // ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
-export async function submitPurchaseOrder(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function submitPurchaseOrder(id: string): Promise<SubmitResult> {
   const result = await submitDocument("Purchase Order", id);
   if (result.success) revalidatePath('/dashboard/erp/procurement');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
-export async function cancelPurchaseOrder(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function cancelPurchaseOrder(id: string): Promise<CancelResult> {
   const result = await cancelDocument("Purchase Order", id);
   if (result.success) revalidatePath('/dashboard/erp/procurement');
   return result;

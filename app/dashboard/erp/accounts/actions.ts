@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import { Prisma, salesinvoicestatus } from '@/prisma/client';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -560,14 +560,14 @@ export async function deleteInvoice(id: string): Promise<{ success: true } | { s
 // ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
-export async function submitInvoice(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function submitInvoice(id: string): Promise<SubmitResult> {
   const result = await submitDocument("Sales Invoice", id);
   if (result.success) revalidatePath('/dashboard/erp/accounts');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
-export async function cancelInvoice(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function cancelInvoice(id: string): Promise<CancelResult> {
   const result = await cancelDocument("Sales Invoice", id);
   if (result.success) revalidatePath('/dashboard/erp/accounts');
   return result;

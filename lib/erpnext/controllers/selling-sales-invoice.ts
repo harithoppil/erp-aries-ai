@@ -670,7 +670,7 @@ export function makeGlEntries(doc: SalesInvoice): GLEntry[] {
     if (doc.is_internal_customer) continue;
 
     const incomeAccount = item.enable_deferred_revenue && !doc.is_return
-      ? item.deferred_revenue_account ?? item.income_account
+      ? item.deferred_revenue_account ?? item.income_account ?? "Sales"
       : item.income_account ?? "Sales";
 
     const baseAmount = flt(item.base_net_amount ?? 0);

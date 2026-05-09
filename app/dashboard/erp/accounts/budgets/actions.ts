@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument } from '@/lib/erpnext/document-orchestrator';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -193,13 +193,13 @@ export async function createBudget(
 
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
-export async function submitBudget(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function submitBudget(id: string): Promise<SubmitResult> {
   const result = await submitDocument("Budget", id);
   if (result.success) revalidatePath('/dashboard/erp/accounts/budgets');
   return result;
 }
 
-export async function cancelBudget(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function cancelBudget(id: string): Promise<CancelResult> {
   const result = await cancelDocument("Budget", id);
   if (result.success) revalidatePath('/dashboard/erp/accounts/budgets');
   return result;
