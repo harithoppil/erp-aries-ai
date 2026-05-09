@@ -1,51 +1,74 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { $Enums } from '@/prisma/client';
-import { randomUUID } from 'crypto';
-import type { items, warehouses, bins } from '@/prisma/client';
+import { requirePermission } from '@/lib/erpnext/rbac';
 
-// ── Internal helpers ────────────────────────────────────────────────────────
+// ── Dashboard aggregated data ────────────────────────────────────────────────
 
-function toItemGroup(value: string): $Enums.itemgroup {
-  const map: Record<string, $Enums.itemgroup> = {
-    CONSUMABLE: 'CONSUMABLE',
-    EQUIPMENT: 'EQUIPMENT',
-    SERVICE: 'SERVICE',
-    RAW_MATERIAL: 'RAW_MATERIAL',
-    SPARE_PART: 'SPARE_PART',
-    Products: 'CONSUMABLE',
-    Consumable: 'CONSUMABLE',
-    Equipment: 'EQUIPMENT',
-    Service: 'SERVICE',
-    'Raw Material': 'RAW_MATERIAL',
-    'Spare Part': 'SPARE_PART',
-  };
-  return map[value] || 'CONSUMABLE';
+export interface StockDashboardData {
+  totalStockValue: number;
+  warehouseCount: number;
+  itemCount: number;
+  stockByItemGroup: { item_group: string; stock_value: number }[];
 }
 
-function toValuationMethod(value: string): $Enums.stockvaluationmethod {
-  if (value === 'Moving Average' || value === 'MOVING_AVERAGE') return 'MOVING_AVERAGE';
-  return 'FIFO';
-}
+export async function getStockDashboardData(): Promise<
+  { success: true; data: StockDashboardData } | { success: false; error: string }
+> {
+  try {
+    await requirePermission('Stock Entry', 'read');
 
-async function resolveItemId(codeOrId: string): Promise<string | null> {
-  if (!codeOrId) return null;
-  const byId = await prisma.items.findUnique({ where: { id: codeOrId }, select: { id: true } });
-  if (byId) return byId.id;
-  const byCode = await prisma.items.findUnique({ where: { item_code: codeOrId }, select: { id: true } });
-  if (byCode) return byCode.id;
-  return null;
-}
+    const [warehouseCount, itemCount, bins] = await Promise.all([
+      prisma.warehouse.count({ where: { disabled: false } }),
+      prisma.item.count({ where: { disabled: false } }),
+      prisma.bin.findMany({
+        select: {
+          stock_value: true,
+          item_code: true,
+        },
+      }),
+    ]);
 
-async function resolveWarehouseId(codeOrId: string): Promise<string | null> {
-  if (!codeOrId) return null;
-  const byId = await prisma.warehouses.findUnique({ where: { id: codeOrId }, select: { id: true } });
-  if (byId) return byId.id;
-  const byCode = await prisma.warehouses.findUnique({ where: { warehouse_code: codeOrId }, select: { id: true } });
-  if (byCode) return byCode.id;
-  return null;
+    const totalStockValue = bins.reduce(
+      (sum, b) => sum + Number(b.stock_value || 0),
+      0,
+    );
+
+    // Aggregate stock value by item group via item lookup
+    const itemCodes = [...new Set(bins.map((b) => b.item_code))];
+    const items = await prisma.item.findMany({
+      where: { item_code: { in: itemCodes } },
+      select: { item_code: true, item_group: true },
+    });
+
+    const itemCodeToGroup = new Map(items.map((i) => [i.item_code, i.item_group]));
+    const groupTotals = new Map<string, number>();
+
+    for (const bin of bins) {
+      const group = itemCodeToGroup.get(bin.item_code) || 'Other';
+      const current = groupTotals.get(group) || 0;
+      groupTotals.set(group, current + Number(bin.stock_value || 0));
+    }
+
+    const stockByItemGroup = Array.from(groupTotals.entries())
+      .map(([item_group, stock_value]) => ({ item_group, stock_value }))
+      .sort((a, b) => b.stock_value - a.stock_value)
+      .slice(0, 8);
+
+    return {
+      success: true,
+      data: {
+        totalStockValue,
+        warehouseCount,
+        itemCount,
+        stockByItemGroup,
+      },
+    };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] getStockDashboardData failed:', msg);
+    return { success: false, error: msg || 'Failed to fetch dashboard data' };
+  }
 }
 
 // ── Exported client-safe types ───────────────────────────────────────────────
@@ -67,7 +90,7 @@ export interface ClientSafeItem {
   reorder_level: number | null;
   quantity: number;
   unit_cost: number | null;
-  created_at: Date;
+  created_at: Date | null;
 }
 
 export interface ClientSafeWarehouse {
@@ -87,8 +110,8 @@ export interface ClientSafeStockEntry {
   source_warehouse: string | null;
   target_warehouse: string | null;
   reference: string | null;
-  posting_date: Date;
-  created_at: Date;
+  posting_date: Date | null;
+  created_at: Date | null;
 }
 
 export interface ClientSafeBin {
@@ -231,50 +254,22 @@ const TARGET_MANDATORY_PURPOSES = [
 
 const VALID_VALUATION_METHODS = ['FIFO', 'Moving Average', 'LIFO'];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Internal helpers ─────────────────────────────────────────────────────────
 
-function toClientItem(i: items & { bins?: bins[] }): ClientSafeItem {
-  const totalQty = i.bins?.reduce((sum, b) => sum + (b.quantity || 0), 0) || 0;
-  return {
-    id: i.id,
-    item_code: i.item_code || i.id,
-    item_name: i.item_name || i.item_code,
-    item_group: i.item_group || 'Products',
-    description: i.description || null,
-    unit: i.unit || 'Nos',
-    has_batch: i.has_batch,
-    has_serial: i.has_serial,
-    valuation_method: i.valuation_method === 'MOVING_AVERAGE' ? 'Moving Average' : i.valuation_method,
-    standard_rate: i.standard_rate ?? null,
-    min_order_qty: i.min_order_qty ?? null,
-    safety_stock: i.safety_stock ?? null,
-    stock_qty: totalQty,
-    reorder_level: i.safety_stock ?? null,
-    quantity: totalQty,
-    unit_cost: i.standard_rate ?? null,
-    created_at: i.created_at,
-  };
+async function resolveItemName(codeOrId: string): Promise<string | null> {
+  if (!codeOrId) return null;
+  const byName = await prisma.item.findUnique({ where: { name: codeOrId }, select: { name: true } });
+  if (byName) return byName.name;
+  const byCode = await prisma.item.findFirst({ where: { item_code: codeOrId }, select: { name: true } });
+  if (byCode) return byCode.name;
+  return null;
 }
 
-function toClientWarehouse(w: warehouses): ClientSafeWarehouse {
-  return {
-    id: w.id,
-    warehouse_name: w.warehouse_name || w.warehouse_code,
-    warehouse_code: w.warehouse_code,
-    parent_warehouse: w.parent_warehouse || null,
-    is_group: w.is_group,
-  };
-}
-
-function toClientBin(b: bins): ClientSafeBin {
-  return {
-    id: b.id,
-    item_id: b.item_id,
-    warehouse_id: b.warehouse_id,
-    quantity: b.quantity || 0,
-    valuation_rate: b.valuation_rate || 0,
-    stock_value: b.stock_value || 0,
-  };
+async function resolveWarehouseName(codeOrId: string): Promise<string | null> {
+  if (!codeOrId) return null;
+  const byName = await prisma.warehouse.findUnique({ where: { name: codeOrId }, select: { name: true } });
+  if (byName) return byName.name;
+  return null;
 }
 
 // ── Validation: Item ─────────────────────────────────────────────────────────
@@ -284,31 +279,29 @@ export type ValidateItemResult =
   | { success: false; error: string };
 
 export async function validateItem(
-  data: CreateItemInput
+  data: CreateItemInput,
 ): Promise<ValidateItemResult> {
-  // 1. item_code uniqueness
+  await requirePermission('Stock Entry', 'read');
   if (!data.item_code || data.item_code.trim().length === 0) {
     return { success: false, error: 'Item Code is mandatory' };
   }
 
   try {
-    const count = await prisma.items.count({
+    const count = await prisma.item.count({
       where: { item_code: data.item_code.trim() },
     });
     if (count > 0) {
       return { success: false, error: `Item Code ${data.item_code} already exists` };
     }
-  } catch (error: any) {
-    console.error('[stock] validateItem count failed:', error?.message);
-    // If count fails, we continue; insert will catch duplicates anyway
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] validateItem count failed:', msg);
   }
 
-  // 2. UOM validation
   if (!data.unit || data.unit.trim().length === 0) {
     return { success: false, error: 'Unit of Measure (UOM) is mandatory' };
   }
 
-  // 3. valuation_method validation
   const method = (data.valuation_method || 'FIFO').trim();
   if (!VALID_VALUATION_METHODS.includes(method)) {
     return {
@@ -317,12 +310,10 @@ export async function validateItem(
     };
   }
 
-  // 4. Serial / batch consistency
   if (data.has_serial && data.has_batch) {
     return { success: false, error: 'Item cannot have both Serial No and Batch No enabled' };
   }
 
-  // 5. standard_rate non-negative
   if (data.standard_rate !== undefined && data.standard_rate < 0) {
     return { success: false, error: 'Standard Rate cannot be negative' };
   }
@@ -337,9 +328,9 @@ export type ValidateStockEntryResult =
   | { success: false; error: string };
 
 export async function validateStockEntry(
-  data: StockTransferInput
+  data: StockTransferInput,
 ): Promise<ValidateStockEntryResult> {
-  // 1. Purpose validation
+  await requirePermission('Stock Entry', 'read');
   if (!VALID_STOCK_ENTRY_PURPOSES.includes(data.entry_type as (typeof VALID_STOCK_ENTRY_PURPOSES)[number])) {
     return {
       success: false,
@@ -347,7 +338,6 @@ export async function validateStockEntry(
     };
   }
 
-  // 2. Items must be present
   if (!data.items || data.items.length === 0) {
     return { success: false, error: 'At least one item is required for a Stock Entry' };
   }
@@ -356,7 +346,6 @@ export async function validateStockEntry(
     const row = data.items[idx];
     const rowNum = idx + 1;
 
-    // 3. Quantity must be positive
     if (!row.qty || row.qty <= 0) {
       return {
         success: false,
@@ -364,7 +353,6 @@ export async function validateStockEntry(
       };
     }
 
-    // 4. Source warehouse mandatory for issue/transfer/manufacture
     if (SOURCE_MANDATORY_PURPOSES.includes(data.entry_type)) {
       const source = row.s_warehouse || data.from_warehouse;
       if (!source) {
@@ -375,7 +363,6 @@ export async function validateStockEntry(
       }
     }
 
-    // 5. Target warehouse mandatory for receipt/transfer/manufacture
     if (TARGET_MANDATORY_PURPOSES.includes(data.entry_type)) {
       const target = row.t_warehouse || data.to_warehouse;
       if (!target) {
@@ -386,7 +373,6 @@ export async function validateStockEntry(
       }
     }
 
-    // 6. Source and target cannot be same (except for certain transfer types)
     const sWh = row.s_warehouse || data.from_warehouse;
     const tWh = row.t_warehouse || data.to_warehouse;
     if (sWh && tWh && sWh === tWh && data.entry_type !== 'Material Transfer' && data.entry_type !== 'Material Transfer for Manufacture') {
@@ -396,12 +382,10 @@ export async function validateStockEntry(
       };
     }
 
-    // 7. At least one warehouse must be set
     if (!sWh && !tWh) {
       return { success: false, error: `Row ${rowNum}: At least one warehouse is mandatory` };
     }
 
-    // 8. Serial / batch validation
     if (row.serial_no && row.batch_no) {
       return {
         success: false,
@@ -417,22 +401,16 @@ export async function validateStockEntry(
 
 export async function getStockBalance(
   itemCode: string,
-  warehouse: string
+  warehouse: string,
 ): Promise<StockBalanceResult> {
+  await requirePermission('Stock Entry', 'read');
   if (!itemCode || !warehouse) {
     return { success: false, error: 'Item Code and Warehouse are required' };
   }
 
   try {
-    const itemId = await resolveItemId(itemCode);
-    const warehouseId = await resolveWarehouseId(warehouse);
-
-    if (!itemId || !warehouseId) {
-      return { success: true, actual_qty: 0, projected_qty: 0 };
-    }
-
-    const bin = await prisma.bins.findFirst({
-      where: { item_id: itemId, warehouse_id: warehouseId },
+    const bin = await prisma.bin.findFirst({
+      where: { item_code: itemCode, warehouse },
     });
 
     if (!bin) {
@@ -441,12 +419,13 @@ export async function getStockBalance(
 
     return {
       success: true,
-      actual_qty: bin.quantity || 0,
-      projected_qty: bin.quantity || 0, // Simplified; full projected qty requires ordered/reserved quantities
+      actual_qty: bin.actual_qty || 0,
+      projected_qty: bin.projected_qty || 0,
     };
-  } catch (error: any) {
-    console.error('[stock] getStockBalance failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch stock balance' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] getStockBalance failed:', msg);
+    return { success: false, error: msg || 'Failed to fetch stock balance' };
   }
 }
 
@@ -454,22 +433,16 @@ export async function getStockBalance(
 
 export async function getItemValuationRate(
   itemCode: string,
-  warehouse: string
+  warehouse: string,
 ): Promise<ValuationRateResult> {
+  await requirePermission('Stock Entry', 'read');
   if (!itemCode || !warehouse) {
     return { success: false, error: 'Item Code and Warehouse are required' };
   }
 
   try {
-    const itemId = await resolveItemId(itemCode);
-    const warehouseId = await resolveWarehouseId(warehouse);
-
-    if (!itemId || !warehouseId) {
-      return { success: true, valuation_rate: 0 };
-    }
-
-    const bin = await prisma.bins.findFirst({
-      where: { item_id: itemId, warehouse_id: warehouseId },
+    const bin = await prisma.bin.findFirst({
+      where: { item_code: itemCode, warehouse },
     });
 
     if (!bin) {
@@ -477,89 +450,87 @@ export async function getItemValuationRate(
     }
 
     return { success: true, valuation_rate: bin.valuation_rate || 0 };
-  } catch (error: any) {
-    console.error('[stock] getItemValuationRate failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch valuation rate' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] getItemValuationRate failed:', msg);
+    return { success: false, error: msg || 'Failed to fetch valuation rate' };
   }
 }
 
-// ── Update Bin ─────────────────────────────────────────────────────────────────
+// ── Update Bin ───────────────────────────────────────────────────────────────
 
 export async function updateBin(
   itemCode: string,
   warehouse: string,
-  qtyDelta: number
+  qtyDelta: number,
 ): Promise<BinUpdateResult> {
+  await requirePermission('Stock Entry', 'update');
   if (!itemCode || !warehouse) {
     return { success: false, error: 'Item Code and Warehouse are required' };
   }
 
   try {
-    const itemId = await resolveItemId(itemCode);
-    const warehouseId = await resolveWarehouseId(warehouse);
-
-    if (!itemId || !warehouseId) {
-      return { success: false, error: 'Item or warehouse not found' };
-    }
-
-    const existing = await prisma.bins.findFirst({
-      where: { item_id: itemId, warehouse_id: warehouseId },
+    const existing = await prisma.bin.findFirst({
+      where: { item_code: itemCode, warehouse },
     });
 
     if (existing) {
-      const newQty = existing.quantity + qtyDelta;
+      const newQty = (existing.actual_qty || 0) + qtyDelta;
       const valuationRate = existing.valuation_rate || 0;
       const newStockValue = newQty * valuationRate;
 
-      const updated = await prisma.bins.update({
-        where: { id: existing.id },
+      const updated = await prisma.bin.update({
+        where: { name: existing.name },
         data: {
-          quantity: newQty,
+          actual_qty: newQty,
           stock_value: newStockValue,
-          updated_at: new Date(),
         },
       });
 
       return {
         success: true,
         bin: {
-          id: updated.id,
-          item_id: updated.item_id,
-          warehouse_id: updated.warehouse_id,
-          quantity: updated.quantity,
-          valuation_rate: updated.valuation_rate,
-          stock_value: updated.stock_value,
+          id: updated.name,
+          item_id: updated.item_code,
+          warehouse_id: updated.warehouse,
+          quantity: updated.actual_qty || 0,
+          valuation_rate: updated.valuation_rate || 0,
+          stock_value: updated.stock_value || 0,
         },
       };
     }
 
-    // Create new bin if none exists (mirrors ERPNext get_bin behaviour)
-    const newBin = await prisma.bins.create({
+    const binName = `BIN-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const newBin = await prisma.bin.create({
       data: {
-        id: randomUUID(),
-        item_id: itemId,
-        warehouse_id: warehouseId,
-        quantity: qtyDelta,
+        name: binName,
+        item_code: itemCode,
+        warehouse,
+        actual_qty: qtyDelta,
         valuation_rate: 0,
         stock_value: 0,
-        updated_at: new Date(),
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
 
     return {
       success: true,
       bin: {
-        id: newBin.id,
-        item_id: newBin.item_id,
-        warehouse_id: newBin.warehouse_id,
-        quantity: newBin.quantity,
-        valuation_rate: newBin.valuation_rate,
-        stock_value: newBin.stock_value,
+        id: newBin.name,
+        item_id: newBin.item_code,
+        warehouse_id: newBin.warehouse,
+        quantity: newBin.actual_qty || 0,
+        valuation_rate: newBin.valuation_rate || 0,
+        stock_value: newBin.stock_value || 0,
       },
     };
-  } catch (error: any) {
-    console.error('[stock] updateBin failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update bin' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] updateBin failed:', msg);
+    return { success: false, error: msg || 'Failed to update bin' };
   }
 }
 
@@ -568,8 +539,9 @@ export async function updateBin(
 export async function checkNegativeStock(
   itemCode: string,
   warehouse: string,
-  requestedQty: number
+  requestedQty: number,
 ): Promise<NegativeStockResult> {
+  await requirePermission('Stock Entry', 'read');
   if (!itemCode || !warehouse || requestedQty === undefined) {
     return { success: false, error: 'Item Code, Warehouse and Requested Qty are required' };
   }
@@ -590,41 +562,39 @@ export async function checkNegativeStock(
     }
 
     return { success: true, allowed: true };
-  } catch (error: any) {
-    console.error('[stock] checkNegativeStock failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to check negative stock' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] checkNegativeStock failed:', msg);
+    return { success: false, error: msg || 'Failed to check negative stock' };
   }
 }
 
-// ── Make Stock Transfer (high-level Stock Entry with validation) ─────────────
+// ── Make Stock Transfer ──────────────────────────────────────────────────────
 
 export async function makeStockTransfer(
-  data: StockTransferInput
+  data: StockTransferInput,
 ): Promise<{ success: true; entry: ClientSafeStockEntry } | { success: false; error: string }> {
-  // 1. Validate business rules first
+  await requirePermission('Stock Entry', 'create');
   const validation = await validateStockEntry(data);
   if (!validation.success) {
     return { success: false, error: validation.error };
   }
 
-  // Resolve warehouses
-  const fromWarehouseId = data.from_warehouse ? await resolveWarehouseId(data.from_warehouse) : null;
-  const toWarehouseId = data.to_warehouse ? await resolveWarehouseId(data.to_warehouse) : null;
+  const fromWarehouseName = data.from_warehouse ? await resolveWarehouseName(data.from_warehouse) : null;
+  const toWarehouseName = data.to_warehouse ? await resolveWarehouseName(data.to_warehouse) : null;
 
-  // Resolve items
   const resolvedItems = await Promise.all(
     data.items.map(async (row) => ({
       ...row,
-      item_id: await resolveItemId(row.item_code),
-      s_warehouse_id: row.s_warehouse ? await resolveWarehouseId(row.s_warehouse) : null,
-      t_warehouse_id: row.t_warehouse ? await resolveWarehouseId(row.t_warehouse) : null,
-    }))
+      itemName: await resolveItemName(row.item_code),
+      sWarehouseName: row.s_warehouse ? await resolveWarehouseName(row.s_warehouse) : null,
+      tWarehouseName: row.t_warehouse ? await resolveWarehouseName(row.t_warehouse) : null,
+    })),
   );
 
-  // 2. Negative stock check for outgoing items
   for (const row of resolvedItems) {
-    if (row.s_warehouse_id || fromWarehouseId) {
-      const sourceWh = row.s_warehouse_id || fromWarehouseId || '';
+    if (row.sWarehouseName || fromWarehouseName) {
+      const sourceWh = row.sWarehouseName || fromWarehouseName || '';
       const negCheck = await checkNegativeStock(row.item_code, sourceWh, row.qty);
       if (!negCheck.success) {
         return { success: false, error: negCheck.error };
@@ -636,50 +606,66 @@ export async function makeStockTransfer(
   }
 
   try {
-    const entry = await prisma.stock_entries.create({
+    const entryName = `STE-${Date.now()}`;
+    const entry = await prisma.stockEntry.create({
       data: {
-        id: randomUUID(),
-        entry_number: `STE-${Date.now()}`,
-        entry_type: data.entry_type,
-        posting_date: data.posting_date ? new Date(data.posting_date) : new Date(),
-        from_warehouse_id: fromWarehouseId,
-        to_warehouse_id: toWarehouseId,
-        status: 'SUBMITTED',
-        currency: 'USD',
-        notes: data.reference || null,
-        stock_entry_items: {
-          create: resolvedItems.map((row) => ({
-            id: randomUUID(),
-            item_id: row.item_id!,
-            item_code: row.item_code,
-            qty: row.qty,
-            serial_no: row.serial_no || null,
-            batch_no: row.batch_no || null,
-          })),
-        },
+        name: entryName,
+        stock_entry_type: data.entry_type,
+        purpose: data.entry_type,
+        posting_date: new Date(),
+        from_warehouse: fromWarehouseName,
+        to_warehouse: toWarehouseName,
+        company: 'Aries',
+        naming_series: 'STE-',
+        remarks: data.reference || null,
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
-      include: { stock_entry_items: true },
     });
 
-    revalidatePath('/erp/stock');
-    const firstItem = entry.stock_entry_items[0];
+    for (const row of resolvedItems) {
+      await prisma.stockEntryDetail.create({
+        data: {
+          name: `SED-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          parent: entryName,
+          parentfield: 'items',
+          parenttype: 'Stock Entry',
+          item_code: row.item_code,
+          item_name: row.item_code,
+          qty: row.qty,
+          uom: 'Nos',
+          conversion_factor: 1,
+          stock_uom: 'Nos',
+          s_warehouse: row.sWarehouseName || fromWarehouseName || null,
+          t_warehouse: row.tWarehouseName || toWarehouseName || null,
+          creation: new Date(),
+          modified: new Date(),
+          owner: 'Administrator',
+          modified_by: 'Administrator',
+        },
+      });
+    }
+
     return {
       success: true,
       entry: {
-        id: entry.id,
-        entry_type: entry.entry_type,
-        item_id: firstItem?.item_id || '',
-        quantity: firstItem?.qty || 0,
-        source_warehouse: entry.from_warehouse_id,
-        target_warehouse: entry.to_warehouse_id,
-        reference: entry.notes,
+        id: entry.name,
+        entry_type: entry.stock_entry_type || data.entry_type,
+        item_id: resolvedItems[0]?.item_code || '',
+        quantity: resolvedItems.reduce((s, r) => s + r.qty, 0),
+        source_warehouse: entry.from_warehouse,
+        target_warehouse: entry.to_warehouse,
+        reference: entry.remarks,
         posting_date: entry.posting_date,
-        created_at: entry.created_at,
+        created_at: entry.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[stock] makeStockTransfer failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create stock transfer' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] makeStockTransfer failed:', msg);
+    return { success: false, error: msg || 'Failed to create stock transfer' };
   }
 }
 
@@ -687,8 +673,9 @@ export async function makeStockTransfer(
 
 export async function getWarehouseTree(): Promise<WarehouseTreeResult> {
   try {
-    const warehouses = await prisma.warehouses.findMany({
-      orderBy: { created_at: 'asc' },
+    await requirePermission('Stock Entry', 'read');
+    const warehouses = await prisma.warehouse.findMany({
+      orderBy: { creation: 'asc' },
       take: 1000,
     });
 
@@ -696,14 +683,19 @@ export async function getWarehouseTree(): Promise<WarehouseTreeResult> {
     const roots: ClientSafeWarehouse[] = [];
 
     for (const w of warehouses) {
-      const node = toClientWarehouse(w);
-      node.children = [];
+      const node: ClientSafeWarehouse = {
+        id: w.name,
+        warehouse_name: w.warehouse_name || w.name,
+        warehouse_code: w.name,
+        parent_warehouse: w.parent_warehouse || null,
+        is_group: w.is_group || false,
+        children: [],
+      };
       map.set(node.id, node);
-      map.set(w.warehouse_code, node);
     }
 
     for (const w of warehouses) {
-      const node = map.get(w.id)!;
+      const node = map.get(w.name)!;
       if (w.parent_warehouse && map.has(w.parent_warehouse)) {
         const parent = map.get(w.parent_warehouse)!;
         parent.children = parent.children || [];
@@ -714,255 +706,322 @@ export async function getWarehouseTree(): Promise<WarehouseTreeResult> {
     }
 
     return { success: true, tree: roots };
-  } catch (error: any) {
-    console.error('[stock] getWarehouseTree failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch warehouse tree' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] getWarehouseTree failed:', msg);
+    return { success: false, error: msg || 'Failed to fetch warehouse tree' };
   }
 }
 
-// ── Items (existing CRUD) ────────────────────────────────────────────────────
+// ── Items CRUD ───────────────────────────────────────────────────────────────
 
 export async function listItems(): Promise<ItemListResult> {
   try {
-    const items = await prisma.items.findMany({
-      include: { bins: true },
-      orderBy: { created_at: 'desc' },
+    await requirePermission('Stock Entry', 'read');
+    const items = await prisma.item.findMany({
+      orderBy: { creation: 'desc' },
       take: 500,
     });
 
     return {
       success: true,
-      items: items.map(toClientItem),
+      items: items.map((i) => ({
+        id: i.name,
+        item_code: i.item_code || i.name,
+        item_name: i.item_name || i.item_code,
+        item_group: i.item_group || 'Products',
+        description: i.description || null,
+        unit: i.stock_uom || 'Nos',
+        has_batch: i.has_batch_no || false,
+        has_serial: i.has_serial_no || false,
+        valuation_method: i.valuation_method || 'FIFO',
+        standard_rate: i.standard_rate ? Number(i.standard_rate) : null,
+        min_order_qty: i.min_order_qty ?? null,
+        safety_stock: i.safety_stock ?? null,
+        stock_qty: 0,
+        reorder_level: i.safety_stock ?? null,
+        quantity: 0,
+        unit_cost: i.standard_rate ? Number(i.standard_rate) : null,
+        created_at: i.creation,
+      })),
     };
-  } catch (error: any) {
-    console.error('Error fetching items:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch items' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching items:', msg);
+    return { success: false, error: msg || 'Failed to fetch items' };
   }
 }
 
 export async function createItem(
-  data: CreateItemInput
+  data: CreateItemInput,
 ): Promise<{ success: true; item: ClientSafeItem } | { success: false; error: string }> {
-  // Run ported validation first
+  await requirePermission('Stock Entry', 'create');
   const validation = await validateItem(data);
   if (!validation.success) {
     return { success: false, error: validation.error };
   }
 
   try {
-    const item = await prisma.items.create({
+    const name = `ITEM-${Date.now()}`;
+    const item = await prisma.item.create({
       data: {
-        id: randomUUID(),
+        name,
         item_code: data.item_code,
         item_name: data.item_name,
-        item_group: toItemGroup(data.item_group),
+        item_group: data.item_group || 'All Item Groups',
         description: data.description || null,
-        unit: data.unit || 'Nos',
-        has_batch: data.has_batch || false,
-        has_serial: data.has_serial || false,
-        valuation_method: toValuationMethod(data.valuation_method || 'FIFO'),
+        stock_uom: data.unit || 'Nos',
+        has_batch_no: data.has_batch || false,
+        has_serial_no: data.has_serial || false,
+        valuation_method: data.valuation_method || 'FIFO',
         standard_rate: data.standard_rate ?? null,
         min_order_qty: data.min_order_qty ?? null,
         safety_stock: data.safety_stock ?? null,
+        is_stock_item: true,
+        is_sales_item: true,
+        is_purchase_item: true,
+        naming_series: 'ITEM-',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
 
-    revalidatePath('/erp/stock');
     return {
       success: true,
       item: {
-        id: item.id,
+        id: item.name,
         item_code: item.item_code,
-        item_name: item.item_name,
+        item_name: item.item_name || item.item_code,
         item_group: item.item_group,
         description: item.description,
-        unit: item.unit,
-        has_batch: item.has_batch,
-        has_serial: item.has_serial,
-        valuation_method: item.valuation_method === 'MOVING_AVERAGE' ? 'Moving Average' : item.valuation_method,
-        standard_rate: item.standard_rate,
+        unit: item.stock_uom || 'Nos',
+        has_batch: item.has_batch_no || false,
+        has_serial: item.has_serial_no || false,
+        valuation_method: item.valuation_method || 'FIFO',
+        standard_rate: item.standard_rate ? Number(item.standard_rate) : null,
         min_order_qty: item.min_order_qty,
         safety_stock: item.safety_stock,
         stock_qty: 0,
         reorder_level: item.safety_stock,
         quantity: 0,
-        unit_cost: item.standard_rate,
-        created_at: item.created_at,
+        unit_cost: item.standard_rate ? Number(item.standard_rate) : null,
+        created_at: item.creation,
       },
     };
-  } catch (error: any) {
-    if (error?.message?.includes('Duplicate')) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('Unique') || msg.includes('Duplicate')) {
       return { success: false, error: 'Item code already exists' };
     }
-    return { success: false, error: error?.message || 'Failed to create item' };
+    return { success: false, error: msg || 'Failed to create item' };
   }
 }
 
 export async function updateItem(
   id: string,
-  data: UpdateItemInput
+  data: UpdateItemInput,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await prisma.items.update({
-      where: { id },
-      data: {
-        ...(data.item_name !== undefined && { item_name: data.item_name }),
-        ...(data.item_group !== undefined && { item_group: toItemGroup(data.item_group) }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.unit !== undefined && { unit: data.unit }),
-        ...(data.standard_rate !== undefined && { standard_rate: data.standard_rate }),
-        ...(data.min_order_qty !== undefined && { min_order_qty: data.min_order_qty }),
-        ...(data.safety_stock !== undefined && { safety_stock: data.safety_stock }),
-      },
+    await requirePermission('Stock Entry', 'update');
+    const updateData: Record<string, unknown> = {
+      modified: new Date(),
+      modified_by: 'Administrator',
+    };
+    if (data.item_name !== undefined) updateData.item_name = data.item_name;
+    if (data.item_group !== undefined) updateData.item_group = data.item_group;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.unit !== undefined) updateData.stock_uom = data.unit;
+    if (data.standard_rate !== undefined) updateData.standard_rate = data.standard_rate;
+    if (data.min_order_qty !== undefined) updateData.min_order_qty = data.min_order_qty;
+    if (data.safety_stock !== undefined) updateData.safety_stock = data.safety_stock;
+
+    await prisma.item.update({
+      where: { name: id },
+      data: updateData,
     });
-    revalidatePath('/erp/stock');
     return { success: true };
-  } catch (error: any) {
-    console.error('[stock] updateItem failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update item' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] updateItem failed:', msg);
+    return { success: false, error: msg || 'Failed to update item' };
   }
 }
 
 export async function deleteItem(
-  id: string
+  id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await prisma.items.delete({ where: { id } });
-    revalidatePath('/erp/stock');
+    await requirePermission('Stock Entry', 'delete');
+    await prisma.item.delete({ where: { name: id } });
     return { success: true };
-  } catch (error: any) {
-    console.error('[stock] deleteItem failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete item' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] deleteItem failed:', msg);
+    return { success: false, error: msg || 'Failed to delete item' };
   }
 }
 
-// ── Warehouses (existing CRUD) ───────────────────────────────────────────────
+// ── Warehouses CRUD ──────────────────────────────────────────────────────────
 
 export async function listWarehouses(): Promise<WarehouseListResult> {
   try {
-    const warehouses = await prisma.warehouses.findMany({
+    await requirePermission('Stock Entry', 'read');
+    const warehouses = await prisma.warehouse.findMany({
       take: 500,
     });
 
     return {
       success: true,
       warehouses: warehouses.map((w) => ({
-        id: w.id,
-        warehouse_name: w.warehouse_name || w.warehouse_code,
-        warehouse_code: w.warehouse_code,
+        id: w.name,
+        warehouse_name: w.warehouse_name || w.name,
+        warehouse_code: w.name,
         parent_warehouse: w.parent_warehouse || null,
-        is_group: w.is_group,
+        is_group: w.is_group || false,
       })),
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to fetch warehouses' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: msg || 'Failed to fetch warehouses' };
   }
 }
 
-// ── Stock Entries (existing CRUD) ────────────────────────────────────────────
+// ── Stock Entries CRUD ───────────────────────────────────────────────────────
 
 export async function listStockEntries(): Promise<StockEntryListResult> {
   try {
-    const entries = await prisma.stock_entries.findMany({
-      include: { stock_entry_items: true },
-      orderBy: { created_at: 'desc' },
+    await requirePermission('Stock Entry', 'read');
+    const entries = await prisma.stockEntry.findMany({
+      orderBy: { creation: 'desc' },
       take: 200,
     });
 
+    const entriesWithItems = await Promise.all(
+      entries.map(async (e) => {
+        const items = await prisma.stockEntryDetail.findMany({
+          where: { parent: e.name, parenttype: 'Stock Entry' },
+          take: 1,
+        });
+        return { entry: e, firstItem: items[0] || null };
+      }),
+    );
+
     return {
       success: true,
-      entries: entries.map((e) => {
-        const firstItem = e.stock_entry_items[0];
-        return {
-          id: e.id,
-          entry_type: e.entry_type || 'Material Issue',
-          item_id: firstItem?.item_id || '',
-          quantity: firstItem?.qty || 0,
-          source_warehouse: e.from_warehouse_id || null,
-          target_warehouse: e.to_warehouse_id || null,
-          reference: e.notes || null,
-          posting_date: e.posting_date,
-          created_at: e.created_at,
-        };
-      }),
+      entries: entriesWithItems.map(({ entry, firstItem }) => ({
+        id: entry.name,
+        entry_type: entry.stock_entry_type || entry.purpose || 'Material Issue',
+        item_id: firstItem?.item_code || '',
+        quantity: firstItem?.qty || 0,
+        source_warehouse: entry.from_warehouse,
+        target_warehouse: entry.to_warehouse,
+        reference: entry.remarks || null,
+        posting_date: entry.posting_date,
+        created_at: entry.creation,
+      })),
     };
-  } catch (error: any) {
-    console.error('Error fetching stock entries:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch stock entries' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching stock entries:', msg);
+    return { success: false, error: msg || 'Failed to fetch stock entries' };
   }
 }
 
 export async function createStockEntry(
-  data: CreateStockEntryInput
+  data: CreateStockEntryInput,
 ): Promise<{ success: true; entry: ClientSafeStockEntry } | { success: false; error: string }> {
   try {
-    const itemId = await resolveItemId(data.item_id);
-    if (!itemId) {
-      return { success: false, error: `Item ${data.item_id} not found` };
-    }
+    await requirePermission('Stock Entry', 'create');
+    const sourceWhName = data.source_warehouse ? await resolveWarehouseName(data.source_warehouse) : null;
+    const targetWhName = data.target_warehouse ? await resolveWarehouseName(data.target_warehouse) : null;
 
-    const sourceWhId = data.source_warehouse ? await resolveWarehouseId(data.source_warehouse) : null;
-    const targetWhId = data.target_warehouse ? await resolveWarehouseId(data.target_warehouse) : null;
-
-    const entry = await prisma.stock_entries.create({
+    const entryName = `STE-${Date.now()}`;
+    const entry = await prisma.stockEntry.create({
       data: {
-        id: randomUUID(),
-        entry_type: data.entry_type,
+        name: entryName,
+        stock_entry_type: data.entry_type,
+        purpose: data.entry_type,
         posting_date: new Date(),
-        from_warehouse_id: sourceWhId,
-        to_warehouse_id: targetWhId,
-        status: 'SUBMITTED',
-        currency: 'USD',
-        notes: data.reference || null,
-        stock_entry_items: {
-          create: {
-            id: randomUUID(),
-            item_id: itemId,
-            item_code: data.item_id,
-            qty: data.quantity,
-          },
-        },
+        from_warehouse: sourceWhName,
+        to_warehouse: targetWhName,
+        company: 'Aries',
+        naming_series: 'STE-',
+        remarks: data.reference || null,
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
-      include: { stock_entry_items: true },
     });
 
-    revalidatePath('/erp/stock');
-    const firstItem = entry.stock_entry_items[0];
+    await prisma.stockEntryDetail.create({
+      data: {
+        name: `SED-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        parent: entryName,
+        parentfield: 'items',
+        parenttype: 'Stock Entry',
+        item_code: data.item_id,
+        item_name: data.item_id,
+        qty: data.quantity,
+        uom: 'Nos',
+        conversion_factor: 1,
+        stock_uom: 'Nos',
+        s_warehouse: sourceWhName,
+        t_warehouse: targetWhName,
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
+      },
+    });
+
     return {
       success: true,
       entry: {
-        id: entry.id,
-        entry_type: entry.entry_type,
-        item_id: firstItem?.item_id || '',
-        quantity: firstItem?.qty || 0,
-        source_warehouse: entry.from_warehouse_id,
-        target_warehouse: entry.to_warehouse_id,
-        reference: entry.notes,
+        id: entry.name,
+        entry_type: entry.stock_entry_type || data.entry_type,
+        item_id: data.item_id,
+        quantity: data.quantity,
+        source_warehouse: entry.from_warehouse,
+        target_warehouse: entry.to_warehouse,
+        reference: entry.remarks,
         posting_date: entry.posting_date,
-        created_at: entry.created_at,
+        created_at: entry.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[stock] createStockEntry failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create stock entry' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[stock] createStockEntry failed:', msg);
+    return { success: false, error: msg || 'Failed to create stock entry' };
   }
 }
 
-// ── Bins / Stock Levels (existing CRUD) ──────────────────────────────────────
+// ── Bins / Stock Levels CRUD ─────────────────────────────────────────────────
 
 export async function listBins(): Promise<BinListResult> {
   try {
-    const bins = await prisma.bins.findMany({
-      orderBy: { updated_at: 'asc' },
+    await requirePermission('Stock Entry', 'read');
+    const bins = await prisma.bin.findMany({
+      orderBy: { creation: 'asc' },
       take: 1000,
     });
 
     return {
       success: true,
-      bins: bins.map(toClientBin),
+      bins: bins.map((b) => ({
+        id: b.name,
+        item_id: b.item_code,
+        warehouse_id: b.warehouse,
+        quantity: b.actual_qty || 0,
+        valuation_rate: b.valuation_rate || 0,
+        stock_value: b.stock_value || 0,
+      })),
     };
-  } catch (error: any) {
-    console.error('Error fetching bins:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch stock levels' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching bins:', msg);
+    return { success: false, error: msg || 'Failed to fetch stock levels' };
   }
 }

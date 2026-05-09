@@ -2,17 +2,25 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { listSuppliers, listPurchaseOrders, createSupplier, type ClientSafeSupplier, type ClientSafePurchaseOrder } from "@/app/dashboard/erp/procurement/actions";
 import { usePageContext } from "@/hooks/usePageContext";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   ShoppingCart, Search, Truck, FileText, Plus,
-  Wand2, Sparkles,
+  Wand2, Sparkles, ListFilter, Bookmark, LayoutGrid,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink,
+  BreadcrumbPage, BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
@@ -29,11 +37,179 @@ interface ProcurementClientProps {
   initialPurchaseOrders: ClientSafePurchaseOrder[];
 }
 
+// ── Mobile Supplier View ────────────────────────────────────────────────────
+
+function MobileSupplierView({
+  suppliers,
+  onRowClick,
+}: {
+  suppliers: ClientSafeSupplier[];
+  onRowClick: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {suppliers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
+          <Truck size={48} className="mb-4 opacity-40" />
+          <p className="text-lg font-medium">No suppliers found</p>
+          <p className="text-sm">Try a different search term</p>
+        </div>
+      ) : (
+        suppliers.map((s) => (
+          <Card
+            key={s.id}
+            className="rounded-2xl border-gray-100 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
+            onClick={() => onRowClick(s.id)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="font-medium text-[#0f172a]">{s.supplier_name}</p>
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border bg-gray-100 text-gray-700 border-gray-200">
+                  {s.category || "General"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-[#64748b]">
+                <span className="font-mono">{s.supplier_code}</span>
+                <span>{s.email || "—"}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ── Desktop Supplier DataTable ──────────────────────────────────────────────
+
+function DesktopSupplierDataTable({
+  suppliers,
+  onRowClick,
+}: {
+  suppliers: ClientSafeSupplier[];
+  onRowClick: (id: string) => void;
+}) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {suppliers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
+          <Truck size={48} className="mb-4 opacity-40" />
+          <p className="text-lg font-medium">No suppliers found</p>
+          <p className="text-sm">Try a different search or add a supplier</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-4 py-3 text-gray-700 font-semibold">ID</th>
+                <th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier Name</th>
+                <th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier Group</th>
+                <th className="text-left px-4 py-3 text-gray-700 font-semibold">Status</th>
+                <th className="text-left px-4 py-3 text-gray-700 font-semibold">Email</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {suppliers.map((s) => (
+                <tr
+                  key={s.id}
+                  onClick={() => onRowClick(s.id)}
+                  className="cursor-pointer hover:bg-gray-50 transition-colors"
+                >
+                  <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{s.supplier_code}</td>
+                  <td className="px-4 py-3 font-medium text-[#0f172a]">{s.supplier_name}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border bg-gray-100 text-gray-700 border-gray-200">
+                      {s.category || "General"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${
+                      s.status === "Active"
+                        ? "bg-green-100 text-green-700 border-green-200"
+                        : "bg-red-100 text-red-700 border-red-200"
+                    }`}>
+                      {s.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-[#64748b]">{s.email || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Desktop Purchase Order DataTable ────────────────────────────────────────
+
+function DesktopOrderDataTable({
+  orders,
+  onRowClick,
+}: {
+  orders: ClientSafePurchaseOrder[];
+  onRowClick: (id: string) => void;
+}) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {orders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
+          <FileText size={48} className="mb-4 opacity-40" />
+          <p className="text-lg font-medium">No purchase orders yet</p>
+          <p className="text-sm">Orders will appear here</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-4 py-3 text-gray-700 font-semibold">PO Number</th>
+                <th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier</th>
+                <th className="text-left px-4 py-3 text-gray-700 font-semibold">Status</th>
+                <th className="text-right px-4 py-3 text-gray-700 font-semibold">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {orders.map((o) => {
+                const cfg = STATUS_CONFIG[o.status?.toLowerCase()] || STATUS_CONFIG.draft;
+                return (
+                  <tr
+                    key={o.id}
+                    onClick={() => onRowClick(o.id)}
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{o.po_number || "—"}</td>
+                    <td className="px-4 py-3 text-[#0f172a] font-medium">{o.supplier_name || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${cfg.badge}`}>
+                        {cfg.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-[#0f172a]">
+                      AED {o.total?.toLocaleString() || 0}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Component ──────────────────────────────────────────────────────────
+
 export default function ProcurementClient({ initialSuppliers, initialPurchaseOrders }: ProcurementClientProps) {
   const router = useRouter();
+  const isMobile = useMediaQuery("(max-width: 768px)");
   const [suppliers, setSuppliers] = useState<ClientSafeSupplier[]>(initialSuppliers);
   const [orders, setOrders] = useState<ClientSafePurchaseOrder[]>(initialPurchaseOrders);
   const [search, setSearch] = useState("");
+  const [filterGroup, setFilterGroup] = useState("");
   const [activeTab, setActiveTab] = useState<"suppliers" | "orders">("suppliers");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -95,6 +271,12 @@ export default function ProcurementClient({ initialSuppliers, initialPurchaseOrd
     : "Procurement page: Loading...";
   usePageContext(contextSummary);
 
+  // Unique supplier groups for filter dropdown
+  const supplierGroups = useMemo(() => {
+    const groups = new Set<string>(suppliers.map(s => s.category).filter((g): g is string => Boolean(g)));
+    return Array.from(groups).sort();
+  }, [suppliers]);
+
   const load = async () => {
     try {
       const [sRes, oRes] = await Promise.all([
@@ -125,43 +307,98 @@ export default function ProcurementClient({ initialSuppliers, initialPurchaseOrd
   };
 
   const filteredSuppliers = useMemo(() => {
-    if (!search) return suppliers;
-    const q = search.toLowerCase();
-    return suppliers.filter((s) =>
-      (s.supplier_name || "").toLowerCase().includes(q) ||
-      (s.supplier_code || "").toLowerCase().includes(q) ||
-      (s.category || "").toLowerCase().includes(q)
-    );
-  }, [suppliers, search]);
+    let result = suppliers;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((s) =>
+        (s.supplier_name || "").toLowerCase().includes(q) ||
+        (s.supplier_code || "").toLowerCase().includes(q) ||
+        (s.email || "").toLowerCase().includes(q)
+      );
+    }
+    if (filterGroup) {
+      result = result.filter((s) => s.category === filterGroup);
+    }
+    return result;
+  }, [suppliers, search, filterGroup]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
-      {/* Scrollable content */}
       <div className="flex-1 min-h-0 overflow-auto pr-2">
         <div className="space-y-4 pb-4">
-          {/* Header */}
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink render={() => <Link href="/dashboard/erp/buying">Buying</Link>} />
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Suppliers</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          {/* Action bar */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-[#0f172a]">Procurement</h2>
-              <p className="text-sm text-[#64748b] mt-1">{suppliers.length} suppliers · {orders.length} purchase orders</p>
+              <h2 className="text-2xl font-bold text-[#0f172a]">Suppliers</h2>
+              <p className="text-sm text-[#64748b] mt-1">{filteredSuppliers.length} suppliers &middot; {orders.length} purchase orders</p>
             </div>
             <div className="flex gap-2">
-              <ExportButton data={activeTab === "suppliers" ? filteredSuppliers.map(s => ({ supplier_name: s.supplier_name, supplier_code: s.supplier_code, category: s.category, email: s.email })) : orders.map(o => ({ po_number: o.po_number, supplier_name: o.supplier_name, status: o.status, total: o.total }))} filename={`procurement-${activeTab}`} />
+              <Button variant="outline" className="gap-2 rounded-xl">
+                <LayoutGrid size={16} /> List View
+              </Button>
+              <Button variant="outline" className="gap-2 rounded-xl">
+                <Bookmark size={16} /> Saved Filters
+              </Button>
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
                 <Plus size={16} /> Add Supplier
               </Button>
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
-            <Input
-              placeholder="Search suppliers..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white border-gray-200"
-            />
+          {/* Filters row */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
+              <Input
+                placeholder="Search by ID, supplier name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 bg-white border-gray-200"
+              />
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={filterGroup}
+                onChange={(e) => setFilterGroup(e.target.value)}
+                className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+              >
+                <option value="">All Groups</option>
+                {supplierGroups.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+              <ExportButton
+                data={activeTab === "suppliers"
+                  ? filteredSuppliers.map(s => ({
+                      id: s.supplier_code,
+                      supplier_name: s.supplier_name,
+                      supplier_group: s.category || "General",
+                      email: s.email || "",
+                      status: s.status,
+                    }))
+                  : orders.map(o => ({
+                      po_number: o.po_number,
+                      supplier_name: o.supplier_name,
+                      status: o.status,
+                      total: o.total,
+                    }))
+                }
+                filename={`procurement-${activeTab}`}
+              />
+            </div>
           </div>
 
           {/* Stats */}
@@ -183,116 +420,48 @@ export default function ProcurementClient({ initialSuppliers, initialPurchaseOrd
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <ShoppingCart size={16} className="text-amber-500" />
-                <span className="text-xs font-medium text-[#64748b] uppercase">Material Requests</span>
+                <span className="text-xs font-medium text-[#64748b] uppercase">Active Suppliers</span>
               </div>
-              <p className="text-2xl font-bold text-[#0f172a]">0</p>
+              <p className="text-2xl font-bold text-[#0f172a]">
+                {suppliers.filter(s => s.status === "Active").length}
+              </p>
             </div>
           </div>
 
-          {/* Tab switcher */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab("suppliers")}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === "suppliers" ? "bg-[#1e3a5f] text-white" : "bg-gray-100 text-[#64748b] hover:bg-gray-200"
-              }`}
-            >
-              Suppliers
-            </button>
-            <button
-              onClick={() => setActiveTab("orders")}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === "orders" ? "bg-[#1e3a5f] text-white" : "bg-gray-100 text-[#64748b] hover:bg-gray-200"
-              }`}
-            >
-              Purchase Orders
-            </button>
-          </div>
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "suppliers" | "orders")}>
+            <TabsList className="bg-gray-100 rounded-xl p-1">
+              <TabsTrigger value="suppliers" className="data-[active]:bg-white data-[active]:shadow-sm rounded-lg px-4">
+                Suppliers
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="data-[active]:bg-white data-[active]:shadow-sm rounded-lg px-4">
+                Purchase Orders
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Suppliers Table */}
-          {activeTab === "suppliers" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              {filteredSuppliers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
-                  <Truck size={48} className="mb-4 opacity-40" />
-                  <p className="text-lg font-medium">No suppliers found</p>
-                  <p className="text-sm">{search ? "Try a different search term" : "Suppliers will appear here"}</p>
-                </div>
+            {/* Suppliers Tab */}
+            <TabsContent value="suppliers" className="mt-4">
+              {isMobile ? (
+                <MobileSupplierView
+                  suppliers={filteredSuppliers}
+                  onRowClick={(id) => router.push(`/dashboard/erp/procurement/${id}`)}
+                />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier</th>
-                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Code</th>
-                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Category</th>
-                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Contact</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {filteredSuppliers.map((s) => (
-                        <tr key={s.id} onClick={() => router.push(`/dashboard/erp/procurement/${s.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-[#0f172a]">{s.supplier_name}</p>
-                          </td>
-                          <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{s.supplier_code}</td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border bg-gray-100 text-gray-700 border-gray-200">
-                              {s.category || "General"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-[#64748b]">{s.email || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <DesktopSupplierDataTable
+                  suppliers={filteredSuppliers}
+                  onRowClick={(id) => router.push(`/dashboard/erp/procurement/${id}`)}
+                />
               )}
-            </div>
-          )}
+            </TabsContent>
 
-          {/* Purchase Orders Table */}
-          {activeTab === "orders" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              {orders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
-                  <FileText size={48} className="mb-4 opacity-40" />
-                  <p className="text-lg font-medium">No purchase orders yet</p>
-                  <p className="text-sm">Orders will appear here</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">PO Number</th>
-                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier</th>
-                        <th className="text-left px-4 py-3 text-gray-700 font-semibold">Status</th>
-                        <th className="text-right px-4 py-3 text-gray-700 font-semibold">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {orders.map((o) => {
-                        const cfg = STATUS_CONFIG[o.status] || STATUS_CONFIG.draft;
-                        return (
-                          <tr key={o.id} onClick={() => router.push(`/dashboard/erp/procurement/${o.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3 font-mono text-xs text-[#64748b]">{o.po_number || "—"}</td>
-                            <td className="px-4 py-3 text-[#0f172a] font-medium">{o.supplier_name || "—"}</td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${cfg.badge}`}>
-                                {cfg.label}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-right font-medium text-[#0f172a]">AED {o.total?.toLocaleString() || 0}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
+            {/* Purchase Orders Tab */}
+            <TabsContent value="orders" className="mt-4">
+              <DesktopOrderDataTable
+                orders={orders}
+                onRowClick={(id) => router.push(`/dashboard/erp/procurement/${id}`)}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 

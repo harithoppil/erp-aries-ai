@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export async function listWorkOrders(
   pageSize = 50
 ): Promise<{ success: true; orders: ClientSafeWorkOrder[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Work Order", "read");
     const where = search
       ? {
           OR: [
@@ -130,6 +132,7 @@ export async function getWorkOrder(
   id: string
 ): Promise<{ success: true; order: ClientSafeWorkOrderDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Work Order", "read");
     const order = await prisma.workOrder.findUnique({
       where: { name: id },
       // @ts-ignore Prisma schema missing relation definition for workOrderItems/workOrderOperations
@@ -197,6 +200,7 @@ export async function createWorkOrder(
   data: CreateWorkOrderInput
 ): Promise<{ success: true; order: ClientSafeWorkOrder } | { success: false; error: string }> {
   try {
+    await requirePermission("Work Order", "create");
     if (!data.production_item) return { success: false, error: 'Production Item is required' };
     if (!data.bom_no) return { success: false, error: 'BOM No is required' };
     if (!data.qty || data.qty <= 0) return { success: false, error: 'Qty must be positive' };
@@ -256,6 +260,7 @@ export async function createWorkOrder(
 
 export async function submitWorkOrder(id: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Work Order", "submit");
     const o = await prisma.workOrder.findUnique({ where: { name: id } });
     if (!o) return { success: false, error: 'Not found' };
     if (o.docstatus !== 0) return { success: false, error: 'Only draft documents can be submitted' };
@@ -269,6 +274,7 @@ export async function submitWorkOrder(id: string): Promise<{ success: true } | {
 
 export async function cancelWorkOrder(id: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Work Order", "cancel");
     const o = await prisma.workOrder.findUnique({ where: { name: id } });
     if (!o) return { success: false, error: 'Not found' };
     if (o.docstatus !== 1) return { success: false, error: 'Only submitted documents can be cancelled' };

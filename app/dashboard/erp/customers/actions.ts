@@ -1,8 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ export type ClientSafeCustomer = {
   tax_id: string | null;
   credit_limit: number | null;
   status: string;
-  created_at: Date;
+  created_at: Date | null;
 };
 
 export interface CustomerValidateInput {
@@ -27,37 +27,39 @@ export interface CustomerValidateInput {
   customer_group?: string;
 }
 
-// ── Existing CRUD functions ─────────────────────────────────────────────────
+// ── CRUD ────────────────────────────────────────────────────────────────────
 
 export async function listCustomers(): Promise<
   { success: true; customers: ClientSafeCustomer[] } | { success: false; error: string }
 > {
   try {
-    const customers = await prisma.customers.findMany({
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Customer", "read");
+    const customers = await prisma.customer.findMany({
+      orderBy: { creation: 'desc' },
       take: 500,
     });
 
     return {
       success: true,
       customers: customers.map((c) => ({
-        id: c.id,
+        id: c.name,
         customer_name: c.customer_name,
-        customer_code: c.customer_code,
-        contact_person: c.contact_person || null,
-        email: c.email || null,
-        phone: c.phone || null,
-        address: c.address || null,
+        customer_code: c.name,
+        contact_person: c.customer_primary_contact || null,
+        email: c.email_id || null,
+        phone: c.mobile_no || null,
+        address: c.primary_address || null,
         industry: c.industry || null,
         tax_id: c.tax_id || null,
-        credit_limit: c.credit_limit || null,
-        status: c.status,
-        created_at: c.created_at,
+        credit_limit: null, // resolved via CustomerCreditLimit child table
+        status: c.disabled ? 'Inactive' : 'Active',
+        created_at: c.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching customers:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch customers' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching customers:', msg);
+    return { success: false, error: msg || 'Failed to fetch customers' };
   }
 }
 
@@ -73,43 +75,68 @@ export async function createCustomer(data: {
   credit_limit?: number;
 }) {
   try {
-    const id = randomUUID();
-    const customer = await prisma.customers.create({
+    await requirePermission("Customer", "create");
+    const name = `CUST-${Date.now()}`;
+    const customer = await prisma.customer.create({
       data: {
-        id,
+        name,
         customer_name: data.customer_name,
-        customer_code: data.customer_code || `CUST-${id.slice(0, 8).toUpperCase()}`,
-        contact_person: data.contact_person || null,
-        email: data.email || null,
-        phone: data.phone || null,
-        address: data.address || null,
-        industry: data.industry || null,
+        customer_type: 'Company',
+        email_id: data.email || null,
+        mobile_no: data.phone || null,
         tax_id: data.tax_id || null,
-        credit_limit: data.credit_limit || null,
-        status: 'Active',
+        industry: data.industry || null,
+        customer_group: 'All Customer Groups',
+        territory: 'All Territories',
+        naming_series: 'CUST-',
+        disabled: false,
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
+
+    // If credit_limit provided, create CustomerCreditLimit child row
+    if (data.credit_limit && data.credit_limit > 0) {
+      await prisma.customerCreditLimit.create({
+        data: {
+          name: `CL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          parent: name,
+          parentfield: 'credit_limits',
+          parenttype: 'Customer',
+          credit_limit: data.credit_limit,
+          company: 'Aries',
+          creation: new Date(),
+          modified: new Date(),
+          owner: 'Administrator',
+          modified_by: 'Administrator',
+        },
+      });
+    }
+
     revalidatePath('/erp/customers');
     return {
       success: true as const,
       customer: {
-        id: customer.id,
+        id: customer.name,
         customer_name: customer.customer_name,
-        customer_code: customer.customer_code,
-        contact_person: customer.contact_person,
-        email: customer.email,
-        phone: customer.phone,
-        address: customer.address,
-        industry: customer.industry,
-        tax_id: customer.tax_id,
-        credit_limit: customer.credit_limit,
-        status: customer.status,
-        created_at: customer.created_at,
+        customer_code: customer.name,
+        contact_person: null,
+        email: customer.email_id || null,
+        phone: customer.mobile_no || null,
+        address: null,
+        industry: customer.industry || null,
+        tax_id: customer.tax_id || null,
+        credit_limit: data.credit_limit || null,
+        status: 'Active',
+        created_at: customer.creation,
       } as ClientSafeCustomer,
     };
-  } catch (error: any) {
-    console.error('Error creating customer:', error?.message);
-    return { success: false as const, error: error?.message || 'Failed to create customer' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error creating customer:', msg);
+    return { success: false as const, error: msg || 'Failed to create customer' };
   }
 }
 
@@ -117,111 +144,103 @@ export async function searchCustomers(query: string): Promise<
   { success: true; customers: ClientSafeCustomer[] } | { success: false; error: string }
 > {
   try {
-    const customers = await prisma.customers.findMany({
+    await requirePermission("Customer", "read");
+    const customers = await prisma.customer.findMany({
       where: {
         customer_name: { contains: query, mode: 'insensitive' },
       },
-      orderBy: { created_at: 'desc' },
+      orderBy: { creation: 'desc' },
       take: 50,
     });
     return {
       success: true,
       customers: customers.map((c) => ({
-        id: c.id,
+        id: c.name,
         customer_name: c.customer_name,
-        customer_code: c.customer_code,
-        contact_person: c.contact_person || null,
-        email: c.email || null,
-        phone: c.phone || null,
-        address: c.address || null,
+        customer_code: c.name,
+        contact_person: c.customer_primary_contact || null,
+        email: c.email_id || null,
+        phone: c.mobile_no || null,
+        address: c.primary_address || null,
         industry: c.industry || null,
         tax_id: c.tax_id || null,
-        credit_limit: c.credit_limit || null,
-        status: c.status,
-        created_at: c.created_at,
+        credit_limit: null,
+        status: c.disabled ? 'Inactive' : 'Active',
+        created_at: c.creation,
       })),
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: msg };
   }
 }
 
-// ── NEW: Validation & Business Logic ────────────────────────────────────────
+// ── Validation & Business Logic ─────────────────────────────────────────────
 
-/**
- * Validate customer data before creation/update.
- * Checks: unique customer_name (within scope).
- */
 export async function validateCustomer(
   data: CustomerValidateInput
 ): Promise<{ success: true; valid: true } | { success: false; error: string }> {
   try {
-    // 1. customer_name is required
+    await requirePermission("Customer", "read");
     if (!data.customer_name || data.customer_name.trim().length === 0) {
       return { success: false, error: 'Customer Name is required' };
     }
 
-    // 2. Check uniqueness of customer_name
-    const existing = await prisma.customers.findFirst({
+    const existing = await prisma.customer.findFirst({
       where: { customer_name: data.customer_name.trim() },
     });
     if (existing) {
       return { success: false, error: `Customer "${data.customer_name}" already exists` };
     }
 
-    // Territory and customer_group validations removed — no corresponding Prisma models
     return { success: true, valid: true };
-  } catch (error: any) {
-    console.error('[customers] validateCustomer failed:', error?.message);
-    return { success: false, error: error?.message || 'Customer validation failed' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[customers] validateCustomer failed:', msg);
+    return { success: false, error: msg || 'Customer validation failed' };
   }
 }
 
-/**
- * Get total outstanding amount for a customer from Sales Invoices
- * plus unbilled Sales Orders.
- */
 export async function getCustomerOutstanding(
   customerName: string
 ): Promise<{ success: true; outstanding: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     if (!customerName || customerName.trim().length === 0) {
       return { success: false, error: 'Customer name is required' };
     }
 
     // Outstanding from Sales Invoices
-    const invoices = await prisma.sales_invoices.findMany({
+    const invoices = await prisma.salesInvoice.findMany({
       where: {
         customer_name: customerName,
         outstanding_amount: { gt: 0 },
-        status: { notIn: ['DRAFT', 'CANCELLED'] },
+        docstatus: 1,
       },
       select: { outstanding_amount: true },
     });
-    const invoiceOutstanding = invoices.reduce((sum, inv) => sum + (inv.outstanding_amount || 0), 0);
+    const invoiceOutstanding = invoices.reduce((sum, inv) => sum + Number(inv.outstanding_amount || 0), 0);
 
-    // Outstanding from Sales Orders that are not completed/cancelled/draft
-    const orders = await prisma.sales_orders.findMany({
+    // Outstanding from Sales Orders that are submitted
+    const orders = await prisma.salesOrder.findMany({
       where: {
         customer_name: customerName,
-        status: { notIn: ['DRAFT', 'CANCELLED', 'COMPLETED'] },
+        docstatus: 1,
       },
-      select: { total: true },
+      select: { grand_total: true },
     });
-    const orderOutstanding = orders.reduce((sum, so) => sum + (so.total || 0), 0);
+    const orderOutstanding = orders.reduce((sum, so) => sum + Number(so.grand_total || 0), 0);
 
     const totalOutstanding = invoiceOutstanding + orderOutstanding;
 
     return { success: true, outstanding: Math.round(totalOutstanding * 100) / 100 };
-  } catch (error: any) {
-    console.error('[customers] getCustomerOutstanding failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to get customer outstanding' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[customers] getCustomerOutstanding failed:', msg);
+    return { success: false, error: msg || 'Failed to get customer outstanding' };
   }
 }
 
-/**
- * Check whether adding `additionalAmount` would breach the customer's credit limit.
- */
 export async function checkCreditLimit(
   customerName: string,
   additionalAmount: number
@@ -231,19 +250,24 @@ export async function checkCreditLimit(
   | { success: false; error: string }
 > {
   try {
+    await requirePermission("Customer", "read");
     if (!customerName || customerName.trim().length === 0) {
       return { success: false, error: 'Customer name is required' };
     }
 
-    const customer = await prisma.customers.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { customer_name: customerName },
-      select: { credit_limit: true },
     });
     if (!customer) {
       return { success: false, error: `Customer "${customerName}" not found` };
     }
 
-    const creditLimit = customer.credit_limit || 0;
+    // Look up credit limit from CustomerCreditLimit child table
+    const creditLimitRow = await prisma.customerCreditLimit.findFirst({
+      where: { parent: customer.name, company: 'Aries' },
+      select: { credit_limit: true },
+    });
+    const creditLimit = Number(creditLimitRow?.credit_limit || 0);
     if (creditLimit <= 0) {
       return { success: true, withinLimit: true, creditLimit: 0, projectedOutstanding: 0 };
     }
@@ -270,8 +294,9 @@ export async function checkCreditLimit(
       creditLimit,
       projectedOutstanding: Math.round(projectedOutstanding * 100) / 100,
     };
-  } catch (error: any) {
-    console.error('[customers] checkCreditLimit failed:', error?.message);
-    return { success: false, error: error?.message || 'Credit limit check failed' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[customers] checkCreditLimit failed:', msg);
+    return { success: false, error: msg || 'Credit limit check failed' };
   }
 }

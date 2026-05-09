@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ export async function listContracts(
   pageSize = 50
 ): Promise<{ success: true; contracts: ClientSafeContract[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     const where = search
       ? {
           OR: [
@@ -101,6 +103,7 @@ export async function getContract(
   id: string
 ): Promise<{ success: true; contract: ClientSafeContractDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     const c = await prisma.contract.findUnique({ where: { name: id } });
     if (!c) return { success: false, error: 'Contract not found' };
 
@@ -142,6 +145,7 @@ export async function createContract(
   data: CreateContractInput
 ): Promise<{ success: true; contract: ClientSafeContract } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "create");
     if (!data.party_name) return { success: false, error: 'Party name is required' };
 
     const name = `CONTRACT-${Date.now()}`;
@@ -185,6 +189,7 @@ export async function createContract(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitContract(id: string): Promise<SubmitResult> {
+  await requirePermission("Customer", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Contract", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/crm/contracts');
@@ -192,6 +197,7 @@ export async function submitContract(id: string): Promise<SubmitResult> {
 }
 
 export async function cancelContract(id: string): Promise<CancelResult> {
+  await requirePermission("Customer", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Contract", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/crm/contracts');
@@ -204,6 +210,7 @@ export async function deleteContract(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "delete");
     const existing = await prisma.contract.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Contract not found' };
     if (existing.docstatus !== 0) return { success: false, error: 'Only draft contracts can be deleted' };

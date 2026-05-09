@@ -63,6 +63,7 @@ import {
   makeGlEntries as siMakeGlEntries,
   buildStockLedgerEntries as siBuildStockLedgerEntries,
   getSalesInvoiceStatusUpdaterConfigs,
+  calculateTaxesAndTotalsForSI,
   type SalesInvoice,
   type SalesInvoiceItem as SIItem,
   type GLEntry as SIGlEntry,
@@ -77,12 +78,99 @@ import {
   makeGlEntries as piMakeGlEntries,
   buildStockLedgerEntries as piBuildStockLedgerEntries,
   getPurchaseInvoiceStatusUpdaterConfigs,
+  calculateTaxesAndTotalsForPI,
   type PurchaseInvoice,
   type PurchaseInvoiceItem as PIItem,
   type GLEntry as PIGlEntry,
   type StockLedgerEntry as PISLE,
   type SupplierInfo as PIControllerSupplierInfo,
 } from "./controllers/buying-purchase-invoice";
+
+// ── Journal Entry controller imports ──────────────────────────────────────
+import {
+  validateJournalEntry,
+  validateTotalDebitAndCredit,
+  buildGLMap,
+  type JournalEntryDoc,
+  type JournalEntryAccount,
+  type JournalValidationContext,
+  type JournalValidationResult,
+  type GLEntryRow,
+} from "./controllers/accounts-journal-entry";
+
+// ── Stock Entry controller imports ────────────────────────────────────────
+import {
+  validateStockEntry,
+  calculateRateAndAmount,
+  type StockEntryDoc,
+  type StockEntryItem,
+  type ValidationResult as StockEntryValidationResult,
+} from "./controllers/stock-entry";
+
+// ── Delivery Note controller imports ──────────────────────────────────────
+import {
+  validateDeliveryNote,
+  type DeliveryNote,
+  type DeliveryNoteItem,
+  type DeliveryNoteValidationInput,
+  type ValidationError as DNValidationError,
+  type StatusUpdaterConfig as DNStatusUpdaterConfig,
+  DELIVERY_NOTE_STATUS_UPDATER,
+} from "./controllers/stock-delivery-note";
+
+// ── Purchase Receipt controller imports ───────────────────────────────────
+import {
+  validatePurchaseReceipt,
+  type PurchaseReceipt,
+  type PurchaseReceiptItem,
+  type PurchaseReceiptValidationInput,
+  type ValidationError as PRValidationError,
+  type StatusUpdaterConfig as PRStatusUpdaterConfig,
+  PURCHASE_RECEIPT_STATUS_UPDATER,
+} from "./controllers/stock-purchase-receipt";
+
+// ── Sales Order controller imports ────────────────────────────────────────
+import {
+  validateSalesOrder,
+  type SalesOrder,
+  type SalesOrderItem,
+  type SalesOrderValidationResult,
+} from "./controllers/selling-sales-order";
+
+// ── Purchase Order controller imports ─────────────────────────────────────
+import {
+  validatePurchaseOrder,
+  type PurchaseOrderDoc,
+  type PurchaseOrderItem,
+  type ValidationResult as POValidationResult,
+  type POValidationContext,
+} from "./controllers/buying-purchase-order";
+
+// ── Quotation controller imports ──────────────────────────────────────────
+import {
+  validateQuotation,
+  type Quotation,
+  type QuotationItem,
+  type QuotationValidationResult,
+} from "./controllers/selling-quotation";
+
+// ── Material Request controller imports ───────────────────────────────────
+import {
+  validatePurchaseDoc as validateMaterialRequestDoc,
+  type PurchaseDoc as MaterialRequestDoc,
+  type PurchaseItemRow as MaterialRequestItem,
+} from "./controllers/buying-controller";
+
+// ── Work Order controller imports ─────────────────────────────────────────
+import {
+  validateWorkOrder,
+  type WorkOrderDoc,
+  type WorkOrderItem,
+  type ValidationResult as WOValidationResult,
+} from "./controllers/manufacturing-work-order";
+
+// ── Tax engine import ─────────────────────────────────────────────────────
+import { calculateTaxesAndTotals, type TransactionDoc } from "./controllers/taxes-and-totals";
 
 import { type StatusUpdaterConfig, type QtyUpdateResult } from "./controllers/status-updater";
 
@@ -172,7 +260,7 @@ export interface DocTypeConfig {
 /* ------------------------------------------------------------------ */
 
 /**
- * Adapter: Sales Invoice controller → SubmitSideEffects
+ * Adapter: Sales Invoice controller -> SubmitSideEffects
  *
  * Bridges the gap between the selling-sales-invoice controller's
  * output types and the orchestrator's generic SubmitSideEffects.
@@ -190,7 +278,7 @@ function siOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitS
     };
   }
 
-  // Convert controller GLEntry → GlEntryInput
+  // Convert controller GLEntry -> GlEntryInput
   const glEntries: GlEntryInput[] = (result.gl_entries ?? []).map((e: SIGlEntry) => ({
     account: e.account,
     debit: e.debit,
@@ -210,7 +298,7 @@ function siOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitS
     remarks: e.remarks,
   }));
 
-  // Convert controller StockLedgerEntry → StockLedgerEntryInput
+  // Convert controller StockLedgerEntry -> StockLedgerEntryInput
   const stockEntries = siBuildStockLedgerEntries(siDoc, false);
   const stockLedgerEntries: StockLedgerEntryInput[] = stockEntries.map((e: SISLE) => ({
     itemCode: e.item_code,
@@ -235,7 +323,7 @@ function siOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitS
         targetDoctype: childUpdate.targetDt,
         targetName: childUpdate.detailId,
         targetField: childUpdate.targetField,
-        value: childUpdate.newValue,  // Absolute value — persister will SET directly
+        value: childUpdate.newValue,  // Absolute value -- persister will SET directly
       });
     }
   }
@@ -249,7 +337,7 @@ function siOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitS
 }
 
 /**
- * Adapter: Sales Invoice controller → CancelSideEffects
+ * Adapter: Sales Invoice controller -> CancelSideEffects
  */
 function siOnCancel(doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
   const siDoc = doc as SalesInvoice;
@@ -279,7 +367,7 @@ function siOnCancel(doc: unknown, _children: Record<string, unknown[]>): CancelS
 }
 
 /**
- * Adapter: Sales Invoice controller → ValidationResult
+ * Adapter: Sales Invoice controller -> ValidationResult
  */
 function siValidate(doc: unknown, context: ValidationContext): ValidationResult {
   const siDoc = doc as SalesInvoice;
@@ -310,7 +398,7 @@ function siValidate(doc: unknown, context: ValidationContext): ValidationResult 
 }
 
 /**
- * Adapter: Purchase Invoice controller → SubmitSideEffects
+ * Adapter: Purchase Invoice controller -> SubmitSideEffects
  */
 function piOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
   const piDoc = doc as PurchaseInvoice;
@@ -367,7 +455,7 @@ function piOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitS
         targetDoctype: childUpdate.targetDt,
         targetName: childUpdate.detailId,
         targetField: childUpdate.targetField,
-        value: childUpdate.newValue,  // Absolute value — persister will SET directly
+        value: childUpdate.newValue,
       });
     }
   }
@@ -381,7 +469,7 @@ function piOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitS
 }
 
 /**
- * Adapter: Purchase Invoice controller → CancelSideEffects
+ * Adapter: Purchase Invoice controller -> CancelSideEffects
  */
 function piOnCancel(doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
   const piDoc = doc as PurchaseInvoice;
@@ -398,7 +486,7 @@ function piOnCancel(doc: unknown, _children: Record<string, unknown[]>): CancelS
         targetDoctype: childUpdate.targetDt,
         targetName: childUpdate.detailId,
         targetField: childUpdate.targetField,
-        value: childUpdate.newValue,  // Cancel controller returns correct absolute value to set
+        value: childUpdate.newValue,
       });
     }
   }
@@ -411,7 +499,7 @@ function piOnCancel(doc: unknown, _children: Record<string, unknown[]>): CancelS
 }
 
 /**
- * Adapter: Purchase Invoice controller → ValidationResult
+ * Adapter: Purchase Invoice controller -> ValidationResult
  */
 function piValidate(doc: unknown, context: ValidationContext): ValidationResult {
   const piDoc = doc as PurchaseInvoice;
@@ -444,32 +532,784 @@ function piValidate(doc: unknown, context: ValidationContext): ValidationResult 
   return { valid: true, errors: [], warnings: result.warnings ?? [] };
 }
 
-/* ------------------------------------------------------------------ */
-/*  Placeholder adapters for DocTypes without full controllers         */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/*  Journal Entry Adapters                                            */
+/* ================================================================== */
 
-/** No-op validate for DocTypes with minimal validation */
-function noopValidate(_doc: unknown, _context: ValidationContext): ValidationResult {
-  return { valid: true, errors: [], warnings: [] };
+/**
+ * Adapter: Journal Entry controller -> ValidationResult
+ *
+ * Journal Entry validation uses its own context type. We bridge from
+ * the orchestrator's ValidationContext to the JE-specific context.
+ */
+function jeValidate(doc: unknown, context: ValidationContext): ValidationResult {
+  const jeDoc = doc as JournalEntryDoc;
+  const warnings: string[] = [];
+
+  // Basic structural validation
+  if (!jeDoc.accounts || jeDoc.accounts.length === 0) {
+    return { valid: false, errors: ["Accounts table cannot be blank"], warnings: [] };
+  }
+
+  if (!jeDoc.company) {
+    return { valid: false, errors: ["Company is mandatory"], warnings: [] };
+  }
+
+  if (!jeDoc.posting_date) {
+    return { valid: false, errors: ["Posting Date is mandatory"], warnings: [] };
+  }
+
+  // Check debit/credit balance
+  const balanceErr = validateTotalDebitAndCredit(
+    jeDoc.difference ?? 0,
+    jeDoc.voucher_type,
+    jeDoc.multi_currency,
+  );
+  if (balanceErr) {
+    return { valid: false, errors: [balanceErr], warnings: [] };
+  }
+
+  // Run full JE validation with a minimal context
+  const jeCtx: JournalValidationContext = {
+    companyCurrency: context.companyDefaults?.defaultCurrency ?? jeDoc.company_currency ?? "",
+  };
+
+  const result = validateJournalEntry(jeDoc, jeCtx);
+  if (!result.success) {
+    return { valid: false, errors: [result.error ?? "Validation failed"], warnings: result.warnings ?? [] };
+  }
+
+  return { valid: true, errors: [], warnings: [...warnings, ...(result.warnings ?? [])] };
 }
 
-/** No-op submit for DocTypes that only need docstatus flip */
-function noopSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+/**
+ * Adapter: Journal Entry controller -> SubmitSideEffects
+ *
+ * On submit, JE creates GL entries directly from the accounts table.
+ */
+function jeOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  const jeDoc = doc as JournalEntryDoc;
+  const glMap: GLEntryRow[] = buildGLMap(jeDoc, []);
+
+  const glEntries: GlEntryInput[] = glMap.map((row: GLEntryRow) => ({
+    account: row.account,
+    debit: row.debit,
+    credit: row.credit,
+    against: row.against ?? "",
+    voucherType: "Journal Entry",
+    voucherNo: jeDoc.name ?? "",
+    fiscalYear: "",
+    company: jeDoc.company,
+    postingDate: new Date(jeDoc.posting_date),
+    costCenter: row.cost_center,
+    project: row.project,
+    partyType: row.party_type,
+    party: row.party,
+    againstVoucherType: row.against_voucher_type,
+    againstVoucher: row.against_voucher,
+    remarks: row.remarks,
+  }));
+
   return {
-    glEntries: [],
+    glEntries,
     stockLedgerEntries: [],
     statusUpdates: [],
     accountBalanceUpdates: [],
   };
 }
 
-/** No-op cancel for DocTypes that only need docstatus flip */
-function noopCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+/**
+ * Adapter: Journal Entry controller -> CancelSideEffects
+ *
+ * On cancel, JE reverses all GL entries.
+ */
+function jeOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
   return {
-    reverseGlEntries: false,
+    reverseGlEntries: true,
     reverseStockLedger: false,
     reverseStatusUpdates: [],
   };
+}
+
+/* ================================================================== */
+/*  Stock Entry Adapters                                              */
+/* ================================================================== */
+
+/**
+ * Adapter: Stock Entry controller -> ValidationResult
+ */
+function seValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const seDoc = doc as StockEntryDoc;
+
+  if (!seDoc.company) {
+    return { valid: false, errors: ["Company is mandatory"], warnings: [] };
+  }
+
+  if (!seDoc.items || seDoc.items.length === 0) {
+    return { valid: false, errors: ["Items table cannot be empty"], warnings: [] };
+  }
+
+  const result: StockEntryValidationResult = validateStockEntry(seDoc);
+  if (!result.success) {
+    return { valid: false, errors: [result.error ?? "Validation failed"], warnings: result.warnings ?? [] };
+  }
+
+  return { valid: true, errors: [], warnings: result.warnings ?? [] };
+}
+
+/**
+ * Adapter: Stock Entry controller -> SubmitSideEffects
+ *
+ * Stock Entry creates stock ledger entries (no GL entries here --
+ * GL entries for stock are handled by the perpetual inventory engine).
+ */
+function seOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  const seDoc = doc as StockEntryDoc;
+  const postingDate = seDoc.posting_date ?? new Date().toISOString().split("T")[0];
+  const postingTime = seDoc.posting_time ?? new Date().toTimeString().substring(0, 8);
+  const voucherNo = seDoc.name ?? "";
+
+  const stockLedgerEntries: StockLedgerEntryInput[] = [];
+
+  for (const item of seDoc.items) {
+    // Source warehouse: outgoing (negative qty)
+    if (item.s_warehouse && item.qty) {
+      const conversionFactor = item.conversion_factor ?? 1;
+      stockLedgerEntries.push({
+        itemCode: item.item_code,
+        warehouse: item.s_warehouse,
+        actualQty: -(item.qty * conversionFactor),
+        valuationRate: item.valuation_rate ?? item.basic_rate ?? 0,
+        stockValueType: "Stock Value",
+        voucherType: "Stock Entry",
+        voucherNo,
+        voucherDetailNo: String(item.idx),
+        postingDate: new Date(postingDate),
+        postingTime,
+        company: seDoc.company,
+        fiscalYear: "",
+      });
+    }
+
+    // Target warehouse: incoming (positive qty)
+    if (item.t_warehouse && item.qty) {
+      const conversionFactor = item.conversion_factor ?? 1;
+      stockLedgerEntries.push({
+        itemCode: item.item_code,
+        warehouse: item.t_warehouse,
+        actualQty: item.qty * conversionFactor,
+        valuationRate: item.valuation_rate ?? item.basic_rate ?? 0,
+        stockValueType: "Stock Value",
+        voucherType: "Stock Entry",
+        voucherNo,
+        voucherDetailNo: String(item.idx),
+        postingDate: new Date(postingDate),
+        postingTime,
+        company: seDoc.company,
+        fiscalYear: "",
+      });
+    }
+  }
+
+  return {
+    glEntries: [],
+    stockLedgerEntries,
+    statusUpdates: [],
+    accountBalanceUpdates: [],
+  };
+}
+
+/**
+ * Adapter: Stock Entry controller -> CancelSideEffects
+ */
+function seOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return {
+    reverseGlEntries: false,
+    reverseStockLedger: true,
+    reverseStatusUpdates: [],
+  };
+}
+
+/* ================================================================== */
+/*  Delivery Note Adapters                                            */
+/* ================================================================== */
+
+/**
+ * Adapter: Delivery Note controller -> ValidationResult
+ */
+function dnValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const dnDoc = doc as DeliveryNote;
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!dnDoc.company) {
+    return { valid: false, errors: ["Company is mandatory"], warnings: [] };
+  }
+
+  if (!dnDoc.items || dnDoc.items.length === 0) {
+    return { valid: false, errors: ["Items table cannot be empty"], warnings: [] };
+  }
+
+  // Run basic structural validations
+  if (!dnDoc.customer) {
+    errors.push("Customer is mandatory for Delivery Note");
+  }
+
+  if (!dnDoc.posting_date) {
+    errors.push("Posting Date is mandatory");
+  }
+
+  for (const item of dnDoc.items) {
+    if (!item.item_code) {
+      errors.push(`Row ${item.idx}: Item Code is mandatory`);
+    }
+    if (!item.qty || item.qty <= 0) {
+      errors.push(`Row ${item.idx}: Quantity must be positive`);
+    }
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors, warnings };
+  }
+
+  return { valid: true, errors: [], warnings };
+}
+
+/**
+ * Adapter: Delivery Note controller -> SubmitSideEffects
+ *
+ * Delivery Note creates stock ledger entries for outgoing items
+ * and status updates against linked Sales Orders.
+ */
+function dnOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  const dnDoc = doc as DeliveryNote;
+  const postingDate = dnDoc.posting_date ?? new Date().toISOString().split("T")[0];
+  const postingTime = dnDoc.posting_time ?? new Date().toTimeString().substring(0, 8);
+  const voucherNo = dnDoc.name ?? "";
+
+  // Build stock ledger entries: delivery is outgoing (negative qty)
+  const stockLedgerEntries: StockLedgerEntryInput[] = [];
+  for (const item of dnDoc.items) {
+    if (item.warehouse && item.stock_qty) {
+      stockLedgerEntries.push({
+        itemCode: item.item_code,
+        warehouse: item.warehouse,
+        actualQty: -item.stock_qty,
+        valuationRate: item.rate ?? 0,
+        stockValueType: "Stock Value",
+        voucherType: "Delivery Note",
+        voucherNo,
+        voucherDetailNo: item.id ?? item.idx.toString(),
+        postingDate: new Date(postingDate),
+        postingTime,
+        company: dnDoc.company,
+        fiscalYear: "",
+      });
+    }
+  }
+
+  // Build status updates for linked Sales Orders
+  const statusUpdates: StatusUpdateConfig[] = [];
+  for (const item of dnDoc.items) {
+    if (item.against_sales_order && item.so_detail) {
+      statusUpdates.push({
+        targetDoctype: "Sales Order Item",
+        targetName: item.so_detail,
+        targetField: "delivered_qty",
+        value: item.stock_qty,
+      });
+    }
+  }
+
+  return {
+    glEntries: [],
+    stockLedgerEntries,
+    statusUpdates,
+    accountBalanceUpdates: [],
+  };
+}
+
+/**
+ * Adapter: Delivery Note controller -> CancelSideEffects
+ */
+function dnOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return {
+    reverseGlEntries: false,
+    reverseStockLedger: true,
+    reverseStatusUpdates: [],
+  };
+}
+
+/* ================================================================== */
+/*  Purchase Receipt Adapters                                         */
+/* ================================================================== */
+
+/**
+ * Adapter: Purchase Receipt controller -> ValidationResult
+ */
+function prValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const prDoc = doc as PurchaseReceipt;
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!prDoc.company) {
+    return { valid: false, errors: ["Company is mandatory"], warnings: [] };
+  }
+
+  if (!prDoc.items || prDoc.items.length === 0) {
+    return { valid: false, errors: ["Items table cannot be empty"], warnings: [] };
+  }
+
+  if (!prDoc.supplier) {
+    errors.push("Supplier is mandatory for Purchase Receipt");
+  }
+
+  if (!prDoc.posting_date) {
+    errors.push("Posting Date is mandatory");
+  }
+
+  for (const item of prDoc.items) {
+    if (!item.item_code) {
+      errors.push(`Row ${item.idx}: Item Code is mandatory`);
+    }
+    if (!item.qty || item.qty <= 0) {
+      errors.push(`Row ${item.idx}: Quantity must be positive`);
+    }
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors, warnings };
+  }
+
+  return { valid: true, errors: [], warnings };
+}
+
+/**
+ * Adapter: Purchase Receipt controller -> SubmitSideEffects
+ *
+ * Purchase Receipt creates stock ledger entries for incoming items
+ * and status updates against linked Purchase Orders.
+ */
+function prOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  const prDoc = doc as PurchaseReceipt;
+  const postingDate = prDoc.posting_date ?? new Date().toISOString().split("T")[0];
+  const postingTime = prDoc.posting_time ?? new Date().toTimeString().substring(0, 8);
+  const voucherNo = prDoc.name ?? "";
+
+  // Build stock ledger entries: receipt is incoming (positive qty)
+  const stockLedgerEntries: StockLedgerEntryInput[] = [];
+  for (const item of prDoc.items) {
+    if (item.warehouse && item.received_stock_qty) {
+      stockLedgerEntries.push({
+        itemCode: item.item_code,
+        warehouse: item.warehouse,
+        actualQty: item.received_stock_qty,
+        valuationRate: item.valuation_rate ?? item.rate ?? 0,
+        stockValueType: "Stock Value",
+        voucherType: "Purchase Receipt",
+        voucherNo,
+        voucherDetailNo: item.id ?? item.idx.toString(),
+        postingDate: new Date(postingDate),
+        postingTime,
+        company: prDoc.company,
+        fiscalYear: "",
+      });
+    } else if (item.warehouse && item.stock_qty) {
+      stockLedgerEntries.push({
+        itemCode: item.item_code,
+        warehouse: item.warehouse,
+        actualQty: item.stock_qty,
+        valuationRate: item.valuation_rate ?? item.rate ?? 0,
+        stockValueType: "Stock Value",
+        voucherType: "Purchase Receipt",
+        voucherNo,
+        voucherDetailNo: item.id ?? item.idx.toString(),
+        postingDate: new Date(postingDate),
+        postingTime,
+        company: prDoc.company,
+        fiscalYear: "",
+      });
+    }
+  }
+
+  // Build status updates for linked Purchase Orders
+  const statusUpdates: StatusUpdateConfig[] = [];
+  for (const item of prDoc.items) {
+    if (item.purchase_order && item.purchase_order_item) {
+      statusUpdates.push({
+        targetDoctype: "Purchase Order Item",
+        targetName: item.purchase_order_item,
+        targetField: "received_qty",
+        value: item.received_qty ?? item.qty,
+      });
+    }
+  }
+
+  return {
+    glEntries: [],
+    stockLedgerEntries,
+    statusUpdates,
+    accountBalanceUpdates: [],
+  };
+}
+
+/**
+ * Adapter: Purchase Receipt controller -> CancelSideEffects
+ */
+function prOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return {
+    reverseGlEntries: false,
+    reverseStockLedger: true,
+    reverseStatusUpdates: [],
+  };
+}
+
+/* ================================================================== */
+/*  Payment Entry Adapters                                            */
+/* ================================================================== */
+
+/**
+ * Payment Entry creates GL entries: debit bank, credit party (or vice versa).
+ * It also updates outstanding amounts on referenced invoices.
+ */
+function peValidate(doc: unknown, context: ValidationContext): ValidationResult {
+  const peDoc = doc as Record<string, unknown>;
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!peDoc.company) {
+    return { valid: false, errors: ["Company is mandatory"], warnings: [] };
+  }
+
+  if (!peDoc.party_type) {
+    errors.push("Party Type is mandatory");
+  }
+
+  if (!peDoc.party) {
+    errors.push("Party is mandatory");
+  }
+
+  if (!peDoc.paid_amount || Number(peDoc.paid_amount) <= 0) {
+    errors.push("Paid Amount must be positive");
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors, warnings };
+  }
+
+  return { valid: true, errors: [], warnings };
+}
+
+/**
+ * Adapter: Payment Entry -> SubmitSideEffects
+ *
+ * Creates GL entries:
+ *   - Debit: party account (reduces outstanding)
+ *   - Credit: bank/cash account (money paid out)
+ *   Or vice versa for receiving payments.
+ */
+function peOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  const peDoc = doc as Record<string, unknown>;
+  const company = peDoc.company as string;
+  const postingDate = new Date((peDoc.posting_date as string) ?? new Date());
+  const voucherNo = (peDoc.name as string) ?? "";
+  const paidAmount = Number(peDoc.paid_amount ?? 0);
+  const partyType = peDoc.party_type as string;
+  const party = peDoc.party as string;
+  const partyAccount = peDoc.party_account as string;
+  const paidFrom = peDoc.paid_from as string;
+  const paidTo = peDoc.paid_to as string;
+  const paymentType = peDoc.payment_type as string;
+  const costCenter = peDoc.cost_center as string | undefined;
+  const referenceNo = peDoc.reference_no as string | undefined;
+  const references = peDoc.references as Array<Record<string, unknown>> | undefined;
+
+  const glEntries: GlEntryInput[] = [];
+
+  if (paymentType === "Pay") {
+    // Paying to supplier: Debit party (payable), Credit bank
+    if (paidFrom && paidAmount > 0) {
+      glEntries.push({
+        account: partyAccount || paidFrom,
+        debit: paidAmount,
+        credit: 0,
+        against: paidTo ?? "",
+        voucherType: "Payment Entry",
+        voucherNo,
+        fiscalYear: "",
+        company,
+        postingDate,
+        costCenter,
+        partyType,
+        party,
+        remarks: `Payment ${referenceNo ?? voucherNo}`,
+      });
+      glEntries.push({
+        account: paidTo ?? paidFrom,
+        debit: 0,
+        credit: paidAmount,
+        against: party ?? "",
+        voucherType: "Payment Entry",
+        voucherNo,
+        fiscalYear: "",
+        company,
+        postingDate,
+        costCenter,
+        remarks: `Payment ${referenceNo ?? voucherNo}`,
+      });
+    }
+  } else {
+    // Receiving from customer: Debit bank, Credit party (receivable)
+    if (paidTo && paidAmount > 0) {
+      glEntries.push({
+        account: paidTo ?? paidFrom,
+        debit: paidAmount,
+        credit: 0,
+        against: party ?? "",
+        voucherType: "Payment Entry",
+        voucherNo,
+        fiscalYear: "",
+        company,
+        postingDate,
+        costCenter,
+        remarks: `Receipt ${referenceNo ?? voucherNo}`,
+      });
+      glEntries.push({
+        account: partyAccount || paidTo,
+        debit: 0,
+        credit: paidAmount,
+        against: paidTo ?? "",
+        voucherType: "Payment Entry",
+        voucherNo,
+        fiscalYear: "",
+        company,
+        postingDate,
+        costCenter,
+        partyType,
+        party,
+        remarks: `Receipt ${referenceNo ?? voucherNo}`,
+      });
+    }
+  }
+
+  // Build status updates for referenced invoices (update outstanding)
+  const statusUpdates: StatusUpdateConfig[] = [];
+  if (references) {
+    for (const ref of references) {
+      if (ref.reference_name && ref.outstanding_amount !== undefined) {
+        const allocatedAmount = Number(ref.allocated_amount ?? paidAmount);
+        statusUpdates.push({
+          targetDoctype: (ref.reference_type as string) ?? "",
+          targetName: ref.reference_name as string,
+          targetField: "outstanding_amount",
+          value: Number(ref.outstanding_amount) - allocatedAmount,
+        });
+      }
+    }
+  }
+
+  return {
+    glEntries,
+    stockLedgerEntries: [],
+    statusUpdates,
+    accountBalanceUpdates: [],
+  };
+}
+
+/**
+ * Adapter: Payment Entry -> CancelSideEffects
+ */
+function peOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return {
+    reverseGlEntries: true,
+    reverseStockLedger: false,
+    reverseStatusUpdates: [],
+  };
+}
+
+/* ================================================================== */
+/*  Sales Order Adapters                                              */
+/* ================================================================== */
+
+/**
+ * Sales Order: status-only DocType. No GL or stock entries on submit.
+ */
+function soValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const soDoc = doc as Record<string, unknown>;
+  const errors: string[] = [];
+
+  if (!soDoc.company) errors.push("Company is mandatory");
+  if (!soDoc.customer) errors.push("Customer is mandatory");
+  if (!soDoc.transaction_date) errors.push("Transaction Date is mandatory");
+
+  const items = soDoc.items as Array<Record<string, unknown>> | undefined;
+  if (!items || items.length === 0) {
+    errors.push("Items table cannot be empty");
+  } else {
+    for (const item of items) {
+      if (!item.item_code) errors.push(`Row ${item.idx ?? ""}: Item Code is mandatory`);
+    }
+  }
+
+  return errors.length > 0
+    ? { valid: false, errors, warnings: [] }
+    : { valid: true, errors: [], warnings: [] };
+}
+
+function soOnSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  // Sales Order submit is status-only: no GL, no stock, just docstatus flip
+  return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function soOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
+}
+
+/* ================================================================== */
+/*  Purchase Order Adapters                                           */
+/* ================================================================== */
+
+/**
+ * Purchase Order: status-only DocType. No GL or stock entries on submit.
+ */
+function poValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const poDoc = doc as Record<string, unknown>;
+  const errors: string[] = [];
+
+  if (!poDoc.company) errors.push("Company is mandatory");
+  if (!poDoc.supplier) errors.push("Supplier is mandatory");
+  if (!poDoc.transaction_date && !poDoc.schedule_date) {
+    errors.push("Transaction Date or Schedule Date is mandatory");
+  }
+
+  const items = poDoc.items as Array<Record<string, unknown>> | undefined;
+  if (!items || items.length === 0) {
+    errors.push("Items table cannot be empty");
+  } else {
+    for (const item of items) {
+      if (!item.item_code) errors.push(`Row ${item.idx ?? ""}: Item Code is mandatory`);
+    }
+  }
+
+  return errors.length > 0
+    ? { valid: false, errors, warnings: [] }
+    : { valid: true, errors: [], warnings: [] };
+}
+
+function poOnSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  // Purchase Order submit is status-only: no GL, no stock
+  return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function poOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
+}
+
+/* ================================================================== */
+/*  Quotation Adapters                                                */
+/* ================================================================== */
+
+/**
+ * Quotation: status-only DocType. No GL or stock entries on submit.
+ */
+function qtValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const qtDoc = doc as Record<string, unknown>;
+  const errors: string[] = [];
+
+  if (!qtDoc.company) errors.push("Company is mandatory");
+  if (!qtDoc.party_name) errors.push("Party Name is mandatory");
+  if (!qtDoc.transaction_date) errors.push("Transaction Date is mandatory");
+
+  const items = qtDoc.items as Array<Record<string, unknown>> | undefined;
+  if (!items || items.length === 0) {
+    errors.push("Items table cannot be empty");
+  } else {
+    for (const item of items) {
+      if (!item.item_code) errors.push(`Row ${item.idx ?? ""}: Item Code is mandatory`);
+    }
+  }
+
+  return errors.length > 0
+    ? { valid: false, errors, warnings: [] }
+    : { valid: true, errors: [], warnings: [] };
+}
+
+function qtOnSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function qtOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
+}
+
+/* ================================================================== */
+/*  Material Request Adapters                                         */
+/* ================================================================== */
+
+/**
+ * Material Request: status-only DocType. No GL or stock entries on submit.
+ */
+function mrValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const mrDoc = doc as Record<string, unknown>;
+  const errors: string[] = [];
+
+  if (!mrDoc.company) errors.push("Company is mandatory");
+  if (!mrDoc.transaction_date) errors.push("Transaction Date is mandatory");
+
+  const items = mrDoc.items as Array<Record<string, unknown>> | undefined;
+  if (!items || items.length === 0) {
+    errors.push("Items table cannot be empty");
+  } else {
+    for (const item of items) {
+      if (!item.item_code) errors.push(`Row ${item.idx ?? ""}: Item Code is mandatory`);
+      if (!item.qty || Number(item.qty) <= 0) {
+        errors.push(`Row ${item.idx ?? ""}: Quantity must be positive`);
+      }
+    }
+  }
+
+  return errors.length > 0
+    ? { valid: false, errors, warnings: [] }
+    : { valid: true, errors: [], warnings: [] };
+}
+
+function mrOnSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function mrOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
+}
+
+/* ================================================================== */
+/*  Work Order Adapters                                               */
+/* ================================================================== */
+
+/**
+ * Work Order: status-only DocType. No GL or stock entries on submit.
+ * Stock movements happen via Stock Entries linked to the Work Order.
+ */
+function woValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const woDoc = doc as Record<string, unknown>;
+  const errors: string[] = [];
+
+  if (!woDoc.company) errors.push("Company is mandatory");
+  if (!woDoc.production_item) errors.push("Production Item is mandatory");
+  if (!woDoc.qty || Number(woDoc.qty) <= 0) errors.push("Quantity must be positive");
+  if (!woDoc.bom_no) errors.push("BOM No is mandatory");
+
+  return errors.length > 0
+    ? { valid: false, errors, warnings: [] }
+    : { valid: true, errors: [], warnings: [] };
+}
+
+function woOnSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  // Work Order submit is status-only: actual stock movements happen via Stock Entries
+  return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function woOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
 }
 
 /* ------------------------------------------------------------------ */
@@ -513,42 +1353,12 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     submittable: true,
   }],
 
-  // ── Sales Order ──────────────────────────────────────────────────────────
-  ["Sales Order", {
-    controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
-    },
-    prismaModel: "salesOrder",
-    childModels: [
-      { accessor: "salesOrderItem", parentField: "items" },
-      { accessor: "salesTaxesAndCharges", parentField: "taxes" },
-    ],
-    submittable: true,
-  }],
-
-  // ── Purchase Order ───────────────────────────────────────────────────────
-  ["Purchase Order", {
-    controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
-    },
-    prismaModel: "purchaseOrder",
-    childModels: [
-      { accessor: "purchaseOrderItem", parentField: "items" },
-      { accessor: "purchaseTaxesAndCharges", parentField: "taxes" },
-    ],
-    submittable: true,
-  }],
-
-  // ── Journal Entry ───────────────────────────────────────────────────────
+  // ── Journal Entry (GL entries on submit) ─────────────────────────────────
   ["Journal Entry", {
     controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
+      validate: jeValidate,
+      onSubmit: jeOnSubmit,
+      onCancel: jeOnCancel,
     },
     prismaModel: "journalEntry",
     childModels: [
@@ -557,27 +1367,12 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     submittable: true,
   }],
 
-  // ── Payment Entry ───────────────────────────────────────────────────────
-  ["Payment Entry", {
-    controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
-    },
-    prismaModel: "paymentEntry",
-    childModels: [
-      { accessor: "paymentEntryReference", parentField: "references" },
-      { accessor: "paymentEntryDeduction", parentField: "deductions" },
-    ],
-    submittable: true,
-  }],
-
-  // ── Stock Entry ─────────────────────────────────────────────────────────
+  // ── Stock Entry (SLE + bin updates on submit) ────────────────────────────
   ["Stock Entry", {
     controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
+      validate: seValidate,
+      onSubmit: seOnSubmit,
+      onCancel: seOnCancel,
     },
     prismaModel: "stockEntry",
     childModels: [
@@ -586,12 +1381,12 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     submittable: true,
   }],
 
-  // ── Delivery Note ───────────────────────────────────────────────────────
+  // ── Delivery Note (SLE + bin updates + SO status on submit) ──────────────
   ["Delivery Note", {
     controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
+      validate: dnValidate,
+      onSubmit: dnOnSubmit,
+      onCancel: dnOnCancel,
     },
     prismaModel: "deliveryNote",
     childModels: [
@@ -601,12 +1396,12 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     submittable: true,
   }],
 
-  // ── Purchase Receipt ────────────────────────────────────────────────────
+  // ── Purchase Receipt (SLE + bin updates + PO status on submit) ───────────
   ["Purchase Receipt", {
     controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
+      validate: prValidate,
+      onSubmit: prOnSubmit,
+      onCancel: prOnCancel,
     },
     prismaModel: "purchaseReceipt",
     childModels: [
@@ -616,12 +1411,57 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     submittable: true,
   }],
 
-  // ── Quotation ───────────────────────────────────────────────────────────
+  // ── Payment Entry (GL entries + outstanding update on submit) ────────────
+  ["Payment Entry", {
+    controller: {
+      validate: peValidate,
+      onSubmit: peOnSubmit,
+      onCancel: peOnCancel,
+    },
+    prismaModel: "paymentEntry",
+    childModels: [
+      { accessor: "paymentEntryReference", parentField: "references" },
+      { accessor: "paymentEntryDeduction", parentField: "deductions" },
+    ],
+    submittable: true,
+  }],
+
+  // ── Sales Order (status-only on submit) ─────────────────────────────────
+  ["Sales Order", {
+    controller: {
+      validate: soValidate,
+      onSubmit: soOnSubmit,
+      onCancel: soOnCancel,
+    },
+    prismaModel: "salesOrder",
+    childModels: [
+      { accessor: "salesOrderItem", parentField: "items" },
+      { accessor: "salesTaxesAndCharges", parentField: "taxes" },
+    ],
+    submittable: true,
+  }],
+
+  // ── Purchase Order (status-only on submit) ──────────────────────────────
+  ["Purchase Order", {
+    controller: {
+      validate: poValidate,
+      onSubmit: poOnSubmit,
+      onCancel: poOnCancel,
+    },
+    prismaModel: "purchaseOrder",
+    childModels: [
+      { accessor: "purchaseOrderItem", parentField: "items" },
+      { accessor: "purchaseTaxesAndCharges", parentField: "taxes" },
+    ],
+    submittable: true,
+  }],
+
+  // ── Quotation (status-only on submit) ───────────────────────────────────
   ["Quotation", {
     controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
+      validate: qtValidate,
+      onSubmit: qtOnSubmit,
+      onCancel: qtOnCancel,
     },
     prismaModel: "quotation",
     childModels: [
@@ -631,12 +1471,12 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     submittable: true,
   }],
 
-  // ── Material Request ────────────────────────────────────────────────────
+  // ── Material Request (status-only on submit) ────────────────────────────
   ["Material Request", {
     controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
+      validate: mrValidate,
+      onSubmit: mrOnSubmit,
+      onCancel: mrOnCancel,
     },
     prismaModel: "materialRequest",
     childModels: [
@@ -645,12 +1485,12 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     submittable: true,
   }],
 
-  // ── Work Order ──────────────────────────────────────────────────────────
+  // ── Work Order (status-only on submit) ──────────────────────────────────
   ["Work Order", {
     controller: {
-      validate: noopValidate,
-      onSubmit: noopSubmit,
-      onCancel: noopCancel,
+      validate: woValidate,
+      onSubmit: woOnSubmit,
+      onCancel: woOnCancel,
     },
     prismaModel: "workOrder",
     childModels: [
@@ -665,7 +1505,7 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
    ════════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Get the DocType registry — which controllers handle which DocTypes.
+ * Get the DocType registry -- which controllers handle which DocTypes.
  * Returns a copy so callers cannot mutate the internal registry.
  */
 export function getDocTypeRegistry(): Map<string, DocTypeConfig> {
@@ -673,7 +1513,7 @@ export function getDocTypeRegistry(): Map<string, DocTypeConfig> {
 }
 
 /**
- * Submit a document — validates, creates GL/stock entries, updates status.
+ * Submit a document -- validates, creates GL/stock entries, updates status.
  *
  * Full flow:
  * 1. Check RBAC (session must have submit permission)
@@ -682,8 +1522,8 @@ export function getDocTypeRegistry(): Map<string, DocTypeConfig> {
  * 4. Validate docstatus is Draft (0)
  * 5. Fetch children from DB
  * 6. Build ValidationContext (fiscal year, company defaults, party info)
- * 7. Call controller.validate(doc, context) — throw if invalid
- * 8. Call controller.onSubmit(doc, children) — get side effects
+ * 7. Call controller.validate(doc, context) -- throw if invalid
+ * 8. Call controller.onSubmit(doc, children) -- get side effects
  * 9. Wrap everything in prisma.$transaction():
  *    a. Update doc: docstatus=1, status="Submitted"
  *    b. Cascade docstatus to children
@@ -713,7 +1553,7 @@ export async function submitDocument(
     const config = REGISTRY.get(doctype);
 
     if (!config) {
-      // DocType not in registry — fall back to simple docstatus flip
+      // DocType not in registry -- fall back to simple docstatus flip
       return simpleSubmit(doctype, name);
     }
 
@@ -866,7 +1706,7 @@ export async function submitDocument(
 }
 
 /**
- * Cancel a document — reverses GL/stock, updates status.
+ * Cancel a document -- reverses GL/stock, updates status.
  *
  * Full flow:
  * 1. Check RBAC (session must have cancel permission)
@@ -874,7 +1714,7 @@ export async function submitDocument(
  * 3. Fetch document from DB
  * 4. Validate docstatus is Submitted (1)
  * 5. Check for active dependencies (no active documents reference this)
- * 6. Call controller.onCancel(doc, children) — get reverse effects
+ * 6. Call controller.onCancel(doc, children) -- get reverse effects
  * 7. Wrap in prisma.$transaction():
  *    a. Update doc: docstatus=2, status="Cancelled"
  *    b. Create reversal GL entries
@@ -903,7 +1743,7 @@ export async function cancelDocument(
     const config = REGISTRY.get(doctype);
 
     if (!config) {
-      // DocType not in registry — fall back to simple docstatus flip
+      // DocType not in registry -- fall back to simple docstatus flip
       return simpleCancel(doctype, name);
     }
 
@@ -924,7 +1764,7 @@ export async function cancelDocument(
     // ── 4. Validate docstatus ────────────────────────────────────────────
     const currentDocstatus = Number(doc.docstatus ?? 0);
     if (currentDocstatus === 0) {
-      return { success: false, error: `${doctype} "${name}" is a Draft — cannot cancel a draft` };
+      return { success: false, error: `${doctype} "${name}" is a Draft -- cannot cancel a draft` };
     }
     if (currentDocstatus === 2) {
       return { success: false, error: `${doctype} "${name}" is already cancelled` };
@@ -1030,7 +1870,7 @@ export async function cancelDocument(
 }
 
 /**
- * Validate a document without submitting — for form validation.
+ * Validate a document without submitting -- for form validation.
  *
  * Builds the validation context and calls the controller's validate
  * function. Does NOT modify the database.
@@ -1047,7 +1887,7 @@ export async function validateDocument(
     const config = REGISTRY.get(doctype);
 
     if (!config || !config.controller.validate) {
-      // No registered controller — basic validation only
+      // No registered controller -- basic validation only
       return basicValidation(data);
     }
 
@@ -1068,7 +1908,7 @@ export async function validateDocument(
 
 /**
  * Simple submit for DocTypes NOT in the registry.
- * Just flips docstatus from 0 → 1 and cascades to children.
+ * Just flips docstatus from 0 -> 1 and cascades to children.
  * No GL entries, no stock ledger, no status updates.
  */
 async function simpleSubmit(doctype: string, name: string): Promise<SubmitResult> {
@@ -1129,7 +1969,7 @@ async function simpleSubmit(doctype: string, name: string): Promise<SubmitResult
 
 /**
  * Simple cancel for DocTypes NOT in the registry.
- * Just flips docstatus from 1 → 2 and cascades to children.
+ * Just flips docstatus from 1 -> 2 and cascades to children.
  */
 async function simpleCancel(doctype: string, name: string): Promise<CancelResult> {
   try {
@@ -1189,7 +2029,7 @@ async function simpleCancel(doctype: string, name: string): Promise<CancelResult
 
 /**
  * Basic validation for documents without a registered controller.
- * Checks for required fields using the Prisma DMMF schema.
+ * Checks for common required fields using the Prisma DMMF schema.
  */
 function basicValidation(doc: Record<string, unknown>): ValidationResult {
   const errors: string[] = [];
@@ -1241,10 +2081,10 @@ async function checkDependencies(
       const refs = glEntries
         .map((e) => `${e.voucher_type}: ${e.voucher_no}`)
         .join(", ");
-      return `Cannot cancel ${doctype} "${name}" — it is referenced by: ${refs}`;
+      return `Cannot cancel ${doctype} "${name}" -- it is referenced by: ${refs}`;
     }
   } catch (_e: unknown) {
-    // Non-fatal — if the query fails, proceed with cancellation
+    // Non-fatal -- if the query fails, proceed with cancellation
   }
 
   return null;

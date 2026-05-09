@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ export type ClientSafeQuotation = {
   currency: string;
   valid_till: Date | null;
   valid_until?: Date | null;
-  created_at: Date;
+  created_at: Date | null;
   project_type?: string | null;
   notes?: string | null;
 };
@@ -42,38 +43,40 @@ export interface FrappeSalesOrder {
   name: string;
 }
 
-// ── Existing CRUD functions ─────────────────────────────────────────────────
+// ── CRUD ────────────────────────────────────────────────────────────────────
 
 export async function listQuotations(): Promise<
   { success: true; quotations: ClientSafeQuotation[] } | { success: false; error: string }
 > {
   try {
-    const rows = await prisma.quotations.findMany({
-      include: { quotation_items: true },
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Quotation", "read");
+    const rows = await prisma.quotation.findMany({
+      orderBy: { creation: 'desc' },
       take: 200,
     });
 
     return {
       success: true,
       quotations: rows.map((q) => ({
-        id: q.id,
-        quotation_number: q.quotation_number,
-        customer_name: q.customer_name || 'Unknown',
-        status: q.status || 'DRAFT',
-        subtotal: q.subtotal || 0,
-        tax_amount: q.tax_amount || 0,
-        total: q.total || 0,
+        id: q.name,
+        quotation_number: q.name,
+        customer_name: q.customer_name || q.party_name || 'Unknown',
+        status: q.docstatus === 1 ? 'Submitted' : q.docstatus === 2 ? 'Cancelled' : (q.status || 'Draft'),
+        subtotal: Number(q.net_total || 0),
+        tax_amount: Number(q.total_taxes_and_charges || 0),
+        total: Number(q.grand_total || 0),
         currency: q.currency || 'AED',
-        valid_till: q.valid_until,
-        created_at: q.created_at,
-        project_type: q.project_type || null,
-        notes: q.notes || null,
+        valid_till: q.valid_till || null,
+        valid_until: q.valid_till || null,
+        created_at: q.creation,
+        project_type: null,
+        notes: q.terms || null,
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching quotations:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch quotations' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching quotations:', msg);
+    return { success: false, error: msg || 'Failed to fetch quotations' };
   }
 }
 
@@ -87,88 +90,127 @@ export async function createQuotation(data: {
   items: QuotationItemInput[];
 }) {
   try {
+    await requirePermission("Quotation", "create");
     const customer = data.customer_name || data.customer_id || '';
     const subtotal = data.items.reduce((s, i) => s + (i.qty ?? i.quantity ?? 1) * i.rate, 0);
     const tax_amount = subtotal * (data.tax_rate || 0) / 100;
     const total = subtotal + tax_amount;
 
-    const record = await prisma.quotations.create({
+    const name = `QTN-${Date.now()}`;
+    const record = await prisma.quotation.create({
       data: {
-        id: crypto.randomUUID(),
-        quotation_number: `QTN-${Date.now()}`,
-        customer_id: data.customer_id || null,
+        name,
+        party_name: customer,
         customer_name: customer,
-        project_type: data.project_type || null,
-        valid_until: data.valid_until || null,
-        subtotal,
-        tax_rate: data.tax_rate || 0,
-        tax_amount,
-        total,
+        company: 'Aries',
+        transaction_date: new Date(),
+        valid_till: data.valid_until || null,
         currency: 'AED',
-        notes: data.notes || null,
-        status: 'DRAFT',
-        quotation_items: {
-          create: data.items.map((i) => ({
-            id: crypto.randomUUID(),
-            item_code: i.item_code || '',
-            description: i.description || '',
-            quantity: i.qty ?? i.quantity ?? 1,
-            rate: i.rate,
-            amount: (i.qty ?? i.quantity ?? 1) * i.rate,
-          })),
-        },
+        conversion_rate: 1,
+        selling_price_list: 'Standard Selling',
+        price_list_currency: 'AED',
+        plc_conversion_rate: 1,
+        net_total: subtotal,
+        total: subtotal,
+        total_taxes_and_charges: tax_amount,
+        grand_total: total,
+        base_net_total: subtotal,
+        base_total: subtotal,
+        base_total_taxes_and_charges: tax_amount,
+        base_grand_total: total,
+        terms: data.notes || null,
+        status: 'Draft',
+        naming_series: 'QTN-',
+        order_type: 'Sales',
+        quotation_to: 'Customer',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
-      include: { quotation_items: true },
     });
+
+    // Create child Quotation Items
+    for (const item of data.items) {
+      const qty = item.qty ?? item.quantity ?? 1;
+      await prisma.quotationItem.create({
+        data: {
+          name: `QI-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          parent: name,
+          parentfield: 'items',
+          parenttype: 'Quotation',
+          item_code: item.item_code || 'Services',
+          item_name: item.description || item.item_code || 'Services',
+          qty,
+          uom: 'Nos',
+          conversion_factor: 1,
+          stock_uom: 'Nos',
+          rate: item.rate,
+          amount: qty * item.rate,
+          net_rate: item.rate,
+          net_amount: qty * item.rate,
+          base_rate: item.rate,
+          base_amount: qty * item.rate,
+          base_net_rate: item.rate,
+          base_net_amount: qty * item.rate,
+          creation: new Date(),
+          modified: new Date(),
+          owner: 'Administrator',
+          modified_by: 'Administrator',
+        },
+      });
+    }
 
     revalidatePath('/erp/quotations');
     return {
       success: true as const,
       quotation: {
-        id: record.id,
-        quotation_number: record.quotation_number,
+        id: record.name,
+        quotation_number: record.name,
         customer_name: customer,
-        status: 'DRAFT',
+        status: 'Draft',
         subtotal,
         tax_amount,
         total,
         currency: 'AED',
         valid_till: data.valid_until || null,
         valid_until: data.valid_until || null,
-        created_at: record.created_at,
+        created_at: record.creation,
         project_type: data.project_type || null,
         notes: data.notes || null,
       } as ClientSafeQuotation,
     };
-  } catch (error: any) {
-    return { success: false as const, error: error?.message || 'Failed to create quotation' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false as const, error: msg || 'Failed to create quotation' };
   }
 }
 
-// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+// ── Submit / Cancel ─────────────────────────────────────────────────────────
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitQuotation(id: string): Promise<SubmitResult> {
+  await requirePermission("Quotation", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Quotation", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/quotations');
   return result;
 }
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelQuotation(id: string): Promise<CancelResult> {
+  await requirePermission("Quotation", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Quotation", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/quotations');
   return result;
 }
 
-// ── NEW: Validation & Business Logic ────────────────────────────────────────
+// ── Validation & Business Logic ─────────────────────────────────────────────
 
 export async function validateQuotation(
   data: QuotationValidateInput
 ): Promise<{ success: true; valid: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Quotation", "read");
     if (!data.party_name || data.party_name.trim().length === 0) {
       return { success: false, error: 'Party Name is required' };
     }
@@ -204,9 +246,10 @@ export async function validateQuotation(
     }
 
     return { success: true, valid: true };
-  } catch (error: any) {
-    console.error('[quotations] validateQuotation failed:', error?.message);
-    return { success: false, error: error?.message || 'Quotation validation failed' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[quotations] validateQuotation failed:', msg);
+    return { success: false, error: msg || 'Quotation validation failed' };
   }
 }
 
@@ -214,19 +257,19 @@ export async function makeSalesOrder(
   quotationId: string
 ): Promise<{ success: true; salesOrder: FrappeSalesOrder } | { success: false; error: string }> {
   try {
-    const qtn = await prisma.quotations.findUnique({
-      where: { id: quotationId },
-      include: { quotation_items: true },
+    await requirePermission("Quotation", "create");
+    const qtn = await prisma.quotation.findUnique({
+      where: { name: quotationId },
     });
     if (!qtn) {
       return { success: false, error: 'Quotation not found' };
     }
-    if (qtn.status !== 'SENT' && qtn.status !== 'ACCEPTED') {
+    if (qtn.docstatus !== 1) {
       return { success: false, error: 'Quotation must be submitted before creating a Sales Order' };
     }
 
-    if (qtn.valid_until) {
-      const validTill = new Date(qtn.valid_until);
+    if (qtn.valid_till) {
+      const validTill = new Date(qtn.valid_till);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (validTill < today) {
@@ -234,39 +277,77 @@ export async function makeSalesOrder(
       }
     }
 
-    const so = await prisma.sales_orders.create({
+    // Fetch quotation items from child table
+    const qtnItems = await prisma.quotationItem.findMany({
+      where: { parent: quotationId, parenttype: 'Quotation' },
+    });
+
+    const soName = `SO-${Date.now()}`;
+    const subtotal = qtnItems.reduce((s, i) => s + Number(i.amount || 0), 0);
+    const taxAmount = Number(qtn.total_taxes_and_charges || 0);
+    const total = subtotal + taxAmount;
+
+    const so = await prisma.salesOrder.create({
       data: {
-        id: crypto.randomUUID(),
-        order_number: `SO-${Date.now()}`,
-        quotation_id: quotationId,
-        customer_id: qtn.customer_id,
-        customer_name: qtn.customer_name,
-        subtotal: qtn.subtotal || 0,
-        tax_rate: qtn.tax_rate || 0,
-        tax_amount: qtn.tax_amount || 0,
-        total: qtn.total || 0,
+        name: soName,
+        customer: qtn.party_name || qtn.customer_name || '',
+        customer_name: qtn.customer_name || qtn.party_name || '',
+        company: 'Aries',
+        transaction_date: new Date(),
         currency: qtn.currency || 'AED',
-        status: 'DRAFT',
-        sales_order_items: {
-          create: (qtn.quotation_items || []).map((item) => ({
-            id: crypto.randomUUID(),
-            item_code: item.item_code || '',
-            description: item.description || '',
-            quantity: item.quantity || 1,
-            rate: item.rate || 0,
-            amount: item.amount || 0,
-            delivered_qty: 0,
-          })),
-        },
+        conversion_rate: 1,
+        selling_price_list: 'Standard Selling',
+        price_list_currency: 'AED',
+        plc_conversion_rate: 1,
+        net_total: subtotal,
+        total: subtotal,
+        base_total: subtotal,
+        base_net_total: subtotal,
+        grand_total: total,
+        base_grand_total: total,
+        status: 'Draft',
+        naming_series: 'SO-',
+        order_type: 'Sales',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
 
+    // Create SO items from quotation items
+    for (const item of qtnItems) {
+      await prisma.salesOrderItem.create({
+        data: {
+          name: `SOI-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          parent: soName,
+          parentfield: 'items',
+          parenttype: 'Sales Order',
+          item_code: item.item_code || 'Services',
+          item_name: item.item_name || 'Services',
+          qty: item.qty || 1,
+          uom: item.uom || 'Nos',
+          conversion_factor: item.conversion_factor || 1,
+          stock_uom: item.stock_uom || 'Nos',
+          rate: Number(item.rate || 0),
+          amount: Number(item.amount || 0),
+          base_rate: Number(item.base_rate || item.rate || 0),
+          base_amount: Number(item.base_amount || item.amount || 0),
+          creation: new Date(),
+          modified: new Date(),
+          owner: 'Administrator',
+          modified_by: 'Administrator',
+        },
+      });
+    }
+
     revalidatePath('/erp/sales-orders');
     revalidatePath('/erp/quotations');
-    return { success: true, salesOrder: { name: so.order_number } };
-  } catch (error: any) {
-    console.error('[quotations] makeSalesOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create Sales Order from Quotation' };
+    return { success: true, salesOrder: { name: so.name } };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[quotations] makeSalesOrder failed:', msg);
+    return { success: false, error: msg || 'Failed to create Sales Order from Quotation' };
   }
 }
 
@@ -277,36 +358,40 @@ export async function getQuotationMargin(
   | { success: false; error: string }
 > {
   try {
-    const qtn = await prisma.quotations.findUnique({
-      where: { id: quotationId },
-      include: { quotation_items: true },
+    await requirePermission("Quotation", "read");
+    const qtn = await prisma.quotation.findUnique({
+      where: { name: quotationId },
     });
     if (!qtn) {
       return { success: false, error: 'Quotation not found' };
     }
 
-    const total = qtn.total || 0;
-    const items = qtn.quotation_items || [];
+    const total = Number(qtn.grand_total || 0);
+    const qtnItems = await prisma.quotationItem.findMany({
+      where: { parent: quotationId, parenttype: 'Quotation' },
+    });
 
-    if (items.length === 0) {
+    if (qtnItems.length === 0) {
       return { success: true, total, cost: 0, margin: 0, marginPercent: 0 };
     }
 
-    const itemCodes = Array.from(new Set(items.map((i) => i.item_code).filter((code): code is string => typeof code === 'string' && code.length > 0)));
-    const itemDocs = await prisma.items.findMany({
+    const itemCodes = Array.from(new Set(
+      qtnItems.map((i) => i.item_code).filter((code): code is string => typeof code === 'string' && code.length > 0)
+    ));
+    const itemDocs = await prisma.item.findMany({
       where: { item_code: { in: itemCodes } },
       select: { item_code: true, standard_rate: true },
     });
 
     const costMap: Record<string, number> = {};
     for (const it of itemDocs) {
-      costMap[it.item_code] = it.standard_rate || 0;
+      costMap[it.item_code] = Number(it.standard_rate || 0);
     }
 
     let cost = 0;
-    for (const item of items) {
+    for (const item of qtnItems) {
       const unitCost = costMap[item.item_code || ''] || 0;
-      cost += unitCost * (item.quantity || 1);
+      cost += unitCost * (item.qty || 1);
     }
 
     const margin = total - cost;
@@ -319,8 +404,9 @@ export async function getQuotationMargin(
       margin: Math.round(margin * 100) / 100,
       marginPercent: Math.round(marginPercent * 100) / 100,
     };
-  } catch (error: any) {
-    console.error('[quotations] getQuotationMargin failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to calculate quotation margin' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[quotations] getQuotationMargin failed:', msg);
+    return { success: false, error: msg || 'Failed to calculate quotation margin' };
   }
 }

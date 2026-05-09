@@ -1,12 +1,21 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { type ReportsSummary } from "@/app/dashboard/erp/reports/actions";
 import {
   BarChart3, DollarSign, Users, FolderKanban, Package,
   Wrench, TrendingUp, TrendingDown, Clock, AlertTriangle,
   CheckCircle, Receipt, CreditCard,
 } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 interface ReportsClientProps {
   initialData: ReportsSummary | null;
@@ -59,6 +68,23 @@ export default function ReportsClient({ initialData }: ReportsClientProps) {
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
       <div className="flex-1 min-h-0 overflow-auto pr-2">
         <div className="space-y-6 pb-4">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard/erp">ERP</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Reports</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
           {/* Header */}
           <div>
             <h2 className="text-2xl font-bold text-[#0f172a]">Reports &amp; Analytics</h2>

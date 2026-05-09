@@ -1,10 +1,9 @@
-"use server";
-
 /**
- * Auth Actions — Frappe / ERPNext Session-based.
+ * Auth Actions — Re-exported from lib/frappe-auth.ts.
  *
- * Re-exported from lib/frappe-auth.ts so the rest of the app
- * continues to import from "@/app/auth/actions" without change.
+ * NOTE: Do NOT add "use server" here. The source file (lib/frappe-auth.ts)
+ * already has "use server". Re-exporting with "use server" breaks Turbopack
+ * because only async function declarations are allowed in "use server" files.
  */
 
 export {

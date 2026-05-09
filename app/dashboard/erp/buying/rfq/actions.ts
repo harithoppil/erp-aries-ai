@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ export async function listRFQs(
   pageSize = 50
 ): Promise<{ success: true; rfqs: ClientSafeRFQ[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Supplier", "read");
     const where = search
       ? {
           OR: [
@@ -103,6 +105,7 @@ export async function getRFQ(
   id: string
 ): Promise<{ success: true; rfq: ClientSafeRFQDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Supplier", "read");
     const [rfq, rfqItems, rfqSuppliers] = await Promise.all([
       prisma.requestForQuotation.findUnique({ where: { name: id } }),
       prisma.requestForQuotationItem.findMany({ where: { parent: id }, orderBy: { idx: 'asc' } }),
@@ -153,6 +156,7 @@ export async function createRFQ(
   data: CreateRFQInput
 ): Promise<{ success: true; rfq: ClientSafeRFQ } | { success: false; error: string }> {
   try {
+    await requirePermission("Supplier", "create");
     if (!data.items || data.items.length === 0) return { success: false, error: 'At least one item is required' };
 
     const name = `RFQ-${Date.now()}`;
@@ -223,6 +227,7 @@ export async function createRFQ(
 
 export async function submitRFQ(id: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Supplier", "submit");
     const r = await prisma.requestForQuotation.findUnique({ where: { name: id } });
     if (!r) return { success: false, error: 'Not found' };
     if (r.docstatus !== 0) return { success: false, error: 'Only draft documents can be submitted' };
@@ -236,6 +241,7 @@ export async function submitRFQ(id: string): Promise<{ success: true } | { succe
 
 export async function cancelRFQ(id: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Supplier", "cancel");
     const r = await prisma.requestForQuotation.findUnique({ where: { name: id } });
     if (!r) return { success: false, error: 'Not found' };
     if (r.docstatus !== 1) return { success: false, error: 'Only submitted documents can be cancelled' };

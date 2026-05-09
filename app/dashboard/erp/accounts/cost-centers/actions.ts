@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ export async function listCostCenters(
   pageSize = 50
 ): Promise<{ success: true; costCenters: ClientSafeCostCenter[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "read");
     const where = search
       ? {
           OR: [
@@ -86,6 +88,7 @@ export async function getCostCenter(
   id: string
 ): Promise<{ success: true; costCenter: ClientSafeCostCenterDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "read");
     const cc = await prisma.costCenter.findUnique({ where: { name: id } });
     if (!cc) return { success: false, error: 'Cost Center not found' };
 
@@ -118,6 +121,7 @@ export async function createCostCenter(
   data: CreateCostCenterInput
 ): Promise<{ success: true; costCenter: ClientSafeCostCenter } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "create");
     if (!data.cost_center_name) return { success: false, error: 'Cost center name is required' };
     if (!data.parent_cost_center) return { success: false, error: 'Parent cost center is required' };
 
@@ -161,6 +165,7 @@ export async function deleteCostCenter(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "delete");
     const existing = await prisma.costCenter.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Cost Center not found' };
 

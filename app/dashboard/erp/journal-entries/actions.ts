@@ -1,10 +1,12 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import type { journalentrytype } from '@/prisma/client';
+import { prisma } from '@/lib/prisma';
+import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
+import { requirePermission } from "@/lib/erpnext/rbac";
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export type ClientSafeJournalEntry = {
   id: string;
@@ -15,7 +17,7 @@ export type ClientSafeJournalEntry = {
   total_credit: number;
   status: string;
   remarks: string | null;
-  created_at: Date;
+  created_at: Date | null;
   // Legacy aliases for client component compatibility
   entry_type?: 'debit' | 'credit' | 'DEBIT' | 'CREDIT';
   amount?: number;
@@ -24,32 +26,36 @@ export type ClientSafeJournalEntry = {
   reference?: string | null;
 };
 
+// ── CRUD ────────────────────────────────────────────────────────────────────
+
 export async function listJournalEntries(): Promise<
   { success: true; entries: ClientSafeJournalEntry[] } | { success: false; error: string }
 > {
   try {
-    const rows = await prisma.journal_entries.findMany({
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Journal Entry", "read");
+    const rows = await prisma.journalEntry.findMany({
+      orderBy: { creation: 'desc' },
       take: 200,
     });
 
     return {
       success: true,
       entries: rows.map((e) => ({
-        id: e.id,
-        entry_number: e.entry_number,
-        posting_date: e.posting_date.toISOString().slice(0, 10),
-        voucher_type: 'Journal Entry',
-        total_debit: e.total_debit || 0,
-        total_credit: e.total_credit || 0,
-        status: e.status || 'DRAFT',
-        remarks: e.notes || e.reference || null,
-        created_at: e.created_at,
+        id: e.name,
+        entry_number: e.name,
+        posting_date: e.posting_date ? e.posting_date.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+        voucher_type: e.voucher_type || 'Journal Entry',
+        total_debit: Number(e.total_debit || 0),
+        total_credit: Number(e.total_credit || 0),
+        status: e.docstatus === 1 ? 'Submitted' : e.docstatus === 2 ? 'Cancelled' : 'Draft',
+        remarks: e.user_remark || null,
+        created_at: e.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching journal entries:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch journal entries' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching journal entries:', msg);
+    return { success: false, error: msg || 'Failed to fetch journal entries' };
   }
 }
 
@@ -67,6 +73,7 @@ export async function createJournalEntry(data: {
   reference?: string;
   notes?: string;
 }) {
+  await requirePermission("Journal Entry", "create");
   // If called with legacy single-account format, convert to multi-account format
   const accounts = data.accounts && data.accounts.length > 0
     ? data.accounts
@@ -80,56 +87,77 @@ export async function createJournalEntry(data: {
   const totalCredit = accounts.reduce((s, a) => s + a.credit, 0);
 
   try {
-    const record = await prisma.journal_entries.create({
+    const name = `JV-${Date.now()}`;
+    const record = await prisma.journalEntry.create({
       data: {
-        id: crypto.randomUUID(),
-        entry_number: `JV-${Date.now()}`,
+        name,
         posting_date: data.posting_date ? new Date(data.posting_date) : new Date(),
-        reference: data.reference || data.notes || null,
-        account: data.account || (accounts[0]?.account ?? null),
-        party_type: data.party_type || null,
-        party_name: data.party_name || null,
-        entry_type: (data.entry_type?.toUpperCase() === 'CREDIT' ? 'CREDIT' : 'DEBIT') as journalentrytype,
-        amount: data.amount || totalDebit || totalCredit || 0,
-        currency: 'USD',
-        notes: data.remarks || data.notes || data.reference || null,
+        voucher_type: data.voucher_type || 'Journal Entry',
+        company: 'Aries',
+        user_remark: data.remarks || data.notes || data.reference || null,
         total_debit: totalDebit,
         total_credit: totalCredit,
-        status: 'DRAFT',
+        naming_series: 'JV-',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
+
+    // Create child account rows if we have them
+    if (accounts.length > 0) {
+      for (const acc of accounts) {
+        await prisma.journalEntryAccount.create({
+          data: {
+            name: `JEA-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            parent: name,
+            parentfield: 'accounts',
+            parenttype: 'Journal Entry',
+            account: acc.account,
+            debit: acc.debit,
+            credit: acc.credit,
+            creation: new Date(),
+            modified: new Date(),
+            owner: 'Administrator',
+            modified_by: 'Administrator',
+          },
+        });
+      }
+    }
 
     return {
       success: true as const,
       entry: {
-        id: record.id,
-        entry_number: record.entry_number,
-        posting_date: data.posting_date || new Date().toISOString().slice(0, 10),
-        voucher_type: 'Journal Entry',
+        id: record.name,
+        entry_number: record.name,
+        posting_date: record.posting_date ? record.posting_date.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+        voucher_type: record.voucher_type || 'Journal Entry',
         total_debit: totalDebit,
         total_credit: totalCredit,
-        status: 'DRAFT',
+        status: 'Draft',
         remarks: data.remarks || data.notes || data.reference || null,
-        created_at: record.created_at,
+        created_at: record.creation,
       } as ClientSafeJournalEntry,
     };
-  } catch (error: any) {
-    return { success: false as const, error: error?.message || 'Failed to create journal entry' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false as const, error: msg || 'Failed to create journal entry' };
   }
 }
 
-// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+// ── Submit / Cancel ─────────────────────────────────────────────────────────
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitJournalEntry(id: string): Promise<SubmitResult> {
+  await requirePermission("Journal Entry", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Journal Entry", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/journal-entries');
   return result;
 }
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelJournalEntry(id: string): Promise<CancelResult> {
+  await requirePermission("Journal Entry", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Journal Entry", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/journal-entries');

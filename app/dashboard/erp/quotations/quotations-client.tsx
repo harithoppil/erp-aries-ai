@@ -8,13 +8,20 @@ import { usePageContext } from "@/hooks/usePageContext";
 import {
   FileText, Search, Plus, X, DollarSign, Calendar, CheckCircle,
   Clock, XCircle, Send, TrendingUp,
-  Sparkles, Wand2,
+  Sparkles, Wand2, RefreshCw, List, Filter, ArrowUpRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink,
+  BreadcrumbPage, BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { toast } from "sonner";
 import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
@@ -177,20 +184,93 @@ export default function QuotationsClient({ initialQuotations }: { initialQuotati
     };
   }, [quotations]);
 
+  // Filter bar state
+  const [filterId, setFilterId] = useState("");
+  const [filterCustomer, setFilterCustomer] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+
+  const filteredWithFilters = useMemo(() => {
+    let result = filtered;
+    if (filterId) {
+      const q = filterId.toLowerCase();
+      result = result.filter((qt) =>
+        (qt.quotation_number || "").toLowerCase().includes(q)
+      );
+    }
+    if (filterCustomer) {
+      const q = filterCustomer.toLowerCase();
+      result = result.filter((qt) =>
+        (qt.customer_name || "").toLowerCase().includes(q)
+      );
+    }
+    if (filterDate) {
+      result = result.filter((qt) => {
+        if (!qt.valid_until) return false;
+        return new Date(qt.valid_until).toISOString().split("T")[0] === filterDate;
+      });
+    }
+    return result;
+  }, [filtered, filterId, filterCustomer, filterDate]);
+
+  const hasActiveFilters = !!(filterId || filterCustomer || filterDate);
+
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
       <div className="flex-1 min-h-0 overflow-auto pr-2">
         <div className="space-y-4 pb-4">
-          {/* Header */}
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard/erp/selling">Selling</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Quotation</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          {/* Header + Action Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-[#0f172a]">Quotations</h2>
               <p className="text-sm text-[#64748b] mt-1">{quotations.length} total quotations</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                    <List size={13} /> List View
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>Standard View</DropdownMenuItem>
+                  <DropdownMenuItem>Compact View</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                    <Filter size={13} /> Saved Filters
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>All Quotations</DropdownMenuItem>
+                  <DropdownMenuItem>Draft Only</DropdownMenuItem>
+                  <DropdownMenuItem>Accepted</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={load}>
+                <RefreshCw size={13} /> Refresh
+              </Button>
               <ExportButton data={filtered.map(q => ({ quotation_number: q.quotation_number, customer_name: q.customer_name, project_type: q.project_type, valid_until: q.valid_until, total: q.total, status: q.status }))} filename="quotations" />
               <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]">
-                <Plus size={16} /> New Quotation
+                <Plus size={16} /> Add Quotation
               </Button>
             </div>
           </div>
@@ -206,6 +286,55 @@ export default function QuotationsClient({ initialQuotations }: { initialQuotati
             />
           </div>
 
+          {/* Filter Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Input
+              placeholder="Filter by ID..."
+              value={filterId}
+              onChange={(e) => setFilterId(e.target.value)}
+              className="h-8 text-xs bg-white border-gray-200"
+            />
+            <Input
+              placeholder="Filter by Customer Name..."
+              value={filterCustomer}
+              onChange={(e) => setFilterCustomer(e.target.value)}
+              className="h-8 text-xs bg-white border-gray-200"
+            />
+            <Input
+              type="date"
+              placeholder="Filter by Date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="h-8 text-xs bg-white border-gray-200"
+            />
+          </div>
+          {hasActiveFilters && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-[#64748b]">Active filters:</span>
+              {filterId && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 px-2.5 py-0.5 text-xs border border-blue-200">
+                  ID: {filterId}
+                  <button onClick={() => setFilterId("")}><X size={10} /></button>
+                </span>
+              )}
+              {filterCustomer && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs border border-emerald-200">
+                  Customer: {filterCustomer}
+                  <button onClick={() => setFilterCustomer("")}><X size={10} /></button>
+                </span>
+              )}
+              {filterDate && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 px-2.5 py-0.5 text-xs border border-amber-200">
+                  Date: {filterDate}
+                  <button onClick={() => setFilterDate("")}><X size={10} /></button>
+                </span>
+              )}
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setFilterId(""); setFilterCustomer(""); setFilterDate(""); }}>
+                Clear all
+              </Button>
+            </div>
+          )}
+
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <StatCard icon={FileText} label="Total" value={stats.total} color="text-[#64748b]" />
@@ -217,7 +346,7 @@ export default function QuotationsClient({ initialQuotations }: { initialQuotati
 
           {/* Table */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            {filtered.length === 0 ? (
+            {filteredWithFilters.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
                 <FileText size={48} className="mb-4 opacity-40" />
                 <p className="text-lg font-medium">No quotations found</p>
@@ -237,7 +366,7 @@ export default function QuotationsClient({ initialQuotations }: { initialQuotati
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filtered.map((q) => {
+                    {filteredWithFilters.map((q) => {
                       const cfg = STATUS_CONFIG[q.status] || STATUS_CONFIG.draft;
                       const StatusIcon = cfg.icon;
                       return (

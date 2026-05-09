@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ export async function listDeliveryNotes(
   pageSize = 50
 ): Promise<{ success: true; notes: ClientSafeDeliveryNote[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Delivery Note", "read");
     const where = search
       ? {
           OR: [
@@ -111,6 +113,7 @@ export async function getDeliveryNote(
   id: string
 ): Promise<{ success: true; note: ClientSafeDeliveryNoteDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Delivery Note", "read");
     const [note, noteItems] = await Promise.all([
       prisma.deliveryNote.findUnique({ where: { name: id } }),
       prisma.deliveryNoteItem.findMany({ where: { parent: id }, orderBy: { idx: 'asc' } }),
@@ -164,6 +167,7 @@ export async function createDeliveryNote(
   data: CreateDeliveryNoteInput
 ): Promise<{ success: true; note: ClientSafeDeliveryNote } | { success: false; error: string }> {
   try {
+    await requirePermission("Delivery Note", "create");
     if (!data.customer) return { success: false, error: 'Customer is required' };
     if (!data.items || data.items.length === 0) return { success: false, error: 'At least one item is required' };
 
@@ -249,6 +253,7 @@ export async function createDeliveryNote(
 export async function submitDeliveryNote(
   id: string
 ): Promise<SubmitResult> {
+  await requirePermission("Delivery Note", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Delivery Note", id, { token });
   if (result.success) {
@@ -261,6 +266,7 @@ export async function submitDeliveryNote(
 export async function cancelDeliveryNote(
   id: string
 ): Promise<CancelResult> {
+  await requirePermission("Delivery Note", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Delivery Note", id, { token });
   if (result.success) {

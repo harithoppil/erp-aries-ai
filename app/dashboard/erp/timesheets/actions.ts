@@ -1,52 +1,58 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export type ClientSafeTimesheet = {
   id: string;
   employee_name: string;
   activity_type: string;
-  from_time: Date;
-  to_time: Date;
+  from_time: Date | null;
+  to_time: Date | null;
   hours: number;
   project: string;
   status: string;
-  created_at: Date;
+  created_at: Date | null;
   date?: string;
   description?: string;
   billable?: boolean;
 };
 
+// ── CRUD ────────────────────────────────────────────────────────────────────
+
 export async function listTimesheets(): Promise<
   { success: true; timesheets: ClientSafeTimesheet[] } | { success: false; error: string }
 > {
   try {
-    const rows = await prisma.timesheets.findMany({
-      include: { personnel: true, projects: true },
-      orderBy: { date: 'desc' },
+    await requirePermission("Employee", "read");
+    const rows = await prisma.timesheet.findMany({
+      orderBy: { creation: 'desc' },
       take: 200,
     });
 
     return {
       success: true,
       timesheets: rows.map((ts) => ({
-        id: ts.id,
-        employee_name: (ts.personnel as Record<string, unknown> | null)?.name as string || 'Unknown',
-        activity_type: ts.activity_type || 'General',
-        from_time: ts.date,
-        to_time: ts.date,
-        hours: ts.hours || 0,
-        project: (ts.projects as Record<string, unknown> | null)?.name as string || '',
-        status: 'Draft',
-        created_at: ts.date,
-        date: ts.date.toISOString().slice(0, 10),
-        description: ts.description || undefined,
-        billable: ts.billable ?? true,
+        id: ts.name,
+        employee_name: ts.employee_name || 'Unknown',
+        activity_type: 'General',
+        from_time: ts.start_date,
+        to_time: ts.end_date,
+        hours: ts.total_hours || 0,
+        project: ts.parent_project || '',
+        status: ts.status || 'Draft',
+        created_at: ts.creation,
+        date: ts.start_date ? ts.start_date.toISOString().slice(0, 10) : undefined,
+        description: ts.note || undefined,
+        billable: (ts.total_billable_hours ?? 0) > 0,
       })),
     };
-  } catch (error: any) {
-    console.error('[timesheets] list failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to load timesheets' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[timesheets] list failed:', msg);
+    return { success: false, error: msg || 'Failed to load timesheets' };
   }
 }
 
@@ -62,39 +68,49 @@ export async function createTimesheet(data: {
   billable?: boolean;
 }): Promise<{ success: true; timesheet: ClientSafeTimesheet } | { success: false; error: string }> {
   try {
-    const date = data.date ? new Date(data.date) : new Date();
-    const record = await prisma.timesheets.create({
+    await requirePermission("Employee", "create");
+    const name = `TS-${Date.now()}`;
+    const startDate = data.date ? new Date(data.date) : new Date();
+    const record = await prisma.timesheet.create({
       data: {
-        id: crypto.randomUUID(),
-        project_id: data.project_id || '00000000-0000-0000-0000-000000000000',
-        personnel_id: data.personnel_id || '00000000-0000-0000-0000-000000000000',
-        date,
-        hours: data.hours || 0,
-        activity_type: data.activity_type || 'General',
-        description: data.description || null,
-        billable: data.billable ?? true,
+        name,
+        employee: data.personnel_id || null,
+        employee_name: data.employee_name || 'Unknown',
+        start_date: startDate,
+        total_hours: data.hours || 0,
+        total_billable_hours: data.billable ? (data.hours || 0) : 0,
+        parent_project: data.project_id || data.project || null,
+        note: data.description || null,
+        status: 'Draft',
+        naming_series: 'TS-',
+        company: 'Aries',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
 
     return {
       success: true,
       timesheet: {
-        id: record.id,
-        employee_name: data.employee_name || 'Unknown',
-        activity_type: record.activity_type,
-        from_time: record.date,
-        to_time: record.date,
-        hours: record.hours,
+        id: record.name,
+        employee_name: record.employee_name || data.employee_name || 'Unknown',
+        activity_type: data.activity_type || 'General',
+        from_time: record.start_date,
+        to_time: record.end_date,
+        hours: record.total_hours || 0,
         project: data.project || '',
-        status: 'Draft',
-        created_at: record.date,
-        date: record.date.toISOString().slice(0, 10),
-        description: record.description || undefined,
-        billable: record.billable,
+        status: record.status || 'Draft',
+        created_at: record.creation,
+        date: record.start_date ? record.start_date.toISOString().slice(0, 10) : undefined,
+        description: record.note || undefined,
+        billable: (record.total_billable_hours ?? 0) > 0,
       },
     };
-  } catch (error: any) {
-    console.error('[timesheets] create failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create timesheet' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[timesheets] create failed:', msg);
+    return { success: false, error: msg || 'Failed to create timesheet' };
   }
 }

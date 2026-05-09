@@ -2,9 +2,22 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { listPurchaseReceipts, createPurchaseReceipt, type ClientSafePurchaseReceipt } from "./actions";
+import {
+  listPurchaseReceipts,
+  createPurchaseReceipt,
+  type ClientSafePurchaseReceipt,
+} from "./actions";
 import { usePageContext } from "@/hooks/usePageContext";
-import { PackageOpen, Search, Plus } from "lucide-react";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbSeparator,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
+import { PackageOpen, Search, Plus, List, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,58 +29,388 @@ const STATUS: Record<string, { label: string; badge: string }> = {
   Submitted: { label: "Submitted", badge: "bg-blue-100 text-blue-700 border-blue-200" },
   Cancelled: { label: "Cancelled", badge: "bg-red-100 text-red-700 border-red-200" },
 };
-const fmt = (v: number, c = "AED") => v.toLocaleString("en-AE", { style: "currency", currency: c });
-const dt = (s: string | Date | null) => s ? new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-export default function PurchaseReceiptsClient({ initialReceipts }: { initialReceipts: ClientSafePurchaseReceipt[] }) {
+const fmt = (v: number, c = "AED") =>
+  v.toLocaleString("en-AE", { style: "currency", currency: c });
+const dt = (s: string | Date | null) =>
+  s
+    ? new Date(s).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+
+export default function PurchaseReceiptsClient({
+  initialReceipts,
+}: {
+  initialReceipts: ClientSafePurchaseReceipt[];
+}) {
   const router = useRouter();
+  const isMobile = useMediaQuery("(max-width: 768px)");
   const [receipts, setReceipts] = useState<ClientSafePurchaseReceipt[]>(initialReceipts);
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({
+    id: "",
+    supplierName: "",
+    company: "",
+    status: "",
+  });
+  const [showFilters, setShowFilters] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ supplier: "", posting_date: "", item_code: "", qty: "1", rate: "" });
+  const [form, setForm] = useState({
+    supplier: "",
+    posting_date: "",
+    item_code: "",
+    qty: "1",
+    rate: "",
+  });
 
   usePageContext(`Purchase Receipts: ${receipts.length} receipts`);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return receipts.filter((r) => !q || (r.name || "").toLowerCase().includes(q) || (r.supplier_name || "").toLowerCase().includes(q) || (r.supplier || "").toLowerCase().includes(q));
-  }, [receipts, search]);
+    return receipts.filter((r) => {
+      const matchesSearch =
+        !q ||
+        (r.name || "").toLowerCase().includes(q) ||
+        (r.supplier_name || "").toLowerCase().includes(q) ||
+        (r.supplier || "").toLowerCase().includes(q);
+      const matchesId =
+        !filters.id || (r.name || "").toLowerCase().includes(filters.id.toLowerCase());
+      const matchesSupplierName =
+        !filters.supplierName ||
+        (r.supplier_name || "")
+          .toLowerCase()
+          .includes(filters.supplierName.toLowerCase());
+      const matchesCompany =
+        !filters.company ||
+        (r.company || "").toLowerCase().includes(filters.company.toLowerCase());
+      const matchesStatus =
+        !filters.status ||
+        (r.status || "").toLowerCase().includes(filters.status.toLowerCase());
+      return (
+        matchesSearch && matchesId && matchesSupplierName && matchesCompany && matchesStatus
+      );
+    });
+  }, [receipts, search, filters]);
 
   const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true);
-    const result = await createPurchaseReceipt({ supplier: form.supplier, posting_date: form.posting_date || undefined, items: [{ item_code: form.item_code, qty: parseFloat(form.qty), rate: parseFloat(form.rate) }] });
-    if (result.success) { toast.success("Purchase Receipt created"); setDialogOpen(false); setForm({ supplier: "", posting_date: "", item_code: "", qty: "1", rate: "" }); const res = await listPurchaseReceipts(); if (res.success) setReceipts(res.receipts); }
-    else toast.error(result.error || "Failed"); setSaving(false);
+    e.preventDefault();
+    setSaving(true);
+    const result = await createPurchaseReceipt({
+      supplier: form.supplier,
+      posting_date: form.posting_date || undefined,
+      items: [
+        {
+          item_code: form.item_code,
+          qty: parseFloat(form.qty),
+          rate: parseFloat(form.rate),
+        },
+      ],
+    });
+    if (result.success) {
+      toast.success("Purchase Receipt created");
+      setDialogOpen(false);
+      setForm({ supplier: "", posting_date: "", item_code: "", qty: "1", rate: "" });
+      const res = await listPurchaseReceipts();
+      if (res.success) setReceipts(res.receipts);
+    } else {
+      toast.error(result.error || "Failed");
+    }
+    setSaving(false);
   };
+
+  const clearFilters = () => {
+    setFilters({ id: "", supplierName: "", company: "", status: "" });
+    setSearch("");
+  };
+
+  const hasActiveFilters =
+    filters.id || filters.supplierName || filters.company || filters.status;
 
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
-      <div className="flex-1 min-h-0 overflow-auto pr-2"><div className="space-y-4 pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div><h2 className="text-2xl font-bold text-[#0f172a]">Purchase Receipts</h2><p className="text-sm text-[#64748b] mt-1">{receipts.length} receipts</p></div>
-          <div className="flex gap-2">
-            <ExportButton data={filtered.map(r => ({ name: r.name, supplier: r.supplier_name, date: dt(r.posting_date), total: r.grand_total, status: r.status }))} filename="purchase-receipts" />
-            <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"><Plus size={16} />New Receipt</Button>
+      <div className="flex-1 min-h-0 overflow-auto pr-2">
+        <div className="space-y-4 pb-4">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard/erp/stock">Stock</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Purchase Receipt</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          {/* Header with action bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-[#0f172a]">Purchase Receipts</h2>
+              <p className="text-sm text-[#64748b] mt-1">
+                {filtered.length} of {receipts.length} receipts
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9">
+                <List size={14} />
+                List View
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`gap-1.5 text-xs h-9 ${showFilters ? "bg-gray-100" : ""}`}
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <SlidersHorizontal size={14} />
+                Filters
+              </Button>
+              <ExportButton
+                data={filtered.map((r) => ({
+                  name: r.name,
+                  supplier: r.supplier_name,
+                  date: dt(r.posting_date),
+                  total: r.grand_total,
+                  status: r.status,
+                }))}
+                filename="purchase-receipts"
+              />
+              <Button
+                onClick={() => setDialogOpen(true)}
+                className="gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45]"
+              >
+                <Plus size={16} /> New Receipt
+              </Button>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
+            <Input
+              placeholder="Search by name, supplier..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-white border-gray-200"
+            />
+          </div>
+
+          {/* Filters panel */}
+          {showFilters && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <div
+                className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-4"} gap-3`}
+              >
+                <div>
+                  <label className="text-xs font-medium text-[#64748b] mb-1 block">ID</label>
+                  <Input
+                    placeholder="Filter by ID..."
+                    value={filters.id}
+                    onChange={(e) => setFilters({ ...filters, id: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#64748b] mb-1 block">
+                    Supplier Name
+                  </label>
+                  <Input
+                    placeholder="Supplier name..."
+                    value={filters.supplierName}
+                    onChange={(e) =>
+                      setFilters({ ...filters, supplierName: e.target.value })
+                    }
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#64748b] mb-1 block">
+                    Company
+                  </label>
+                  <Input
+                    placeholder="Company..."
+                    value={filters.company}
+                    onChange={(e) =>
+                      setFilters({ ...filters, company: e.target.value })
+                    }
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#64748b] mb-1 block">
+                    Status
+                  </label>
+                  <Input
+                    placeholder="Draft, Submitted..."
+                    value={filters.status}
+                    onChange={(e) =>
+                      setFilters({ ...filters, status: e.target.value })
+                    }
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
+              {hasActiveFilters && (
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-[#64748b]"
+                    onClick={clearFilters}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
+                <PackageOpen size={48} className="mb-4 opacity-40" />
+                <p className="text-lg font-medium">No purchase receipts found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-gray-700 font-semibold">ID</th>
+                      <th className="text-left px-4 py-3 text-gray-700 font-semibold">
+                        Supplier
+                      </th>
+                      <th className="text-left px-4 py-3 text-gray-700 font-semibold">Date</th>
+                      <th className="text-right px-4 py-3 text-gray-700 font-semibold">
+                        Grand Total
+                      </th>
+                      <th className="text-left px-4 py-3 text-gray-700 font-semibold">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filtered.map((r) => {
+                      const c = STATUS[r.status] || STATUS.Draft;
+                      return (
+                        <tr
+                          key={r.name}
+                          onClick={() =>
+                            router.push(
+                              `/dashboard/erp/stock/purchase-receipts/${r.name}`,
+                            )
+                          }
+                          className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-4 py-3 font-mono text-xs text-[#64748b]">
+                            {r.name}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-[#0f172a]">
+                            {r.supplier_name || r.supplier}
+                          </td>
+                          <td className="px-4 py-3 text-[#64748b]">
+                            {dt(r.posting_date)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold">
+                            {fmt(r.grand_total, r.currency)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${c.badge}`}
+                            >
+                              {c.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
-        <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" /><Input placeholder="Search by name, supplier..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-white border-gray-200" /></div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {filtered.length === 0 ? (<div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]"><PackageOpen size={48} className="mb-4 opacity-40" /><p className="text-lg font-medium">No purchase receipts found</p></div>) : (
-            <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-gray-700 font-semibold">ID</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Supplier</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Date</th><th className="text-right px-4 py-3 text-gray-700 font-semibold">Grand Total</th><th className="text-left px-4 py-3 text-gray-700 font-semibold">Status</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{filtered.map((r) => { const c = STATUS[r.status] || STATUS.Draft; return (<tr key={r.name} onClick={() => router.push(`/dashboard/erp/stock/purchase-receipts/${r.name}`)} className="cursor-pointer hover:bg-gray-50 transition-colors"><td className="px-4 py-3 font-mono text-xs text-[#64748b]">{r.name}</td><td className="px-4 py-3 font-medium text-[#0f172a]">{r.supplier_name || r.supplier}</td><td className="px-4 py-3 text-[#64748b]">{dt(r.posting_date)}</td><td className="px-4 py-3 text-right font-semibold">{fmt(r.grand_total, r.currency)}</td><td className="px-4 py-3"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${c.badge}`}>{c.label}</span></td></tr>); })}</tbody></table></div>
-          )}
-        </div>
-      </div></div>
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>New Purchase Receipt</DialogTitle></DialogHeader>
-        <form onSubmit={handleCreate} className="space-y-3">
-          <div><label className="text-sm font-medium">Supplier</label><Input required value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} placeholder="Supplier name" /></div>
-          <div><label className="text-sm font-medium">Posting Date</label><Input type="date" value={form.posting_date} onChange={(e) => setForm({ ...form, posting_date: e.target.value })} /></div>
-          <div><label className="text-sm font-medium">Item Code</label><Input required value={form.item_code} onChange={(e) => setForm({ ...form, item_code: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-3"><div><label className="text-sm font-medium">Qty</label><Input type="number" required min="1" value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} /></div><div><label className="text-sm font-medium">Rate</label><Input type="number" required min="0" step="0.01" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} /></div></div>
-          <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit" disabled={saving} className="bg-[#1e3a5f] hover:bg-[#152a45]">{saving ? "Saving..." : "Create"}</Button></div>
-        </form>
-      </DialogContent></Dialog>
+      </div>
+
+      {/* Create Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New Purchase Receipt</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Supplier</label>
+              <Input
+                required
+                value={form.supplier}
+                onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+                placeholder="Supplier name"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Posting Date</label>
+              <Input
+                type="date"
+                value={form.posting_date}
+                onChange={(e) => setForm({ ...form, posting_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Item Code</label>
+              <Input
+                required
+                value={form.item_code}
+                onChange={(e) => setForm({ ...form, item_code: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Qty</label>
+                <Input
+                  type="number"
+                  required
+                  min="1"
+                  value={form.qty}
+                  onChange={(e) => setForm({ ...form, qty: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Rate</label>
+                <Input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={form.rate}
+                  onChange={(e) => setForm({ ...form, rate: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-[#1e3a5f] hover:bg-[#152a45]"
+              >
+                {saving ? "Saving..." : "Create"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

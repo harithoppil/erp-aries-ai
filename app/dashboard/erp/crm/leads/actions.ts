@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ export async function listLeads(
   pageSize = 50
 ): Promise<{ success: true; leads: ClientSafeLead[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     const where = search
       ? {
           OR: [
@@ -114,6 +116,7 @@ export async function getLead(
   id: string
 ): Promise<{ success: true; lead: ClientSafeLeadDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     const lead = await prisma.lead.findUnique({ where: { name: id } });
     if (!lead) return { success: false, error: 'Lead not found' };
 
@@ -164,6 +167,7 @@ export async function createLead(
   data: CreateLeadInput
 ): Promise<{ success: true; lead: ClientSafeLead } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "create");
     if (!data.lead_name && !data.company_name) {
       return { success: false, error: 'Lead name or company name is required' };
     }
@@ -218,6 +222,7 @@ export async function updateLeadStatus(
   status: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "update");
     await prisma.lead.update({ where: { name: id }, data: { status } });
     revalidatePath('/dashboard/erp/crm/leads');
     return { success: true };
@@ -232,6 +237,7 @@ export async function convertLeadToCustomer(
   id: string
 ): Promise<{ success: true; customer_name: string } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "create");
     const lead = await prisma.lead.findUnique({ where: { name: id } });
     if (!lead) return { success: false, error: 'Lead not found' };
     if (lead.customer) return { success: false, error: 'Lead already converted to customer' };

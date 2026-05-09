@@ -1,13 +1,18 @@
-import { listAccounts, listInvoices, type ClientSafeAccount, type ClientSafeInvoice } from "@/app/dashboard/erp/accounts/actions";
-import AccountsClient from "@/app/dashboard/erp/accounts/accounts-client";
+import { getInvoicingDashboardData, getAccountsReceivableAgeing, getAccountsPayableAgeing } from "@/app/dashboard/erp/accounts/actions";
+import InvoicingDashboardClient from "@/app/dashboard/erp/accounts/invoicing-dashboard-client";
 
-export default async function AccountsPage() {
-  const [accResult, invResult] = await Promise.all([
-    listAccounts(),
-    listInvoices(),
+export default async function InvoicingDashboardPage() {
+  const [dashboardData, arAgeing, apAgeing] = await Promise.all([
+    getInvoicingDashboardData(),
+    getAccountsReceivableAgeing(),
+    getAccountsPayableAgeing(),
   ]);
-  const accounts = accResult.success ? accResult.accounts : [];
-  const invoices = invResult.success ? invResult.invoices : [];
 
-  return <AccountsClient initialAccounts={accounts} initialInvoices={invoices} />;
+  return (
+    <InvoicingDashboardClient
+      dashboardData={dashboardData}
+      arAgeing={arAgeing}
+      apAgeing={apAgeing}
+    />
+  );
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ export type ClientSafeSalesOrder = {
   total: number;
   currency: string;
   notes: string | null;
-  created_at: Date;
+  created_at: Date | null;
 };
 
 export interface SalesOrderItemInput {
@@ -37,7 +38,7 @@ export interface SalesOrderValidateInput {
   grand_total?: number;
 }
 
-// ── Existing CRUD functions ─────────────────────────────────────────────────
+// ── CRUD ────────────────────────────────────────────────────────────────────
 
 export async function listSalesOrders(params?: {
   search?: string;
@@ -48,54 +49,60 @@ export async function listSalesOrders(params?: {
   { success: true; orders: ClientSafeSalesOrder[] } | { success: false; error: string }
 > {
   try {
-    const orders = await prisma.sales_orders.findMany({
-      where: {
-        ...(params?.status
-          ? { status: params.status as 'DRAFT' | 'TO_DELIVER' | 'TO_BILL' | 'COMPLETED' | 'CANCELLED' }
-          : {}),
-        ...(params?.from_date || params?.to_date
-          ? {
-              delivery_date: {
-                ...(params.from_date ? { gte: new Date(params.from_date) } : {}),
-                ...(params.to_date ? { lte: new Date(params.to_date) } : {}),
-              },
-            }
-          : {}),
-        ...(params?.search
-          ? {
-              OR: [
-                { customer_name: { contains: params.search, mode: 'insensitive' } },
-                { order_number: { contains: params.search, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      include: { sales_order_items: true },
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Sales Order", "read");
+    const where: Record<string, unknown> = {};
+    if (params?.status) {
+      if (params.status === 'DRAFT') {
+        where.docstatus = 0;
+      } else if (params.status === 'SUBMITTED') {
+        where.docstatus = 1;
+      } else if (params.status === 'CANCELLED') {
+        where.docstatus = 2;
+      } else {
+        where.status = params.status;
+      }
+    }
+    if (params?.from_date || params?.to_date) {
+      where.transaction_date = {
+        ...(params.from_date ? { gte: new Date(params.from_date) } : {}),
+        ...(params.to_date ? { lte: new Date(params.to_date) } : {}),
+      };
+    }
+    if (params?.search) {
+      where.OR = [
+        { customer_name: { contains: params.search, mode: 'insensitive' as const } },
+        { name: { contains: params.search, mode: 'insensitive' as const } },
+      ];
+    }
+
+    const orders = await prisma.salesOrder.findMany({
+      where,
+      orderBy: { creation: 'desc' },
       take: 200,
     });
 
     return {
       success: true,
       orders: orders.map((o) => ({
-        id: o.id,
-        order_number: o.order_number,
+        id: o.name,
+        order_number: o.name,
         customer_name: o.customer_name || 'Unknown',
-        project_type: o.project_type || null,
+        project_type: null,
         delivery_date: o.delivery_date || null,
-        status: o.status,
-        subtotal: o.subtotal || 0,
-        tax_rate: o.tax_rate || 0,
-        tax_amount: o.tax_amount || 0,
-        total: o.total || 0,
+        status: o.docstatus === 1 ? 'Submitted' : o.docstatus === 2 ? 'Cancelled' : (o.status || 'Draft'),
+        subtotal: Number(o.net_total || 0),
+        tax_rate: 0,
+        tax_amount: Number(o.total_taxes_and_charges || 0),
+        total: Number(o.grand_total || 0),
         currency: o.currency || 'AED',
-        notes: o.notes || null,
-        created_at: o.created_at || new Date(),
+        notes: o.terms || null,
+        created_at: o.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching sales orders:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch sales orders' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching sales orders:', msg);
+    return { success: false, error: msg || 'Failed to fetch sales orders' };
   }
 }
 
@@ -110,88 +117,118 @@ export async function createSalesOrder(data: {
   items: SalesOrderItemInput[];
 }) {
   try {
+    await requirePermission("Sales Order", "create");
     const items = data.items.map((item) => ({
-      id: crypto.randomUUID(),
       item_code: item.item_code || 'Services',
-      description: item.description,
-      quantity: item.quantity,
+      item_name: item.description,
+      qty: item.quantity,
       rate: item.rate,
       amount: item.quantity * item.rate,
-      delivered_qty: 0,
     }));
     const subtotal = items.reduce((s, i) => s + i.amount, 0);
     const taxRate = data.tax_rate || 5;
     const taxAmount = subtotal * taxRate / 100;
     const total = subtotal + taxAmount;
 
-    const order = await prisma.sales_orders.create({
+    const name = `SO-${Date.now()}`;
+    const order = await prisma.salesOrder.create({
       data: {
-        id: crypto.randomUUID(),
-        order_number: `SO-${Date.now()}`,
+        name,
+        customer: data.customer_id || data.customer_name,
         customer_name: data.customer_name,
-        customer_id: data.customer_id || null,
-        quotation_id: data.quotation_id || null,
-        project_type: data.project_type || null,
+        company: 'Aries',
+        transaction_date: new Date(),
         delivery_date: data.delivery_date || null,
-        status: 'DRAFT',
-        subtotal,
-        tax_rate: taxRate,
-        tax_amount: taxAmount,
-        total,
         currency: 'AED',
-        notes: data.notes || null,
-        sales_order_items: {
-          create: items,
-        },
+        conversion_rate: 1,
+        selling_price_list: 'Standard Selling',
+        price_list_currency: 'AED',
+        plc_conversion_rate: 1,
+        net_total: subtotal,
+        total: subtotal,
+        base_total: subtotal,
+        base_net_total: subtotal,
+        total_taxes_and_charges: taxAmount,
+        base_total_taxes_and_charges: taxAmount,
+        grand_total: total,
+        base_grand_total: total,
+        terms: data.notes || null,
+        status: 'Draft',
+        naming_series: 'SO-',
+        order_type: 'Sales',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
-      include: { sales_order_items: true },
     });
+
+    // Create child SO items
+    for (const item of items) {
+      await prisma.salesOrderItem.create({
+        data: {
+          name: `SOI-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          parent: name,
+          parentfield: 'items',
+          parenttype: 'Sales Order',
+          item_code: item.item_code,
+          item_name: item.item_name,
+          qty: item.qty,
+          uom: 'Nos',
+          conversion_factor: 1,
+          stock_uom: 'Nos',
+          rate: item.rate,
+          amount: item.amount,
+          base_rate: item.rate,
+          base_amount: item.amount,
+          creation: new Date(),
+          modified: new Date(),
+          owner: 'Administrator',
+          modified_by: 'Administrator',
+        },
+      });
+    }
 
     revalidatePath('/erp/sales-orders');
     return {
       success: true as const,
       order: {
-        id: order.id,
-        order_number: order.order_number,
+        id: order.name,
+        order_number: order.name,
         customer_name: order.customer_name,
-        project_type: order.project_type || null,
+        project_type: null,
         delivery_date: order.delivery_date || null,
-        status: order.status,
+        status: 'Draft',
         subtotal,
         tax_rate: taxRate,
         tax_amount: taxAmount,
         total,
         currency: 'AED',
         notes: data.notes || null,
-        created_at: new Date(),
+        created_at: order.creation,
       } as ClientSafeSalesOrder,
     };
-  } catch (error: any) {
-    console.error('Error creating sales order:', error?.message);
-    return { success: false as const, error: error?.message || 'Failed to create sales order' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error creating sales order:', msg);
+    return { success: false as const, error: msg || 'Failed to create sales order' };
   }
 }
 
 export async function updateSalesOrderStatus(id: string, status: string) {
   try {
-    if (status === 'CANCELLED') {
-      await prisma.sales_orders.update({
-        where: { id },
-        data: { status: 'CANCELLED' },
-      });
-    } else {
-      await prisma.sales_orders.update({
-        where: { id },
-        data: {
-          status: status as 'DRAFT' | 'TO_DELIVER' | 'TO_BILL' | 'COMPLETED' | 'CANCELLED',
-        },
-      });
-    }
+    await requirePermission("Sales Order", "update");
+    const docstatus = status === 'CANCELLED' ? 2 : status === 'SUBMITTED' ? 1 : 0;
+    await prisma.salesOrder.update({
+      where: { name: id },
+      data: { status, docstatus },
+    });
     revalidatePath('/erp/sales-orders');
     return { success: true };
-  } catch (error: any) {
-    console.error('[sales-orders] updateSalesOrderStatus failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update sales order status' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[sales-orders] updateSalesOrderStatus failed:', msg);
+    return { success: false, error: msg || 'Failed to update sales order status' };
   }
 }
 
@@ -200,72 +237,73 @@ export async function updateSalesOrder(
   data: Partial<{ customer_name: string; project_type: string; delivery_date: Date; tax_rate: number; notes: string }>
 ) {
   try {
-    await prisma.sales_orders.update({
-      where: { id },
-      data: {
-        ...(data.customer_name !== undefined ? { customer_name: data.customer_name } : {}),
-        ...(data.project_type !== undefined ? { project_type: data.project_type } : {}),
-        ...(data.delivery_date !== undefined ? { delivery_date: data.delivery_date } : {}),
-        ...(data.tax_rate !== undefined ? { tax_rate: data.tax_rate } : {}),
-        ...(data.notes !== undefined ? { notes: data.notes } : {}),
-      },
+    await requirePermission("Sales Order", "update");
+    const updateData: Record<string, unknown> = {
+      modified: new Date(),
+      modified_by: 'Administrator',
+    };
+    if (data.customer_name !== undefined) updateData.customer_name = data.customer_name;
+    if (data.delivery_date !== undefined) updateData.delivery_date = data.delivery_date;
+    if (data.notes !== undefined) updateData.terms = data.notes;
+
+    await prisma.salesOrder.update({
+      where: { name: id },
+      data: updateData,
     });
     revalidatePath('/erp/sales-orders');
     return { success: true };
-  } catch (error: any) {
-    console.error('[sales-orders] updateSalesOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update sales order' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[sales-orders] updateSalesOrder failed:', msg);
+    return { success: false, error: msg || 'Failed to update sales order' };
   }
 }
 
 export async function deleteSalesOrder(id: string) {
   try {
-    await prisma.sales_orders.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
+    await requirePermission("Sales Order", "delete");
+    await prisma.salesOrder.update({
+      where: { name: id },
+      data: { status: 'Cancelled', docstatus: 2 },
     });
     revalidatePath('/erp/sales-orders');
     return { success: true };
-  } catch (error: any) {
-    console.error('[sales-orders] deleteSalesOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete sales order' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[sales-orders] deleteSalesOrder failed:', msg);
+    return { success: false, error: msg || 'Failed to delete sales order' };
   }
 }
 
-// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+// ── Submit / Cancel ─────────────────────────────────────────────────────────
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitSalesOrder(id: string): Promise<SubmitResult> {
+  await requirePermission("Sales Order", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Sales Order", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/sales-orders');
   return result;
 }
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelSalesOrder(id: string): Promise<CancelResult> {
+  await requirePermission("Sales Order", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Sales Order", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/sales-orders');
   return result;
 }
 
-// ── NEW: Validation & Business Logic ────────────────────────────────────────
+// ── Validation & Business Logic ─────────────────────────────────────────────
 
-/**
- * Validate a Sales Order before submission.
- * Checks: customer exists, items present, delivery_date after transaction_date,
- * credit limit against outstanding + order total.
- */
 export async function validateSalesOrder(
   data: SalesOrderValidateInput
 ): Promise<{ success: true; valid: true } | { success: false; error: string }> {
   try {
-    // 1. Customer must exist
+    await requirePermission("Sales Order", "read");
     if (!data.customer || data.customer.trim().length === 0) {
       return { success: false, error: 'Customer is required' };
     }
-    const customers = await prisma.customers.findMany({
+    const customers = await prisma.customer.findMany({
       where: { customer_name: data.customer },
       take: 1,
     });
@@ -273,7 +311,6 @@ export async function validateSalesOrder(
       return { success: false, error: `Customer "${data.customer}" not found` };
     }
 
-    // 2. Items must not be empty
     if (!data.items || data.items.length === 0) {
       return { success: false, error: 'At least one item is required' };
     }
@@ -289,7 +326,6 @@ export async function validateSalesOrder(
       }
     }
 
-    // 3. Delivery date must be present and in the future
     if (!data.delivery_date) {
       return { success: false, error: 'Delivery Date is required' };
     }
@@ -300,20 +336,24 @@ export async function validateSalesOrder(
       return { success: false, error: 'Expected Delivery Date should be after Sales Order Date' };
     }
 
-    // 4. Credit limit check
+    // Credit limit check via CustomerCreditLimit child table
     const customer = customers[0];
-    const creditLimit = customer.credit_limit || 0;
+    const creditLimitRow = await prisma.customerCreditLimit.findFirst({
+      where: { parent: customer.name, company: 'Aries' },
+      select: { credit_limit: true },
+    });
+    const creditLimit = Number(creditLimitRow?.credit_limit || 0);
     if (creditLimit > 0 && data.grand_total !== undefined) {
-      const outstandingInvoices = await prisma.sales_invoices.findMany({
+      const outstandingInvoices = await prisma.salesInvoice.findMany({
         where: {
           customer_name: data.customer,
           outstanding_amount: { gt: 0 },
-          status: 'SUBMITTED',
+          docstatus: 1,
         },
         select: { outstanding_amount: true },
       });
       const totalOutstanding = outstandingInvoices.reduce(
-        (sum, inv) => sum + (inv.outstanding_amount || 0),
+        (sum, inv) => sum + Number(inv.outstanding_amount || 0),
         0
       );
       const projectedOutstanding = totalOutstanding + data.grand_total;
@@ -326,29 +366,23 @@ export async function validateSalesOrder(
     }
 
     return { success: true, valid: true };
-  } catch (error: any) {
-    console.error('[sales-orders] validateSalesOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Validation failed' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[sales-orders] validateSalesOrder failed:', msg);
+    return { success: false, error: msg || 'Validation failed' };
   }
 }
 
-/**
- * Create a Delivery Note from a submitted Sales Order.
- * Not supported in the Prisma schema (no delivery_notes model).
- */
 export async function makeDeliveryNote(
   _salesOrderId: string
 ): Promise<{ success: true; deliveryNote: { name: string } } | { success: false; error: string }> {
+  await requirePermission("Sales Order", "create");
   return {
     success: false,
     error: 'Delivery Notes are not supported in the Prisma schema',
   };
 }
 
-/**
- * Compute the effective status of a Sales Order.
- * Prisma schema does not track delivered/billed percentages.
- */
 export async function getSalesOrderStatus(
   soId: string
 ): Promise<
@@ -356,8 +390,9 @@ export async function getSalesOrderStatus(
   | { success: false; error: string }
 > {
   try {
-    const so = await prisma.sales_orders.findUnique({
-      where: { id: soId },
+    await requirePermission("Sales Order", "read");
+    const so = await prisma.salesOrder.findUnique({
+      where: { name: soId },
     });
     if (!so) {
       return { success: false, error: 'Sales Order not found' };
@@ -365,14 +400,15 @@ export async function getSalesOrderStatus(
 
     return {
       success: true,
-      status: so.status,
-      deliveryStatus: 'Not Delivered',
-      billingStatus: 'Not Billed',
-      perDelivered: 0,
-      perBilled: 0,
+      status: so.docstatus === 1 ? 'Submitted' : so.docstatus === 2 ? 'Cancelled' : 'Draft',
+      deliveryStatus: so.delivery_status || 'Not Delivered',
+      billingStatus: so.billing_status || 'Not Billed',
+      perDelivered: so.per_delivered || 0,
+      perBilled: so.per_billed || 0,
     };
-  } catch (error: any) {
-    console.error('[sales-orders] getSalesOrderStatus failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to get sales order status' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[sales-orders] getSalesOrderStatus failed:', msg);
+    return { success: false, error: msg || 'Failed to get sales order status' };
   }
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ export async function listBudgets(
   pageSize = 50
 ): Promise<{ success: true; budgets: ClientSafeBudget[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "read");
     const where = search
       ? {
           OR: [
@@ -105,6 +107,7 @@ export async function getBudget(
   id: string
 ): Promise<{ success: true; budget: ClientSafeBudgetDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "read");
     const b = await prisma.budget.findUnique({ where: { name: id } });
     if (!b) return { success: false, error: 'Budget not found' };
 
@@ -146,6 +149,7 @@ export async function createBudget(
   data: CreateBudgetInput
 ): Promise<{ success: true; budget: ClientSafeBudget } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "create");
     if (!data.company) return { success: false, error: 'Company is required' };
     if (!data.account) return { success: false, error: 'Account is required' };
     if (!data.budget_amount || data.budget_amount <= 0) return { success: false, error: 'Budget amount must be positive' };
@@ -195,6 +199,7 @@ export async function createBudget(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitBudget(id: string): Promise<SubmitResult> {
+  await requirePermission("Account", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Budget", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/accounts/budgets');
@@ -202,6 +207,7 @@ export async function submitBudget(id: string): Promise<SubmitResult> {
 }
 
 export async function cancelBudget(id: string): Promise<CancelResult> {
+  await requirePermission("Account", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Budget", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/accounts/budgets');
@@ -214,6 +220,7 @@ export async function deleteBudget(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "delete");
     const existing = await prisma.budget.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Budget not found' };
     if (existing.docstatus !== 0) return { success: false, error: 'Only draft budgets can be deleted' };

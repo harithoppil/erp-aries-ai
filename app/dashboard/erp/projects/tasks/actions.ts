@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ export async function listTasks(
   pageSize = 50
 ): Promise<{ success: true; tasks: ClientSafeTask[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Project", "read");
     const where = search
       ? {
           OR: [
@@ -100,6 +102,7 @@ export async function getTask(
   id: string
 ): Promise<{ success: true; task: ClientSafeTaskDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Project", "read");
     const t = await prisma.task.findUnique({ where: { name: id } });
     if (!t) return { success: false, error: 'Task not found' };
 
@@ -140,6 +143,7 @@ export async function createTask(
   data: CreateTaskInput
 ): Promise<{ success: true; task: ClientSafeTask } | { success: false; error: string }> {
   try {
+    await requirePermission("Project", "create");
     if (!data.subject) return { success: false, error: 'Subject is required' };
 
     const name = `TASK-${Date.now()}`;
@@ -190,6 +194,7 @@ export async function updateTask(
   data: Partial<CreateTaskInput & { status?: string; progress?: number }>
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Project", "update");
     const existing = await prisma.task.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Task not found' };
 
@@ -222,6 +227,7 @@ export async function deleteTask(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Project", "delete");
     const existing = await prisma.task.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Task not found' };
     if (existing.docstatus !== 0) return { success: false, error: 'Only draft tasks can be deleted' };

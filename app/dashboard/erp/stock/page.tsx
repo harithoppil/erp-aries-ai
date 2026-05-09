@@ -1,15 +1,30 @@
-import { listItems, listWarehouses, listStockEntries, type ClientSafeItem } from "@/app/dashboard/erp/stock/actions";
-import StockClient from "@/app/dashboard/erp/stock/stock-client";
+import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/frappe-auth';
+import { getStockDashboardData, type StockDashboardData } from './actions';
+import StockDashboardClient from './stock-dashboard-client';
 
-export default async function StockPage() {
-  const [iRes, wRes, eRes] = await Promise.all([
-    listItems(),
-    listWarehouses(),
-    listStockEntries(),
-  ]);
-  const items = iRes.success ? iRes.items : [];
-  const warehouses = wRes.success ? wRes.warehouses : [];
-  const entries = eRes.success ? eRes.entries : [];
+export default async function StockDashboardPage() {
+  const session = await getSession();
+  if (!session) {
+    redirect('/login');
+  }
 
-  return <StockClient initialItems={items} initialWarehouses={warehouses} initialEntries={entries} />;
+  const result = await getStockDashboardData();
+  const data: StockDashboardData = result.success
+    ? result.data
+    : {
+        totalStockValue: 0,
+        warehouseCount: 0,
+        itemCount: 0,
+        stockByItemGroup: [],
+      };
+
+  return (
+    <StockDashboardClient
+      totalStockValue={data.totalStockValue}
+      warehouseCount={data.warehouseCount}
+      itemCount={data.itemCount}
+      stockByItemGroup={data.stockByItemGroup}
+    />
+  );
 }

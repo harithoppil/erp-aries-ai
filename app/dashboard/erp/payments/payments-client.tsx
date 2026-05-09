@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { listPayments, createPayment, type ClientSafePayment } from "@/app/dashboard/erp/payments/actions";
 import { listInvoices, type ClientSafeInvoice } from "@/app/dashboard/erp/accounts/actions";
 import { usePageContext } from "@/hooks/usePageContext";
@@ -13,6 +14,14 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { toast } from "sonner";
 import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 import { useActionDispatcher, defineAction } from "@/store/useActionDispatcher";
@@ -133,6 +142,27 @@ export default function PaymentsClient({ initialPayments, initialInvoices }: { i
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
       <div className="flex-1 min-h-0 overflow-auto pr-2">
         <div className="space-y-4 pb-4">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard/erp">ERP</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard/erp/accounts">Invoicing</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Payments</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>

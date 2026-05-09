@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ export async function listFiscalYears(
   pageSize = 50
 ): Promise<{ success: true; fiscalYears: ClientSafeFiscalYear[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "read");
     const where = search
       ? {
           OR: [
@@ -80,6 +82,7 @@ export async function getFiscalYear(
   id: string
 ): Promise<{ success: true; fiscalYear: ClientSafeFiscalYearDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "read");
     const fy = await prisma.fiscalYear.findUnique({ where: { name: id } });
     if (!fy) return { success: false, error: 'Fiscal Year not found' };
 
@@ -109,6 +112,7 @@ export async function createFiscalYear(
   data: CreateFiscalYearInput
 ): Promise<{ success: true; fiscalYear: ClientSafeFiscalYear } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "create");
     if (!data.year) return { success: false, error: 'Year is required' };
     if (!data.year_start_date || !data.year_end_date) return { success: false, error: 'Start and end dates are required' };
 
@@ -150,6 +154,7 @@ export async function deleteFiscalYear(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "delete");
     const existing = await prisma.fiscalYear.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Fiscal Year not found' };
     if (existing.docstatus !== 0) return { success: false, error: 'Only draft fiscal years can be deleted' };

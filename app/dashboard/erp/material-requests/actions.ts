@@ -1,6 +1,10 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export type ClientSafeMaterialRequest = {
   id: string;
@@ -10,34 +14,38 @@ export type ClientSafeMaterialRequest = {
   material_request_type: string;
   requested_by: string | null;
   project_id?: string | null;
-  created_at: Date;
+  created_at: Date | null;
 };
+
+// ── CRUD ────────────────────────────────────────────────────────────────────
 
 export async function listMaterialRequests(): Promise<
   { success: true; requests: ClientSafeMaterialRequest[] } | { success: false; error: string }
 > {
   try {
-    const rows = await prisma.material_requests.findMany({
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Material Request", "read");
+    const rows = await prisma.materialRequest.findMany({
+      orderBy: { creation: 'desc' },
       take: 200,
     });
 
     return {
       success: true,
       requests: rows.map((r) => ({
-        id: r.id,
-        request_number: r.request_number,
-        status: r.status || 'DRAFT',
-        purpose: r.purpose || r.material_request_type || null,
+        id: r.name,
+        request_number: r.name,
+        status: r.status || 'Draft',
+        purpose: r.material_request_type || null,
         material_request_type: r.material_request_type || 'Purchase',
-        requested_by: r.requested_by || null,
-        project_id: r.project_id || null,
-        created_at: r.created_at,
+        requested_by: r.owner || null,
+        project_id: null,
+        created_at: r.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching material requests:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch material requests' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching material requests:', msg);
+    return { success: false, error: msg || 'Failed to fetch material requests' };
   }
 }
 
@@ -49,33 +57,65 @@ export async function createMaterialRequest(data: {
   purpose?: string;
 }) {
   try {
+    await requirePermission("Material Request", "create");
     const material_request_type = data.purpose || data.material_request_type || 'Purchase';
-    const record = await prisma.material_requests.create({
+    const name = `MR-${Date.now()}`;
+    const record = await prisma.materialRequest.create({
       data: {
-        id: crypto.randomUUID(),
-        request_number: `MR-${Date.now()}`,
-        project_id: data.project_id || null,
-        requested_by: data.requested_by || 'Unknown',
-        purpose: data.purpose || null,
+        name,
         material_request_type,
-        status: 'DRAFT',
+        company: 'Aries',
+        transaction_date: new Date(),
+        naming_series: 'MR-',
+        status: 'Draft',
+        creation: new Date(),
+        modified: new Date(),
+        owner: data.requested_by || 'Administrator',
+        modified_by: data.requested_by || 'Administrator',
       },
     });
 
+    // Create child items if provided
+    if (data.items && data.items.length > 0) {
+      for (const item of data.items) {
+        await prisma.materialRequestItem.create({
+          data: {
+            name: `MRI-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            parent: name,
+            parentfield: 'items',
+            parenttype: 'Material Request',
+            item_code: item.item_code,
+            item_name: item.item_code,
+            qty: item.qty,
+            uom: 'Nos',
+            conversion_factor: 1,
+            stock_uom: 'Nos',
+            schedule_date: item.schedule_date ? new Date(item.schedule_date) : new Date(),
+            creation: new Date(),
+            modified: new Date(),
+            owner: 'Administrator',
+            modified_by: 'Administrator',
+          },
+        });
+      }
+    }
+
+    revalidatePath('/erp/material-requests');
     return {
       success: true as const,
       request: {
-        id: record.id,
-        request_number: record.request_number,
-        status: 'DRAFT',
+        id: record.name,
+        request_number: record.name,
+        status: 'Draft',
         purpose: material_request_type,
         material_request_type,
         requested_by: data.requested_by || null,
         project_id: data.project_id || null,
-        created_at: record.created_at,
+        created_at: record.creation,
       } as ClientSafeMaterialRequest,
     };
-  } catch (error: any) {
-    return { success: false as const, error: error?.message || 'Failed to create material request' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false as const, error: msg || 'Failed to create material request' };
   }
 }

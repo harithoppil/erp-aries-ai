@@ -8,6 +8,10 @@ import { FileText, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink,
+  BreadcrumbPage, BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { toast } from "sonner";
 import ExportButton from "@/app/dashboard/erp/components/ExportButton";
 
@@ -47,6 +51,22 @@ export default function SalesInvoicesClient({ initialInvoices }: { initialInvoic
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
       <div className="flex-1 min-h-0 overflow-auto pr-2"><div className="space-y-4 pb-4">
+        {/* Breadcrumb */}
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/dashboard/erp/selling">Selling</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Sales Invoice</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div><h2 className="text-2xl font-bold text-[#0f172a]">Sales Invoices</h2><p className="text-sm text-[#64748b] mt-1">{invoices.length} invoices</p></div>
           <div className="flex gap-2">

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ export async function listCompanies(
   pageSize = 50
 ): Promise<{ success: true; companies: ClientSafeCompany[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "read");
     const where = search
       ? {
           OR: [
@@ -104,6 +106,7 @@ export async function getCompany(
   id: string
 ): Promise<{ success: true; company: ClientSafeCompanyDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "read");
     const company = await prisma.company.findUnique({ where: { name: id } });
     if (!company) return { success: false, error: 'Company not found' };
 
@@ -150,6 +153,7 @@ export async function createCompany(
   data: CreateCompanyInput
 ): Promise<{ success: true; company: ClientSafeCompany } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "create");
     if (!data.company_name) return { success: false, error: 'Company name is required' };
     if (!data.abbr) return { success: false, error: 'Abbreviation is required' };
 
@@ -197,6 +201,7 @@ export async function updateCompany(
   data: Partial<CreateCompanyInput>
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "update");
     const existing = await prisma.company.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Company not found' };
 
@@ -226,6 +231,7 @@ export async function deleteCompany(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Company", "delete");
     const existing = await prisma.company.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Company not found' };
     if (existing.docstatus !== 0) return { success: false, error: 'Only draft companies can be deleted' };

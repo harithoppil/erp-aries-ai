@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { getGeneralLedger, type GLEntry } from "@/app/dashboard/erp/reports/actions";
 import { ScrollText, Calendar, Search, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 interface GeneralLedgerClientProps {
   initialEntries: GLEntry[];
@@ -45,6 +54,27 @@ export default function GeneralLedgerClient({ initialEntries, initialTotal }: Ge
 
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/dashboard/erp">ERP</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/dashboard/erp/reports">Reports</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>General Ledger</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold text-[#0f172a]">
           <ScrollText className="h-6 w-6 text-[#0ea5e9]" />

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ export async function listBankAccounts(
   pageSize = 50
 ): Promise<{ success: true; bankAccounts: ClientSafeBankAccount[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "read");
     const where = search
       ? {
           OR: [
@@ -97,6 +99,7 @@ export async function getBankAccount(
   id: string
 ): Promise<{ success: true; bankAccount: ClientSafeBankAccountDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "read");
     const ba = await prisma.bankAccount.findUnique({ where: { name: id } });
     if (!ba) return { success: false, error: 'Bank Account not found' };
 
@@ -135,6 +138,7 @@ export async function createBankAccount(
   data: CreateBankAccountInput
 ): Promise<{ success: true; bankAccount: ClientSafeBankAccount } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "create");
     if (!data.account_name) return { success: false, error: 'Account name is required' };
     if (!data.bank) return { success: false, error: 'Bank is required' };
 
@@ -182,6 +186,7 @@ export async function deleteBankAccount(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Account", "delete");
     const existing = await prisma.bankAccount.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Bank Account not found' };
 

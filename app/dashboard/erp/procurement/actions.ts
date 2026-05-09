@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ export type ClientSafeSupplier = {
   email: string | null;
   category: string | null;
   status: string;
-  created_at: Date;
+  created_at: Date | null;
 };
 
 export type ClientSafePurchaseOrder = {
@@ -24,7 +25,7 @@ export type ClientSafePurchaseOrder = {
   status: string;
   total: number;
   currency: string;
-  created_at: Date;
+  created_at: Date | null;
 };
 
 export interface PurchaseOrderItemInput {
@@ -45,32 +46,34 @@ export interface FrappePurchaseReceipt {
   name: string;
 }
 
-// ── Existing CRUD functions ─────────────────────────────────────────────────
+// ── CRUD ────────────────────────────────────────────────────────────────────
 
 export async function listSuppliers(): Promise<
   { success: true; suppliers: ClientSafeSupplier[] } | { success: false; error: string }
 > {
   try {
-    const suppliers = await prisma.suppliers.findMany({
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Purchase Order", "read");
+    const suppliers = await prisma.supplier.findMany({
+      orderBy: { creation: 'desc' },
       take: 500,
     });
 
     return {
       success: true,
       suppliers: suppliers.map((s) => ({
-        id: s.id,
-        supplier_name: s.supplier_name || s.id,
-        supplier_code: s.supplier_code || s.id,
-        email: s.email || null,
-        category: s.category || null,
+        id: s.name,
+        supplier_name: s.supplier_name || s.name,
+        supplier_code: s.name,
+        email: s.email_id || null,
+        category: s.supplier_group || null,
         status: s.disabled ? 'Inactive' : 'Active',
-        created_at: s.created_at,
+        created_at: s.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching suppliers:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch suppliers' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching suppliers:', msg);
+    return { success: false, error: msg || 'Failed to fetch suppliers' };
   }
 }
 
@@ -78,27 +81,28 @@ export async function listPurchaseOrders(): Promise<
   { success: true; orders: ClientSafePurchaseOrder[] } | { success: false; error: string }
 > {
   try {
-    const orders = await prisma.purchase_orders.findMany({
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Purchase Order", "read");
+    const orders = await prisma.purchaseOrder.findMany({
+      orderBy: { creation: 'desc' },
       take: 200,
-      include: { suppliers: true },
     });
 
     return {
       success: true,
       orders: orders.map((o) => ({
-        id: o.id,
-        po_number: o.po_number,
-        supplier_name: o.suppliers?.supplier_name || 'Unknown',
-        status: o.status,
-        total: o.total,
-        currency: o.currency,
-        created_at: o.created_at,
+        id: o.name,
+        po_number: o.name,
+        supplier_name: o.supplier_name || 'Unknown',
+        status: o.docstatus === 1 ? 'Submitted' : o.docstatus === 2 ? 'Cancelled' : 'Draft',
+        total: Number(o.total || 0),
+        currency: o.currency || 'AED',
+        created_at: o.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching purchase orders:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch purchase orders' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching purchase orders:', msg);
+    return { success: false, error: msg || 'Failed to fetch purchase orders' };
   }
 }
 
@@ -107,11 +111,11 @@ export async function createPurchaseOrder(data: {
   items: { item_code: string; qty: number; rate: number }[];
 }) {
   try {
-    const supplier = await prisma.suppliers.findFirst({
+    await requirePermission("Purchase Order", "create");
+    const supplier = await prisma.supplier.findFirst({
       where: {
         OR: [
-          { id: data.supplier },
-          { supplier_code: data.supplier },
+          { name: data.supplier },
           { supplier_name: data.supplier },
         ],
       },
@@ -121,54 +125,77 @@ export async function createPurchaseOrder(data: {
       return { success: false as const, error: `Supplier "${data.supplier}" not found` };
     }
 
-    const id = crypto.randomUUID();
-    const po_number = `PO-${Date.now()}`;
+    const name = `PO-${Date.now()}`;
     const subtotal = data.items.reduce((sum, i) => sum + i.qty * i.rate, 0);
-    const tax_amount = 0;
-    const total = subtotal + tax_amount;
+    const total = subtotal;
 
-    const order = await prisma.purchase_orders.create({
+    const order = await prisma.purchaseOrder.create({
       data: {
-        id,
-        po_number,
-        supplier_id: supplier.id,
-        status: 'DRAFT',
-        order_date: new Date(),
-        subtotal,
-        tax_amount,
-        total,
+        name,
+        supplier: supplier.name,
+        supplier_name: supplier.supplier_name,
+        company: 'Aries',
+        transaction_date: new Date(),
         currency: 'AED',
-        notes: null,
-        po_items: {
-          create: data.items.map((i) => ({
-            id: crypto.randomUUID(),
-            item_code: i.item_code,
-            description: i.item_code,
-            quantity: i.qty,
-            rate: i.rate,
-            amount: i.qty * i.rate,
-            schedule_date: null,
-          })),
-        },
+        conversion_rate: 1,
+        total: subtotal,
+        net_total: subtotal,
+        base_total: subtotal,
+        base_net_total: subtotal,
+        grand_total: total,
+        base_grand_total: total,
+        status: 'Draft',
+        naming_series: 'PO-',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
-      include: { suppliers: true },
     });
+
+    // Create child PO items
+    for (const item of data.items) {
+      await prisma.purchaseOrderItem.create({
+        data: {
+          name: `POI-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          parent: name,
+          parentfield: 'items',
+          parenttype: 'Purchase Order',
+          item_code: item.item_code,
+          item_name: item.item_code,
+          qty: item.qty,
+          uom: 'Nos',
+          conversion_factor: 1,
+          stock_uom: 'Nos',
+          rate: item.rate,
+          amount: item.qty * item.rate,
+          base_rate: item.rate,
+          base_amount: item.qty * item.rate,
+          schedule_date: new Date(),
+          creation: new Date(),
+          modified: new Date(),
+          owner: 'Administrator',
+          modified_by: 'Administrator',
+        },
+      });
+    }
 
     revalidatePath('/erp/procurement');
     return {
       success: true as const,
       order: {
-        id: order.id,
-        po_number: order.po_number,
-        supplier_name: order.suppliers?.supplier_name || data.supplier,
-        status: order.status,
-        total: order.total,
-        currency: order.currency,
-        created_at: order.created_at,
+        id: order.name,
+        po_number: order.name,
+        supplier_name: order.supplier_name || data.supplier,
+        status: 'Draft',
+        total: Number(order.total || 0),
+        currency: order.currency || 'AED',
+        created_at: order.creation,
       } as ClientSafePurchaseOrder,
     };
-  } catch (error: any) {
-    return { success: false as const, error: error?.message || 'Failed to create purchase order' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false as const, error: msg || 'Failed to create purchase order' };
   }
 }
 
@@ -177,22 +204,19 @@ export async function createSupplier(data: {
   supplier_code?: string;
 }) {
   try {
-    const id = crypto.randomUUID();
-    const supplier = await prisma.suppliers.create({
+    await requirePermission("Purchase Order", "create");
+    const name = data.supplier_code || `SUP-${Date.now()}`;
+    const supplier = await prisma.supplier.create({
       data: {
-        id,
+        name,
         supplier_name: data.supplier_name,
-        supplier_code: data.supplier_code || data.supplier_name,
-        contact_person: null,
-        email: null,
-        phone: null,
-        address: null,
-        category: null,
-        rating: null,
-        status: 'Active',
+        supplier_type: 'Company',
+        supplier_group: 'All Suppliers',
         disabled: false,
-        prevent_pos: false,
-        warn_pos: false,
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
 
@@ -200,57 +224,53 @@ export async function createSupplier(data: {
     return {
       success: true as const,
       supplier: {
-        id: supplier.id,
+        id: supplier.name,
         supplier_name: supplier.supplier_name,
-        supplier_code: supplier.supplier_code || supplier.id,
-        email: supplier.email || null,
-        category: supplier.category || null,
+        supplier_code: supplier.name,
+        email: supplier.email_id || null,
+        category: supplier.supplier_group || null,
         status: supplier.disabled ? 'Inactive' : 'Active',
-        created_at: supplier.created_at,
+        created_at: supplier.creation,
       } as ClientSafeSupplier,
     };
-  } catch (error: any) {
-    return { success: false as const, error: error?.message || 'Failed to create supplier' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false as const, error: msg || 'Failed to create supplier' };
   }
 }
 
-// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+// ── Submit / Cancel ─────────────────────────────────────────────────────────
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitPurchaseOrder(id: string): Promise<SubmitResult> {
+  await requirePermission("Purchase Order", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Purchase Order", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/procurement');
   return result;
 }
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelPurchaseOrder(id: string): Promise<CancelResult> {
+  await requirePermission("Purchase Order", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Purchase Order", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/procurement');
   return result;
 }
 
-// ── NEW: Validation & Business Logic ────────────────────────────────────────
+// ── Validation & Business Logic ─────────────────────────────────────────────
 
-/**
- * Validate a Purchase Order before submission.
- * Checks: supplier exists (and not blocked), items present, schedule_date after transaction_date.
- */
 export async function validatePurchaseOrder(
   data: PurchaseOrderValidateInput
 ): Promise<{ success: true; valid: true } | { success: false; error: string }> {
   try {
-    // 1. Supplier must exist
+    await requirePermission("Purchase Order", "read");
     if (!data.supplier || data.supplier.trim().length === 0) {
       return { success: false, error: 'Supplier is required' };
     }
-    const supplier = await prisma.suppliers.findFirst({
+    const supplier = await prisma.supplier.findFirst({
       where: {
         OR: [
-          { id: data.supplier },
-          { supplier_code: data.supplier },
+          { name: data.supplier },
           { supplier_name: data.supplier },
         ],
       },
@@ -268,7 +288,6 @@ export async function validatePurchaseOrder(
       console.warn(`[procurement] Supplier ${data.supplier} has a cautionary scorecard standing`);
     }
 
-    // 2. Items must not be empty
     if (!data.items || data.items.length === 0) {
       return { success: false, error: 'At least one item is required' };
     }
@@ -284,7 +303,6 @@ export async function validatePurchaseOrder(
       }
     }
 
-    // 3. Schedule date validation
     if (data.schedule_date && data.transaction_date) {
       const scheduleDate = new Date(data.schedule_date);
       const transactionDate = new Date(data.transaction_date);
@@ -293,7 +311,6 @@ export async function validatePurchaseOrder(
       }
     }
 
-    // 4. Ensure all line items have a schedule_date or inherit from header
     for (const item of data.items) {
       if (!item.schedule_date && !data.schedule_date) {
         return { success: false, error: `Item "${item.item_code}" is missing a schedule date` };
@@ -301,72 +318,49 @@ export async function validatePurchaseOrder(
     }
 
     return { success: true, valid: true };
-  } catch (error: any) {
-    console.error('[procurement] validatePurchaseOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Purchase Order validation failed' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[procurement] validatePurchaseOrder failed:', msg);
+    return { success: false, error: msg || 'Purchase Order validation failed' };
   }
 }
 
-/**
- * Create a Purchase Receipt from a submitted Purchase Order.
- * NOTE: Purchase Receipts are not modelled in Prisma; this function validates the PO only.
- */
 export async function makePurchaseReceipt(
   poId: string
 ): Promise<{ success: true; purchaseReceipt: FrappePurchaseReceipt } | { success: false; error: string }> {
   try {
-    const po = await prisma.purchase_orders.findUnique({
-      where: { id: poId },
-      include: { po_items: true },
+    await requirePermission("Purchase Order", "create");
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { name: poId },
     });
     if (!po) {
       return { success: false, error: 'Purchase Order not found' };
     }
-    if (po.status !== 'SUBMITTED' && po.status !== 'APPROVED') {
+    if (po.docstatus !== 1) {
       return { success: false, error: 'Purchase Order must be submitted before creating a Purchase Receipt' };
     }
 
-    const items = (po.po_items || [])
-      .map((item) => {
-        const pendingQty = item.quantity - item.received_qty;
-        return {
-          item_code: item.item_code || '',
-          qty: pendingQty,
-          rate: item.rate,
-          amount: pendingQty * item.rate,
-          against_purchase_order: poId,
-          purchase_order_item: item.id,
-        };
-      })
-      .filter((item) => item.qty > 0);
-
-    if (items.length === 0) {
-      return { success: false, error: 'All items have already been received' };
-    }
-
     return { success: false, error: 'Purchase Receipt creation is not supported with Prisma backend' };
-  } catch (error: any) {
-    console.error('[procurement] makePurchaseReceipt failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create Purchase Receipt' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[procurement] makePurchaseReceipt failed:', msg);
+    return { success: false, error: msg || 'Failed to create Purchase Receipt' };
   }
 }
 
-/**
- * Sum the total value of all submitted Purchase Orders for a given supplier.
- */
 export async function getSupplierTotalPurchases(
   supplier: string
 ): Promise<{ success: true; totalPurchases: number; orderCount: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Purchase Order", "read");
     if (!supplier || supplier.trim().length === 0) {
       return { success: false, error: 'Supplier is required' };
     }
 
-    const supplierRecord = await prisma.suppliers.findFirst({
+    const supplierRecord = await prisma.supplier.findFirst({
       where: {
         OR: [
-          { id: supplier },
-          { supplier_code: supplier },
+          { name: supplier },
           { supplier_name: supplier },
         ],
       },
@@ -376,25 +370,26 @@ export async function getSupplierTotalPurchases(
       return { success: false, error: `Supplier "${supplier}" not found` };
     }
 
-    const orders = await prisma.purchase_orders.findMany({
+    const orders = await prisma.purchaseOrder.findMany({
       where: {
-        supplier_id: supplierRecord.id,
-        status: 'SUBMITTED',
+        supplier: supplierRecord.name,
+        docstatus: 1,
       },
       select: {
-        total: true,
+        grand_total: true,
       },
     });
 
-    const totalPurchases = orders.reduce((sum, o) => sum + o.total, 0);
+    const totalPurchases = orders.reduce((sum, o) => sum + Number(o.grand_total || 0), 0);
 
     return {
       success: true,
       totalPurchases: Math.round(totalPurchases * 100) / 100,
       orderCount: orders.length,
     };
-  } catch (error: any) {
-    console.error('[procurement] getSupplierTotalPurchases failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to get supplier total purchases' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[procurement] getSupplierTotalPurchases failed:', msg);
+    return { success: false, error: msg || 'Failed to get supplier total purchases' };
   }
 }

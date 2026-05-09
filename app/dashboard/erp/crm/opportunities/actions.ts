@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import type { OpportunityItemRow } from '@/lib/erpnext/types';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -65,6 +66,7 @@ export async function listOpportunities(
   pageSize = 50
 ): Promise<{ success: true; opportunities: ClientSafeOpportunity[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     const where = search
       ? {
           OR: [
@@ -116,6 +118,7 @@ export async function getOpportunity(
   id: string
 ): Promise<{ success: true; opportunity: ClientSafeOpportunityDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     const opp = await prisma.opportunity.findUnique({
       where: { name: id },
       
@@ -175,6 +178,7 @@ export async function createOpportunity(
   data: CreateOpportunityInput
 ): Promise<{ success: true; opportunity: ClientSafeOpportunity } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "create");
     if (!data.party_name) return { success: false, error: 'Party name is required' };
 
     const totalAmount = (data.items || []).reduce((sum, i) => sum + i.qty * i.rate, 0);
@@ -250,6 +254,7 @@ export async function updateOpportunityStatus(
   lostReason?: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "update");
     await prisma.opportunity.update({
       where: { name: id },
       data: {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { getBalanceSheet, type BSData, type BSSection } from "@/app/dashboard/erp/reports/actions";
 import { TrendingUp, Calendar, Filter, FileX } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const SECTION_STYLES: Record<string, { headerBg: string; headerText: string; border: string }> = {
   Assets: { headerBg: "bg-blue-50", headerText: "text-blue-700", border: "border-blue-100" },
@@ -89,6 +98,27 @@ export default function BalanceSheetClient({ initialData }: BalanceSheetClientPr
 
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/dashboard/erp">ERP</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/dashboard/erp/reports">Reports</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Balance Sheet</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-[#0f172a]">

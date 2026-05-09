@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { PurchaseReceiptItemRow } from '@/lib/erpnext/types';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ export async function listPurchaseReceipts(
   pageSize = 50
 ): Promise<{ success: true; receipts: ClientSafePurchaseReceipt[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Purchase Receipt", "read");
     const where = search
       ? {
           OR: [
@@ -106,6 +108,7 @@ export async function getPurchaseReceipt(
   id: string
 ): Promise<{ success: true; receipt: ClientSafePurchaseReceiptDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Purchase Receipt", "read");
     const receipt = await prisma.purchaseReceipt.findUnique({
       where: { name: id },
       
@@ -156,6 +159,7 @@ export async function createPurchaseReceipt(
   data: CreatePurchaseReceiptInput
 ): Promise<{ success: true; receipt: ClientSafePurchaseReceipt } | { success: false; error: string }> {
   try {
+    await requirePermission("Purchase Receipt", "create");
     if (!data.supplier) return { success: false, error: 'Supplier is required' };
     if (!data.items || data.items.length === 0) return { success: false, error: 'At least one item is required' };
 
@@ -234,6 +238,7 @@ export async function createPurchaseReceipt(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitPurchaseReceipt(id: string): Promise<SubmitResult> {
+  await requirePermission("Purchase Receipt", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Purchase Receipt", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/stock/purchase-receipts');
@@ -241,6 +246,7 @@ export async function submitPurchaseReceipt(id: string): Promise<SubmitResult> {
 }
 
 export async function cancelPurchaseReceipt(id: string): Promise<CancelResult> {
+  await requirePermission("Purchase Receipt", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Purchase Receipt", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/stock/purchase-receipts');

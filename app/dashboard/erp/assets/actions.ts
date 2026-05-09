@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 export type ClientSafeAsset = {
   id: string;
@@ -30,34 +31,34 @@ export async function listAssets(): Promise<
   { success: true; assets: ClientSafeAsset[] } | { success: false; error: string }
 > {
   try {
-    const assets = await prisma.assets.findMany({
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Item", "read");
+    const assets = await prisma.asset.findMany({
+      orderBy: { creation: 'desc' },
       take: 200,
     });
-
     return {
       success: true,
       assets: assets.map((a) => ({
-        id: a.id,
+        id: a.name,
         asset_name: a.asset_name,
-        asset_code: a.asset_code,
+        asset_code: a.item_code || a.name,
         asset_category: a.asset_category || 'General',
-        status: a.status,
-        location: a.location,
-        warehouse_id: a.warehouse_id,
+        status: a.status || 'Draft',
+        location: a.location || null,
+        warehouse_id: null,
         purchase_date: a.purchase_date,
-        purchase_cost: a.purchase_cost,
-        current_value: a.current_value,
-        depreciation_rate: a.depreciation_rate,
-        calibration_date: a.calibration_date,
-        next_calibration_date: a.next_calibration_date,
-        calibration_certificate: a.calibration_certificate,
-        certification_body: a.certification_body,
-        assigned_to_project: a.assigned_to_project,
-        assigned_to_personnel: a.assigned_to_personnel,
-        notes: a.notes,
-        created_at: a.created_at,
-        updated_at: a.updated_at,
+        purchase_cost: a.purchase_amount ? Number(a.purchase_amount) : null,
+        current_value: a.value_after_depreciation ? Number(a.value_after_depreciation) : null,
+        depreciation_rate: 0,
+        calibration_date: null,
+        next_calibration_date: a.next_depreciation_date,
+        calibration_certificate: null,
+        certification_body: null,
+        assigned_to_project: null,
+        assigned_to_personnel: a.custodian || null,
+        notes: null,
+        created_at: a.creation || new Date(),
+        updated_at: a.modified || new Date(),
       })),
     };
   } catch (error: any) {
@@ -77,46 +78,49 @@ export async function createAsset(data: {
   next_calibration_date?: Date;
 }) {
   try {
-    const asset = await prisma.assets.create({
+    await requirePermission("Item", "create");
+    const name = `AST-${Date.now()}`;
+    const asset = await prisma.asset.create({
       data: {
-        id: crypto.randomUUID(),
+        name,
         asset_name: data.asset_name,
-        asset_code: data.asset_code || data.asset_name,
+        item_code: data.asset_code || data.asset_name,
         asset_category: data.asset_category || 'General',
-        purchase_date: data.purchase_date || null,
-        purchase_cost: data.purchase_cost || null,
-        current_value: data.purchase_cost || null,
-        depreciation_rate: 0,
-        status: 'AVAILABLE',
-        location: data.location || null,
-        calibration_date: data.calibration_date || null,
-        next_calibration_date: data.next_calibration_date || null,
+        company: 'Aries',
+        purchase_date: data.purchase_date || new Date(),
+        purchase_amount: data.purchase_cost || 0,
+        location: data.location || '',
+        status: 'Draft',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
     revalidatePath('/erp/assets');
     return {
       success: true as const,
       asset: {
-        id: asset.id,
+        id: asset.name,
         asset_name: asset.asset_name,
-        asset_code: asset.asset_code,
+        asset_code: asset.item_code || asset.name,
         asset_category: asset.asset_category || 'General',
-        status: asset.status,
-        location: asset.location,
-        warehouse_id: asset.warehouse_id,
+        status: asset.status || 'Draft',
+        location: asset.location || null,
+        warehouse_id: null,
         purchase_date: asset.purchase_date,
-        purchase_cost: asset.purchase_cost,
-        current_value: asset.current_value,
-        depreciation_rate: asset.depreciation_rate,
-        calibration_date: asset.calibration_date,
-        next_calibration_date: asset.next_calibration_date,
-        calibration_certificate: asset.calibration_certificate,
-        certification_body: asset.certification_body,
-        assigned_to_project: asset.assigned_to_project,
-        assigned_to_personnel: asset.assigned_to_personnel,
-        notes: asset.notes,
-        created_at: asset.created_at,
-        updated_at: asset.updated_at,
+        purchase_cost: asset.purchase_amount ? Number(asset.purchase_amount) : null,
+        current_value: null,
+        depreciation_rate: 0,
+        calibration_date: null,
+        next_calibration_date: asset.next_depreciation_date,
+        calibration_certificate: null,
+        certification_body: null,
+        assigned_to_project: null,
+        assigned_to_personnel: asset.custodian || null,
+        notes: null,
+        created_at: asset.creation || new Date(),
+        updated_at: asset.modified || new Date(),
       } as ClientSafeAsset,
     };
   } catch (error: any) {
@@ -128,37 +132,40 @@ export async function listCalibrationDue(): Promise<
   { success: true; assets: ClientSafeAsset[] } | { success: false; error: string }
 > {
   try {
-    const assets = await prisma.assets.findMany({
+    await requirePermission("Item", "read");
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const assets = await prisma.asset.findMany({
       where: {
-        status: 'CALIBRATION_DUE',
+        next_depreciation_date: { lte: thirtyDaysFromNow },
+        status: { not: 'Scrapped' },
       },
-      orderBy: { created_at: 'desc' },
+      orderBy: { creation: 'desc' },
       take: 50,
     });
-
     return {
       success: true,
       assets: assets.map((a) => ({
-        id: a.id,
+        id: a.name,
         asset_name: a.asset_name,
-        asset_code: a.asset_code,
+        asset_code: a.item_code || a.name,
         asset_category: a.asset_category || 'General',
-        status: a.status,
-        location: a.location,
-        warehouse_id: a.warehouse_id,
+        status: a.status || 'Draft',
+        location: a.location || null,
+        warehouse_id: null,
         purchase_date: a.purchase_date,
-        purchase_cost: a.purchase_cost,
-        current_value: a.current_value,
-        depreciation_rate: a.depreciation_rate,
-        calibration_date: a.calibration_date,
-        next_calibration_date: a.next_calibration_date,
-        calibration_certificate: a.calibration_certificate,
-        certification_body: a.certification_body,
-        assigned_to_project: a.assigned_to_project,
-        assigned_to_personnel: a.assigned_to_personnel,
-        notes: a.notes,
-        created_at: a.created_at,
-        updated_at: a.updated_at,
+        purchase_cost: a.purchase_amount ? Number(a.purchase_amount) : null,
+        current_value: a.value_after_depreciation ? Number(a.value_after_depreciation) : null,
+        depreciation_rate: 0,
+        calibration_date: null,
+        next_calibration_date: a.next_depreciation_date,
+        calibration_certificate: null,
+        certification_body: null,
+        assigned_to_project: null,
+        assigned_to_personnel: a.custodian || null,
+        notes: null,
+        created_at: a.creation || new Date(),
+        updated_at: a.modified || new Date(),
       })),
     };
   } catch (error: any) {

@@ -1,66 +1,67 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function StockLoading() {
+export default function StockDashboardSkeleton() {
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
       <div className="flex-1 min-h-0 overflow-auto pr-2">
-        <div className="space-y-4 pb-4">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <Skeleton className="h-8 w-44 mb-2" />
-              <Skeleton className="h-4 w-52" />
+        <div className="space-y-5 pb-6">
+          {/* Breadcrumb skeleton */}
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-3" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+
+          {/* Chart card skeleton */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <Skeleton className="h-5 w-52 mb-1" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-20 rounded-md" />
+                <Skeleton className="h-8 w-20 rounded-md" />
+              </div>
             </div>
-            <Skeleton className="h-10 w-36 rounded-xl" />
+            <Skeleton className="h-64 w-full rounded-lg" />
           </div>
-          {/* Search */}
-          <Skeleton className="h-10 w-full rounded-xl" />
-          {/* Category Filter Chips */}
-          <div className="flex flex-wrap gap-2">
-            {Array(5).fill(0).map((_, i) => (
-              <Skeleton key={i} className="h-8 w-20 rounded-full" />
-            ))}
-          </div>
-          {/* Stat cards - 3 */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {Array(3).fill(0).map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Skeleton className="h-4 w-4 rounded" />
-                  <Skeleton className="h-3 w-20" />
+
+          {/* 3 KPI cards skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Skeleton className="h-5 w-5 rounded" />
+                  <Skeleton className="h-3 w-24" />
                 </div>
-                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-8 w-32 mb-1" />
+                <Skeleton className="h-3 w-20" />
               </div>
             ))}
           </div>
-          {/* Tab switcher pills */}
-          <div className="flex gap-2">
-            <Skeleton className="h-9 w-20 rounded-full" />
-            <Skeleton className="h-9 w-28 rounded-full" />
-            <Skeleton className="h-9 w-28 rounded-full" />
-          </div>
-          {/* Table - 5 cols */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  {['Item','Code','Category','Unit','Quantity'].map(h => (
-                    <th key={h} className="text-left px-4 py-3"><Skeleton className="h-4 w-14" /></th>
+
+          {/* Masters & Reports grid skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Skeleton className="h-5 w-5 rounded" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, j) => (
+                    <Skeleton key={j} className="h-4 w-full" />
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {Array(4).fill(0).map((_, i) => (
-                  <tr key={i}>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-5 w-24 rounded-full" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-12" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-12" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

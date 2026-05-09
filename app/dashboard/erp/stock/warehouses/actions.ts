@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ export async function listWarehouses(
   pageSize = 50
 ): Promise<{ success: true; warehouses: ClientSafeWarehouse[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Item", "read");
     const where = search
       ? {
           OR: [
@@ -90,6 +92,7 @@ export async function getWarehouse(
   id: string
 ): Promise<{ success: true; warehouse: ClientSafeWarehouseDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Item", "read");
     const w = await prisma.warehouse.findUnique({ where: { name: id } });
     if (!w) return { success: false, error: 'Warehouse not found' };
 
@@ -127,6 +130,7 @@ export async function createWarehouse(
   data: CreateWarehouseInput
 ): Promise<{ success: true; warehouse: ClientSafeWarehouse } | { success: false; error: string }> {
   try {
+    await requirePermission("Item", "create");
     if (!data.warehouse_name) return { success: false, error: 'Warehouse name is required' };
 
     const name = `WH-${Date.now()}`;
@@ -169,6 +173,7 @@ export async function updateWarehouse(
   data: Partial<CreateWarehouseInput & { disabled?: boolean }>
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Item", "update");
     const existing = await prisma.warehouse.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Warehouse not found' };
 
@@ -196,6 +201,7 @@ export async function deleteWarehouse(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Item", "delete");
     const existing = await prisma.warehouse.findUnique({ where: { name: id } });
     if (!existing) return { success: false, error: 'Warehouse not found' };
 

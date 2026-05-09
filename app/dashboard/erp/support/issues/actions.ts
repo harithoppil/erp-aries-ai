@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ export async function listIssues(
   pageSize = 50
 ): Promise<{ success: true; issues: ClientSafeIssue[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     const where = search
       ? {
           OR: [
@@ -110,6 +112,7 @@ export async function getIssue(
   id: string
 ): Promise<{ success: true; issue: ClientSafeIssueDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "read");
     const issue = await prisma.issue.findUnique({ where: { name: id } });
     if (!issue) return { success: false, error: 'Issue not found' };
 
@@ -158,6 +161,7 @@ export async function createIssue(
   data: CreateIssueInput
 ): Promise<{ success: true; issue: ClientSafeIssue } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "create");
     if (!data.subject) return { success: false, error: 'Subject is required' };
 
     const issue = await prisma.issue.create({
@@ -212,6 +216,7 @@ export async function updateIssueStatus(
   resolutionDetails?: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
+    await requirePermission("Customer", "update");
     await prisma.issue.update({
       where: { name: id },
       data: {

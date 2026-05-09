@@ -344,7 +344,7 @@ export default function MaterialRequestsClient({
                             </span>
                           </td>
                           <td className="px-4 py-3 text-[#64748b]">
-                            {new Date(r.created_at).toLocaleDateString()}
+                            {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
                           </td>
                         </tr>
                       );

@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { SalesInvoiceItemRow } from '@/lib/erpnext/types';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ export async function listSalesInvoices(
   pageSize = 50
 ): Promise<{ success: true; invoices: ClientSafeSalesInvoice[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Sales Invoice", "read");
     const where = search
       ? {
           OR: [
@@ -125,6 +127,7 @@ export async function getSalesInvoice(
   id: string
 ): Promise<{ success: true; invoice: ClientSafeSalesInvoiceDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Sales Invoice", "read");
     const invoice = await prisma.salesInvoice.findUnique({
       where: { name: id },
       
@@ -186,6 +189,7 @@ export async function createSalesInvoice(
   data: CreateSalesInvoiceInput
 ): Promise<{ success: true; invoice: ClientSafeSalesInvoice } | { success: false; error: string }> {
   try {
+    await requirePermission("Sales Invoice", "create");
     if (!data.customer) return { success: false, error: 'Customer is required' };
     if (!data.items || data.items.length === 0) return { success: false, error: 'At least one item is required' };
 
@@ -281,6 +285,7 @@ export async function createSalesInvoice(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitSalesInvoice(id: string): Promise<SubmitResult> {
+  await requirePermission("Sales Invoice", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Sales Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/selling/invoices');
@@ -288,6 +293,7 @@ export async function submitSalesInvoice(id: string): Promise<SubmitResult> {
 }
 
 export async function cancelSalesInvoice(id: string): Promise<CancelResult> {
+  await requirePermission("Sales Invoice", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Sales Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/selling/invoices');

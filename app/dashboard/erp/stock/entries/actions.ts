@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { StockEntryDetailRow } from '@/lib/erpnext/types';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Client-safe types ──────────────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ export async function listStockEntries(
   pageSize = 50
 ): Promise<{ success: true; entries: ClientSafeStockEntry[]; total: number } | { success: false; error: string }> {
   try {
+    await requirePermission("Stock Entry", "read");
     const where = search
       ? {
           OR: [
@@ -113,6 +115,7 @@ export async function getStockEntry(
   id: string
 ): Promise<{ success: true; entry: ClientSafeStockEntryDetail } | { success: false; error: string }> {
   try {
+    await requirePermission("Stock Entry", "read");
     const entry = await prisma.stockEntry.findUnique({
       where: { name: id },
       
@@ -164,6 +167,7 @@ export async function createStockEntry(
   data: CreateStockEntryInput
 ): Promise<{ success: true; entry: ClientSafeStockEntry } | { success: false; error: string }> {
   try {
+    await requirePermission("Stock Entry", "create");
     if (!data.stock_entry_type) return { success: false, error: 'Stock Entry Type is required' };
     if (!data.items || data.items.length === 0) return { success: false, error: 'At least one item is required' };
 
@@ -237,6 +241,7 @@ export async function createStockEntry(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitStockEntry(id: string): Promise<SubmitResult> {
+  await requirePermission("Stock Entry", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Stock Entry", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/stock/entries');
@@ -244,6 +249,7 @@ export async function submitStockEntry(id: string): Promise<SubmitResult> {
 }
 
 export async function cancelStockEntry(id: string): Promise<CancelResult> {
+  await requirePermission("Stock Entry", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Stock Entry", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/stock/entries');

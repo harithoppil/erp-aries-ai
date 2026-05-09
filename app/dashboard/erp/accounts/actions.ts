@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
-import { Prisma, salesinvoicestatus } from '@/prisma/client';
+import { requirePermission } from "@/lib/erpnext/rbac";
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -242,50 +242,35 @@ export type ClientSafeGLEntry = {
 
 // ── Response Helpers ────────────────────────────────────────────────────────
 
-export type AccountListResponse =
-  | { success: true; accounts: ClientSafeAccount[] }
-  | { success: false; error: string };
-
-export type InvoiceListResponse =
-  | { success: true; invoices: ClientSafeInvoice[] }
-  | { success: false; error: string };
-
-export type ValidationResult =
-  | { success: true }
-  | { success: false; error: string };
-
-export type TotalsResult =
-  | { success: true; net_total: number; tax_amount: number; grand_total: number }
-  | { success: false; error: string };
-
-export type OutstandingBalanceResult =
-  | { success: true; customer: string; outstanding_balance: number }
-  | { success: false; error: string };
+export type AccountListResponse = { success: true; accounts: ClientSafeAccount[] } | { success: false; error: string };
+export type InvoiceListResponse = { success: true; invoices: ClientSafeInvoice[] } | { success: false; error: string };
+export type ValidationResult = { success: true } | { success: false; error: string };
+export type TotalsResult = { success: true; net_total: number; tax_amount: number; grand_total: number } | { success: false; error: string };
+export type OutstandingBalanceResult = { success: true; customer: string; outstanding_balance: number } | { success: false; error: string };
 
 // ── Accounts ────────────────────────────────────────────────────────────────
 
 export async function listAccounts(): Promise<AccountListResponse> {
   try {
-    const accounts = await prisma.accounts.findMany({
-      where: { company: 'Aries Marine' },
+    await requirePermission("Account", "read");
+    const accounts = await prisma.account.findMany({
+      where: { company: 'Aries' },
       orderBy: { lft: 'asc' },
       take: 1000,
     });
-
     const clientSafe: ClientSafeAccount[] = accounts.map((a) => ({
-      id: a.id,
-      name: a.name,
+      id: a.name,
+      name: a.account_name || a.name,
       account_number: a.account_number || null,
       account_type: a.account_type || null,
       root_type: a.root_type || null,
-      is_group: a.is_group,
+      is_group: a.is_group || false,
       company: a.company,
-      account_currency: a.account_currency,
-      balance: a.balance,
-      currency: a.account_currency,
-      created_at: a.created_at,
+      account_currency: a.account_currency || 'AED',
+      balance: 0,
+      currency: a.account_currency || 'AED',
+      created_at: a.creation || new Date(),
     }));
-
     return { success: true, accounts: clientSafe };
   } catch (error: any) {
     console.error('Error fetching accounts:', error?.message);
@@ -314,38 +299,33 @@ export async function getAccountTree(): Promise<
   { success: true; accounts: AccountTreeNode[] } | { success: false; error: string }
 > {
   try {
-    const accounts = await prisma.accounts.findMany({
-      where: { company: 'Aries Marine' },
+    await requirePermission("Account", "read");
+    const accounts = await prisma.account.findMany({
+      where: { company: 'Aries' },
       orderBy: { lft: 'asc' },
       take: 1000,
     });
-
     const result: AccountTreeNode[] = [];
     const stack: { rgt: number }[] = [];
-
     for (const a of accounts) {
-      while (stack.length > 0 && stack[stack.length - 1].rgt < a.rgt) {
-        stack.pop();
-      }
+      while (stack.length > 0 && stack[stack.length - 1].rgt < (a.rgt || 0)) stack.pop();
       const level = stack.length;
-      stack.push({ rgt: a.rgt });
-
+      stack.push({ rgt: a.rgt || 0 });
       result.push({
-        id: a.id,
-        name: a.name,
+        id: a.name,
+        name: a.account_name || a.name,
         account_number: a.account_number || null,
         account_type: a.account_type || null,
         root_type: a.root_type || '',
         parent_account: a.parent_account || null,
-        is_group: a.is_group,
-        balance: a.balance,
-        lft: a.lft,
-        rgt: a.rgt,
+        is_group: a.is_group || false,
+        balance: 0,
+        lft: a.lft || 0,
+        rgt: a.rgt || 0,
         level,
-        has_children: a.rgt - a.lft > 1,
+        has_children: (a.rgt || 0) - (a.lft || 0) > 1,
       });
     }
-
     return { success: true, accounts: result };
   } catch (error: any) {
     console.error('[accounts] getAccountTree failed:', error?.message);
@@ -357,29 +337,28 @@ export async function getAccountTree(): Promise<
 
 export async function listInvoices(): Promise<InvoiceListResponse> {
   try {
-    const invoices = await prisma.sales_invoices.findMany({
-      orderBy: { created_at: 'desc' },
+    await requirePermission("Account", "read");
+    const invoices = await prisma.salesInvoice.findMany({
+      orderBy: { creation: 'desc' },
       take: 200,
     });
-
     const clientSafe: ClientSafeInvoice[] = invoices.map((inv) => ({
-      id: inv.id,
-      invoice_number: inv.invoice_number,
-      customer_name: inv.customer_name,
-      customer_email: inv.customer_email || null,
-      posting_date: inv.posting_date.toISOString().slice(0, 10),
+      id: inv.name,
+      invoice_number: inv.name,
+      customer_name: inv.customer_name || 'Unknown',
+      customer_email: null,
+      posting_date: inv.posting_date ? inv.posting_date.toISOString().slice(0, 10) : '',
       due_date: inv.due_date ? inv.due_date.toISOString().slice(0, 10) : null,
-      status: inv.status,
-      subtotal: inv.subtotal,
-      tax_rate: inv.tax_rate,
-      tax_amount: inv.tax_amount,
-      total: inv.total,
-      currency: inv.currency,
-      paid_amount: inv.paid_amount,
-      outstanding_amount: inv.outstanding_amount,
-      created_at: inv.created_at,
+      status: inv.status || 'Draft',
+      subtotal: Number(inv.net_total || 0),
+      tax_rate: 0,
+      tax_amount: Number(inv.total_taxes_and_charges || 0),
+      total: Number(inv.grand_total || 0),
+      currency: inv.currency || 'AED',
+      paid_amount: Number(inv.paid_amount || 0),
+      outstanding_amount: Number(inv.outstanding_amount || 0),
+      created_at: inv.creation || new Date(),
     }));
-
     return { success: true, invoices: clientSafe };
   } catch (error: any) {
     console.error('Error fetching invoices:', error?.message);
@@ -395,53 +374,45 @@ export async function createInvoice(data: {
   items: { description: string; quantity: number; rate: number; item_code?: string }[];
 }): Promise<{ success: true; invoice: ClientSafeInvoice } | { success: false; error: string }> {
   try {
-    const postingDate = new Date();
-    postingDate.setHours(0, 0, 0, 0);
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + (data.due_date_days || 30));
-
-    const items = data.items.map((item) => ({
-      item_code: item.item_code || 'Services',
-      description: item.description,
-      quantity: item.quantity,
-      rate: item.rate,
-      amount: item.quantity * item.rate,
-    }));
-
-    const subtotal = items.reduce((s, i) => s + i.amount, 0);
+    await requirePermission("Account", "create");
+    const postingDate = new Date(); postingDate.setHours(0, 0, 0, 0);
+    const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + (data.due_date_days || 30));
+    const subtotal = data.items.reduce((s, i) => s + i.quantity * i.rate, 0);
     const taxRate = data.tax_rate || 5;
     const taxAmount = (subtotal * taxRate) / 100;
     const total = subtotal + taxAmount;
+    const name = `SINV-${Date.now()}`;
 
-    const invoiceNumber = `INV-${Date.now()}`;
-    const id = crypto.randomUUID();
-
-    const invoice = await prisma.sales_invoices.create({
+    const invoice = await prisma.salesInvoice.create({
       data: {
-        id,
-        invoice_number: invoiceNumber,
+        name,
+        naming_series: 'SINV-',
+        customer: data.customer_name,
         customer_name: data.customer_name,
-        customer_email: data.customer_email || null,
+        company: 'Aries',
         posting_date: postingDate,
         due_date: dueDate,
-        status: 'DRAFT',
-        subtotal,
-        tax_rate: taxRate,
-        tax_amount: taxAmount,
-        total,
         currency: 'AED',
-        paid_amount: 0,
+        conversion_rate: 1,
+        selling_price_list: 'Standard Selling',
+        price_list_currency: 'AED',
+        plc_conversion_rate: 1,
+        debit_to: 'Debtors - A',
+        is_opening: 'No',
+        status: 'Draft',
+        total_qty: data.items.reduce((s, i) => s + i.quantity, 0),
+        net_total: subtotal,
+        total_taxes_and_charges: taxAmount,
+        grand_total: total,
+        base_total: total,
+        base_net_total: subtotal,
+        base_grand_total: total,
         outstanding_amount: total,
-        invoice_items: {
-          create: items.map((item) => ({
-            id: crypto.randomUUID(),
-            item_code: item.item_code,
-            description: item.description,
-            quantity: item.quantity,
-            rate: item.rate,
-            amount: item.amount,
-          })),
-        },
+        paid_amount: 0,
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
 
@@ -449,21 +420,21 @@ export async function createInvoice(data: {
     return {
       success: true,
       invoice: {
-        id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        customer_name: invoice.customer_name,
-        customer_email: invoice.customer_email || null,
-        posting_date: invoice.posting_date.toISOString().slice(0, 10),
+        id: invoice.name,
+        invoice_number: invoice.name,
+        customer_name: invoice.customer_name || data.customer_name,
+        customer_email: null,
+        posting_date: invoice.posting_date ? invoice.posting_date.toISOString().slice(0, 10) : '',
         due_date: invoice.due_date ? invoice.due_date.toISOString().slice(0, 10) : null,
-        status: invoice.status,
-        subtotal: invoice.subtotal,
-        tax_rate: invoice.tax_rate,
-        tax_amount: invoice.tax_amount,
-        total: invoice.total,
-        currency: invoice.currency,
-        paid_amount: invoice.paid_amount,
-        outstanding_amount: invoice.outstanding_amount,
-        created_at: invoice.created_at,
+        status: invoice.status || 'Draft',
+        subtotal: Number(invoice.net_total || 0),
+        tax_rate: taxRate,
+        tax_amount: Number(invoice.total_taxes_and_charges || 0),
+        total: Number(invoice.grand_total || 0),
+        currency: invoice.currency || 'AED',
+        paid_amount: Number(invoice.paid_amount || 0),
+        outstanding_amount: Number(invoice.outstanding_amount || 0),
+        created_at: invoice.creation || new Date(),
       },
     };
   } catch (error: any) {
@@ -474,24 +445,18 @@ export async function createInvoice(data: {
 
 // ── Invoice Mutations ──────────────────────────────────────────────────────
 
-export async function updateInvoiceStatus(
-  id: string,
-  status: string
-): Promise<{ success: true } | { success: false; error: string }> {
+export async function updateInvoiceStatus(id: string, status: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const updateData: Prisma.sales_invoicesUpdateInput = {
-      status: status as salesinvoicestatus,
-    };
-
-    if (status === 'PAID') {
-      const invoice = await prisma.sales_invoices.findUnique({ where: { id } });
+    await requirePermission("Account", "update");
+    const updateData: Record<string, unknown> = { status };
+    if (status === 'Paid') {
+      const invoice = await prisma.salesInvoice.findUnique({ where: { name: id } });
       if (invoice) {
-        updateData.paid_amount = invoice.total;
+        updateData.paid_amount = invoice.grand_total;
         updateData.outstanding_amount = 0;
       }
     }
-
-    await prisma.sales_invoices.update({ where: { id }, data: updateData });
+    await prisma.salesInvoice.update({ where: { name: id }, data: updateData });
     revalidatePath('/erp/accounts');
     return { success: true };
   } catch (error: any) {
@@ -505,37 +470,14 @@ export async function updateInvoice(
   data: Partial<{ customer_name: string; customer_email: string; tax_rate: number; due_date_days: number }>
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const updateData: Prisma.sales_invoicesUpdateInput = {};
-
-    if (data.customer_name !== undefined) {
-      updateData.customer_name = data.customer_name;
-    }
-    if (data.customer_email !== undefined) {
-      updateData.customer_email = data.customer_email;
-    }
+    await requirePermission("Account", "update");
+    const updateData: Record<string, unknown> = {};
+    if (data.customer_name !== undefined) updateData.customer_name = data.customer_name;
     if (data.due_date_days !== undefined) {
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + data.due_date_days);
+      const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + data.due_date_days);
       updateData.due_date = dueDate;
     }
-    if (data.tax_rate !== undefined) {
-      const invoice = await prisma.sales_invoices.findUnique({ where: { id } });
-      if (invoice) {
-        const taxAmount = (invoice.subtotal * data.tax_rate) / 100;
-        const total = invoice.subtotal + taxAmount;
-        updateData.tax_rate = data.tax_rate;
-        updateData.tax_amount = taxAmount;
-        updateData.total = total;
-        if (invoice.status === 'PAID') {
-          updateData.paid_amount = total;
-          updateData.outstanding_amount = 0;
-        } else {
-          updateData.outstanding_amount = total - invoice.paid_amount;
-        }
-      }
-    }
-
-    await prisma.sales_invoices.update({ where: { id }, data: updateData });
+    await prisma.salesInvoice.update({ where: { name: id }, data: updateData });
     revalidatePath('/erp/accounts');
     return { success: true };
   } catch (error: any) {
@@ -546,10 +488,8 @@ export async function updateInvoice(
 
 export async function deleteInvoice(id: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await prisma.sales_invoices.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
-    });
+    await requirePermission("Account", "delete");
+    await prisma.salesInvoice.update({ where: { name: id }, data: { status: 'Cancelled' } });
     revalidatePath('/erp/accounts');
     return { success: true };
   } catch (error: any) {
@@ -558,18 +498,18 @@ export async function deleteInvoice(id: string): Promise<{ success: true } | { s
   }
 }
 
-// ── Submit / Cancel (via document orchestrator) ─────────────────────────────────
+// ── Submit / Cancel (via document orchestrator) ─────────────────────────────
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitInvoice(id: string): Promise<SubmitResult> {
+  await requirePermission("Account", "submit");
   const token = (await cookies()).get("token")?.value;
   const result = await submitDocument("Sales Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/accounts');
   return result;
 }
 
-// TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelInvoice(id: string): Promise<CancelResult> {
+  await requirePermission("Account", "cancel");
   const token = (await cookies()).get("token")?.value;
   const result = await cancelDocument("Sales Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/accounts');
@@ -578,332 +518,122 @@ export async function cancelInvoice(id: string): Promise<CancelResult> {
 
 // ── Business Logic: Validation ──────────────────────────────────────────────
 
-/**
- * Validate Sales Invoice data before submission.
- * Checks mandatory fields, item totals, and tax correctness.
- * Ported from erpnext/accounts/doctype/sales_invoice/sales_invoice.py
- */
-export function validateSalesInvoice(data: SalesInvoiceData): ValidationResult {
-  if (!data.customer || data.customer.trim() === '') {
-    return { success: false, error: 'Customer is mandatory' };
-  }
-  if (!data.posting_date) {
-    return { success: false, error: 'Posting Date is mandatory' };
-  }
-  if (!data.items || data.items.length === 0) {
-    return { success: false, error: 'At least one item is required' };
-  }
-
+export async function validateSalesInvoice(data: SalesInvoiceData): Promise<ValidationResult> {
+  await requirePermission("Account", "read");
+  if (!data.customer || data.customer.trim() === '') return { success: false, error: 'Customer is mandatory' };
+  if (!data.posting_date) return { success: false, error: 'Posting Date is mandatory' };
+  if (!data.items || data.items.length === 0) return { success: false, error: 'At least one item is required' };
   for (let idx = 0; idx < data.items.length; idx++) {
     const item = data.items[idx];
-    if (!item.description || item.description.trim() === '') {
-      return { success: false, error: `Row ${idx + 1}: Description is required` };
-    }
-    if (typeof item.qty !== 'number' || item.qty <= 0) {
-      return { success: false, error: `Row ${idx + 1}: Quantity must be greater than 0` };
-    }
-    if (typeof item.rate !== 'number' || item.rate < 0) {
-      return { success: false, error: `Row ${idx + 1}: Rate cannot be negative` };
-    }
+    if (!item.description || item.description.trim() === '') return { success: false, error: `Row ${idx + 1}: Description is required` };
+    if (typeof item.qty !== 'number' || item.qty <= 0) return { success: false, error: `Row ${idx + 1}: Quantity must be greater than 0` };
+    if (typeof item.rate !== 'number' || item.rate < 0) return { success: false, error: `Row ${idx + 1}: Rate cannot be negative` };
     const expectedAmount = item.qty * item.rate;
-    if (item.amount !== undefined && Math.abs(item.amount - expectedAmount) > 0.01) {
-      return { success: false, error: `Row ${idx + 1}: Amount ${item.amount} does not match Qty * Rate (${expectedAmount})` };
-    }
+    if (item.amount !== undefined && Math.abs(item.amount - expectedAmount) > 0.01) return { success: false, error: `Row ${idx + 1}: Amount ${item.amount} does not match Qty * Rate (${expectedAmount})` };
   }
-
   const netTotal = data.items.reduce((sum, item) => sum + item.qty * item.rate, 0);
-
-  if (data.taxes && data.taxes.length > 0) {
-    let computedTax = 0;
-    for (let tidx = 0; tidx < data.taxes.length; tidx++) {
-      const tax = data.taxes[tidx];
-      if (!tax.account_head || tax.account_head.trim() === '') {
-        return { success: false, error: `Tax Row ${tidx + 1}: Account Head is required` };
-      }
-      if (typeof tax.rate !== 'number' || tax.rate < 0) {
-        return { success: false, error: `Tax Row ${tidx + 1}: Tax Rate cannot be negative` };
-      }
-      if (tax.charge_type === 'On Net Total') {
-        computedTax += netTotal * tax.rate / 100;
-      }
-      if (tax.tax_amount !== undefined && tax.tax_amount < 0) {
-        return { success: false, error: `Tax Row ${tidx + 1}: Tax Amount cannot be negative` };
-      }
-    }
-  }
-
-  if (data.discount_amount !== undefined && data.discount_amount < 0) {
-    return { success: false, error: 'Discount Amount cannot be negative' };
-  }
-
-  return { success: true };
-}
-
-/**
- * Validate Purchase Invoice data before submission.
- * Checks supplier, item totals, and mandatory fields.
- * Ported from erpnext/accounts/doctype/purchase_invoice/purchase_invoice.py
- */
-export function validatePurchaseInvoice(data: PurchaseInvoiceData): ValidationResult {
-  if (!data.supplier || data.supplier.trim() === '') {
-    return { success: false, error: 'Supplier is mandatory' };
-  }
-  if (!data.posting_date) {
-    return { success: false, error: 'Posting Date is mandatory' };
-  }
-  if (!data.items || data.items.length === 0) {
-    return { success: false, error: 'At least one item is required' };
-  }
-
-  for (let idx = 0; idx < data.items.length; idx++) {
-    const item = data.items[idx];
-    if (!item.description || item.description.trim() === '') {
-      return { success: false, error: `Row ${idx + 1}: Description is required` };
-    }
-    if (typeof item.qty !== 'number' || item.qty <= 0) {
-      return { success: false, error: `Row ${idx + 1}: Quantity must be greater than 0` };
-    }
-    if (typeof item.rate !== 'number' || item.rate < 0) {
-      return { success: false, error: `Row ${idx + 1}: Rate cannot be negative` };
-    }
-    const expectedAmount = item.qty * item.rate;
-    if (item.amount !== undefined && Math.abs(item.amount - expectedAmount) > 0.01) {
-      return { success: false, error: `Row ${idx + 1}: Amount ${item.amount} does not match Qty * Rate (${expectedAmount})` };
-    }
-  }
-
-  const netTotal = data.items.reduce((sum, item) => sum + item.qty * item.rate, 0);
-
   if (data.taxes && data.taxes.length > 0) {
     for (let tidx = 0; tidx < data.taxes.length; tidx++) {
       const tax = data.taxes[tidx];
-      if (!tax.account_head || tax.account_head.trim() === '') {
-        return { success: false, error: `Tax Row ${tidx + 1}: Account Head is required` };
-      }
-      if (typeof tax.rate !== 'number' || tax.rate < 0) {
-        return { success: false, error: `Tax Row ${tidx + 1}: Tax Rate cannot be negative` };
-      }
-      if (tax.tax_amount !== undefined && tax.tax_amount < 0) {
-        return { success: false, error: `Tax Row ${tidx + 1}: Tax Amount cannot be negative` };
-      }
+      if (!tax.account_head || tax.account_head.trim() === '') return { success: false, error: `Tax Row ${tidx + 1}: Account Head is required` };
+      if (typeof tax.rate !== 'number' || tax.rate < 0) return { success: false, error: `Tax Row ${tidx + 1}: Tax Rate cannot be negative` };
     }
   }
-
-  if (data.is_paid && !data.mode_of_payment) {
-    return { success: false, error: 'Mode of Payment is required for paid invoices' };
-  }
-
-  if (data.bill_date && data.posting_date && new Date(data.bill_date) > new Date(data.posting_date)) {
-    return { success: false, error: 'Bill Date cannot be after Posting Date' };
-  }
-
-  const grandTotal = netTotal + (data.taxes?.reduce((s, t) => s + (t.tax_amount ?? (netTotal * t.rate / 100)), 0) ?? 0);
-  if (grandTotal < 0) {
-    return { success: false, error: 'Grand Total cannot be negative' };
-  }
-
+  if (data.discount_amount !== undefined && data.discount_amount < 0) return { success: false, error: 'Discount Amount cannot be negative' };
   return { success: true };
 }
 
-/**
- * Validate Journal Entry data before submission.
- * Checks debit === credit, valid accounts, and row-level constraints.
- * Ported from erpnext/accounts/doctype/journal_entry/journal_entry.py
- */
-export function validateJournalEntry(data: JournalEntryData): ValidationResult {
-  if (!data.posting_date) {
-    return { success: false, error: 'Posting Date is mandatory' };
+export async function validatePurchaseInvoice(data: PurchaseInvoiceData): Promise<ValidationResult> {
+  await requirePermission("Account", "read");
+  if (!data.supplier || data.supplier.trim() === '') return { success: false, error: 'Supplier is mandatory' };
+  if (!data.posting_date) return { success: false, error: 'Posting Date is mandatory' };
+  if (!data.items || data.items.length === 0) return { success: false, error: 'At least one item is required' };
+  for (let idx = 0; idx < data.items.length; idx++) {
+    const item = data.items[idx];
+    if (!item.description || item.description.trim() === '') return { success: false, error: `Row ${idx + 1}: Description is required` };
+    if (typeof item.qty !== 'number' || item.qty <= 0) return { success: false, error: `Row ${idx + 1}: Quantity must be greater than 0` };
+    if (typeof item.rate !== 'number' || item.rate < 0) return { success: false, error: `Row ${idx + 1}: Rate cannot be negative` };
   }
-  if (!data.company || data.company.trim() === '') {
-    return { success: false, error: 'Company is mandatory' };
-  }
-  if (!data.voucher_type || data.voucher_type.trim() === '') {
-    return { success: false, error: 'Voucher Type is mandatory' };
-  }
-  if (!data.accounts || data.accounts.length === 0) {
-    return { success: false, error: 'At least one account row is required' };
-  }
+  if (data.is_paid && !data.mode_of_payment) return { success: false, error: 'Mode of Payment is required for paid invoices' };
+  return { success: true };
+}
 
-  if (data.accounts.length < 2) {
-    return { success: false, error: 'Journal Entry must have at least 2 account rows' };
-  }
-
-  let totalDebit = 0;
-  let totalCredit = 0;
-
+export async function validateJournalEntry(data: JournalEntryData): Promise<ValidationResult> {
+  await requirePermission("Account", "read");
+  if (!data.posting_date) return { success: false, error: 'Posting Date is mandatory' };
+  if (!data.company || data.company.trim() === '') return { success: false, error: 'Company is mandatory' };
+  if (!data.voucher_type || data.voucher_type.trim() === '') return { success: false, error: 'Voucher Type is mandatory' };
+  if (!data.accounts || data.accounts.length < 2) return { success: false, error: 'Journal Entry must have at least 2 account rows' };
+  let totalDebit = 0; let totalCredit = 0;
   for (let idx = 0; idx < data.accounts.length; idx++) {
     const row = data.accounts[idx];
-    if (!row.account || row.account.trim() === '') {
-      return { success: false, error: `Row ${idx + 1}: Account is required` };
-    }
-
+    if (!row.account || row.account.trim() === '') return { success: false, error: `Row ${idx + 1}: Account is required` };
     const debit = row.debit ?? row.debit_in_account_currency ?? 0;
     const credit = row.credit ?? row.credit_in_account_currency ?? 0;
-
-    if (debit < 0 || credit < 0) {
-      return { success: false, error: `Row ${idx + 1}: Debit and Credit values cannot be negative` };
-    }
-
-    if (debit > 0 && credit > 0) {
-      return { success: false, error: `Row ${idx + 1}: You cannot credit and debit the same account at the same time` };
-    }
-
-    if (debit === 0 && credit === 0) {
-      return { success: false, error: `Row ${idx + 1}: Both Debit and Credit values cannot be zero` };
-    }
-
-    totalDebit += debit;
-    totalCredit += credit;
+    if (debit < 0 || credit < 0) return { success: false, error: `Row ${idx + 1}: Debit and Credit values cannot be negative` };
+    if (debit > 0 && credit > 0) return { success: false, error: `Row ${idx + 1}: You cannot credit and debit the same account at the same time` };
+    if (debit === 0 && credit === 0) return { success: false, error: `Row ${idx + 1}: Both Debit and Credit values cannot be zero` };
+    totalDebit += debit; totalCredit += credit;
   }
-
   const difference = parseFloat((totalDebit - totalCredit).toFixed(2));
-  if (difference !== 0) {
-    return { success: false, error: `Total Debit (${totalDebit}) must be equal to Total Credit (${totalCredit}). The difference is ${difference}` };
-  }
-
+  if (difference !== 0) return { success: false, error: `Total Debit (${totalDebit}) must be equal to Total Credit (${totalCredit})` };
   return { success: true };
 }
 
-/**
- * Validate Payment Entry data before submission.
- * Checks party, amount > 0, mode_of_payment, and reference allocations.
- * Ported from erpnext/accounts/doctype/payment_entry/payment_entry.py
- */
-export function validatePaymentEntry(data: PaymentEntryData): ValidationResult {
-  if (!data.payment_type) {
-    return { success: false, error: 'Payment Type is mandatory' };
-  }
-  if (!data.posting_date) {
-    return { success: false, error: 'Posting Date is mandatory' };
-  }
-  if (!data.company || data.company.trim() === '') {
-    return { success: false, error: 'Company is mandatory' };
-  }
-  if (!data.paid_from || data.paid_from.trim() === '') {
-    return { success: false, error: 'Paid From account is mandatory' };
-  }
-  if (!data.paid_to || data.paid_to.trim() === '') {
-    return { success: false, error: 'Paid To account is mandatory' };
-  }
-
+export async function validatePaymentEntry(data: PaymentEntryData): Promise<ValidationResult> {
+  await requirePermission("Account", "read");
+  if (!data.payment_type) return { success: false, error: 'Payment Type is mandatory' };
+  if (!data.posting_date) return { success: false, error: 'Posting Date is mandatory' };
+  if (!data.company || data.company.trim() === '') return { success: false, error: 'Company is mandatory' };
+  if (!data.paid_from || data.paid_from.trim() === '') return { success: false, error: 'Paid From account is mandatory' };
+  if (!data.paid_to || data.paid_to.trim() === '') return { success: false, error: 'Paid To account is mandatory' };
   if (data.payment_type !== 'Internal Transfer') {
-    if (!data.party_type || data.party_type.trim() === '') {
-      return { success: false, error: 'Party Type is mandatory' };
-    }
-    if (!data.party || data.party.trim() === '') {
-      return { success: false, error: 'Party is mandatory' };
-    }
+    if (!data.party_type || data.party_type.trim() === '') return { success: false, error: 'Party Type is mandatory' };
+    if (!data.party || data.party.trim() === '') return { success: false, error: 'Party is mandatory' };
   }
-
-  if (typeof data.paid_amount !== 'number' || data.paid_amount <= 0) {
-    return { success: false, error: 'Paid Amount must be greater than 0' };
-  }
-  if (typeof data.received_amount !== 'number' || data.received_amount <= 0) {
-    return { success: false, error: 'Received Amount must be greater than 0' };
-  }
-
-  if (data.paid_amount < data.received_amount) {
-    return { success: false, error: 'Received Amount cannot be greater than Paid Amount' };
-  }
-
-  if (data.mode_of_payment && data.mode_of_payment.trim() === '') {
-    return { success: false, error: 'Mode of Payment cannot be empty if provided' };
-  }
-
+  if (typeof data.paid_amount !== 'number' || data.paid_amount <= 0) return { success: false, error: 'Paid Amount must be greater than 0' };
+  if (typeof data.received_amount !== 'number' || data.received_amount <= 0) return { success: false, error: 'Received Amount must be greater than 0' };
+  if (data.paid_amount < data.received_amount) return { success: false, error: 'Received Amount cannot be greater than Paid Amount' };
   if (data.references && data.references.length > 0) {
     for (let idx = 0; idx < data.references.length; idx++) {
       const ref = data.references[idx];
-      if (!ref.reference_doctype || ref.reference_doctype.trim() === '') {
-        return { success: false, error: `Reference Row ${idx + 1}: Reference Doctype is required` };
-      }
-      if (!ref.reference_name || ref.reference_name.trim() === '') {
-        return { success: false, error: `Reference Row ${idx + 1}: Reference Name is required` };
-      }
-      if (typeof ref.allocated_amount !== 'number' || ref.allocated_amount <= 0) {
-        return { success: false, error: `Reference Row ${idx + 1}: Allocated Amount must be greater than 0` };
-      }
-      if (ref.outstanding_amount !== undefined && ref.allocated_amount > ref.outstanding_amount) {
-        return { success: false, error: `Reference Row ${idx + 1}: Allocated Amount cannot be greater than Outstanding Amount` };
-      }
+      if (!ref.reference_doctype || ref.reference_doctype.trim() === '') return { success: false, error: `Reference Row ${idx + 1}: Reference Doctype is required` };
+      if (!ref.reference_name || ref.reference_name.trim() === '') return { success: false, error: `Reference Row ${idx + 1}: Reference Name is required` };
+      if (typeof ref.allocated_amount !== 'number' || ref.allocated_amount <= 0) return { success: false, error: `Reference Row ${idx + 1}: Allocated Amount must be greater than 0` };
     }
   }
-
   return { success: true };
 }
 
 // ── Business Logic: Calculations ────────────────────────────────────────────
 
-/**
- * Calculate invoice totals from items and taxes.
- * Computes net_total, tax_amount, and grand_total.
- * Ported from erpnext/controllers/taxes_and_totals.py
- */
-export function calculateInvoiceTotals(
-  items: SalesInvoiceItem[],
-  taxes: SalesInvoiceTax[]
-): TotalsResult {
-  if (!items || items.length === 0) {
-    return { success: false, error: 'Items are required to calculate totals' };
-  }
-
-  const netTotal = items.reduce((sum, item) => {
-    const lineAmount = (item.qty || 0) * (item.rate || 0);
-    return sum + lineAmount;
-  }, 0);
-
+export async function calculateInvoiceTotals(items: SalesInvoiceItem[], taxes: SalesInvoiceTax[]): Promise<TotalsResult> {
+  await requirePermission("Account", "read");
+  if (!items || items.length === 0) return { success: false, error: 'Items are required to calculate totals' };
+  const netTotal = items.reduce((sum, item) => sum + (item.qty || 0) * (item.rate || 0), 0);
   let taxAmount = 0;
   if (taxes && taxes.length > 0) {
     for (const tax of taxes) {
-      if (tax.charge_type === 'On Net Total') {
-        taxAmount += netTotal * (tax.rate || 0) / 100;
-      } else if (tax.charge_type === 'On Previous Row Amount') {
-        taxAmount += tax.tax_amount || 0;
-      } else if (tax.charge_type === 'Actual') {
-        taxAmount += tax.tax_amount || 0;
-      } else {
-        taxAmount += tax.tax_amount || 0;
-      }
+      if (tax.charge_type === 'On Net Total') taxAmount += netTotal * (tax.rate || 0) / 100;
+      else taxAmount += tax.tax_amount || 0;
     }
   }
-
   const grandTotal = netTotal + taxAmount;
-
-  return {
-    success: true,
-    net_total: parseFloat(netTotal.toFixed(2)),
-    tax_amount: parseFloat(taxAmount.toFixed(2)),
-    grand_total: parseFloat(grandTotal.toFixed(2)),
-  };
+  return { success: true, net_total: parseFloat(netTotal.toFixed(2)), tax_amount: parseFloat(taxAmount.toFixed(2)), grand_total: parseFloat(grandTotal.toFixed(2)) };
 }
 
 // ── Business Logic: Outstanding Balance ─────────────────────────────────────
 
-/**
- * Get the outstanding balance for a customer by summing unpaid invoices.
- * Ported from erpnext/accounts/party.py outstanding logic.
- */
 export async function getOutstandingBalance(customer: string): Promise<OutstandingBalanceResult> {
   try {
-    if (!customer || customer.trim() === '') {
-      return { success: false, error: 'Customer is required' };
-    }
-
-    const invoices = await prisma.sales_invoices.findMany({
-      where: {
-        customer_name: customer,
-        status: 'SUBMITTED',
-        outstanding_amount: { gt: 0 },
-      },
+    await requirePermission("Account", "read");
+    if (!customer || customer.trim() === '') return { success: false, error: 'Customer is required' };
+    const invoices = await prisma.salesInvoice.findMany({
+      where: { customer_name: customer, docstatus: 1, outstanding_amount: { gt: 0 } },
       select: { outstanding_amount: true },
     });
-
-    const outstandingBalance = invoices.reduce((sum, inv) => sum + (inv.outstanding_amount || 0), 0);
-
-    return {
-      success: true,
-      customer,
-      outstanding_balance: parseFloat(outstandingBalance.toFixed(2)),
-    };
+    const outstandingBalance = invoices.reduce((sum, inv) => sum + Number(inv.outstanding_amount || 0), 0);
+    return { success: true, customer, outstanding_balance: parseFloat(outstandingBalance.toFixed(2)) };
   } catch (error: any) {
     console.error('[accounts] getOutstandingBalance failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch outstanding balance' };
@@ -912,84 +642,57 @@ export async function getOutstandingBalance(customer: string): Promise<Outstandi
 
 // ── Business Logic: GL Entry ────────────────────────────────────────────────
 
-/**
- * Create a General Ledger entry via Prisma.
- * Ported from erpnext/accounts/general_ledger.py make_gl_entries logic.
- */
 export async function createGLEntry(data: GLEntryData): Promise<
   { success: true; entry: ClientSafeGLEntry } | { success: false; error: string }
 > {
   try {
-    if (!data.account || data.account.trim() === '') {
-      return { success: false, error: 'Account is mandatory' };
-    }
-    if (!data.voucher_type || data.voucher_type.trim() === '') {
-      return { success: false, error: 'Voucher Type is mandatory' };
-    }
-    if (!data.voucher_no || data.voucher_no.trim() === '') {
-      return { success: false, error: 'Voucher No is mandatory' };
-    }
-    if (!data.company || data.company.trim() === '') {
-      return { success: false, error: 'Company is mandatory' };
-    }
-    if (!data.posting_date) {
-      return { success: false, error: 'Posting Date is mandatory' };
-    }
-
+    await requirePermission("Account", "create");
+    if (!data.account || data.account.trim() === '') return { success: false, error: 'Account is mandatory' };
+    if (!data.voucher_type || data.voucher_type.trim() === '') return { success: false, error: 'Voucher Type is mandatory' };
+    if (!data.voucher_no || data.voucher_no.trim() === '') return { success: false, error: 'Voucher No is mandatory' };
+    if (!data.company || data.company.trim() === '') return { success: false, error: 'Company is mandatory' };
+    if (!data.posting_date) return { success: false, error: 'Posting Date is mandatory' };
     const debit = data.debit ?? 0;
     const credit = data.credit ?? 0;
-
-    if (debit < 0 || credit < 0) {
-      return { success: false, error: 'Debit and Credit cannot be negative' };
-    }
-
-    if (debit === 0 && credit === 0) {
-      return { success: false, error: 'Either Debit or Credit must be greater than 0' };
-    }
-
-    const account = await prisma.accounts.findFirst({
-      where: { name: data.account },
-    });
-
-    if (!account) {
-      return { success: false, error: `Account "${data.account}" not found` };
-    }
-
-    const id = crypto.randomUUID();
-
-    const entry = await prisma.gl_entries.create({
+    if (debit < 0 || credit < 0) return { success: false, error: 'Debit and Credit cannot be negative' };
+    if (debit === 0 && credit === 0) return { success: false, error: 'Either Debit or Credit must be greater than 0' };
+    const account = await prisma.account.findFirst({ where: { name: data.account } });
+    if (!account) return { success: false, error: `Account "${data.account}" not found` };
+    const name = `GL-${Date.now()}`;
+    const entry = await prisma.glEntry.create({
       data: {
-        id,
+        name,
         posting_date: new Date(data.posting_date),
-        account_id: account.id,
-        voucher_type: data.voucher_type,
-        voucher_no: data.voucher_no,
+        account: data.account,
         debit,
         credit,
         debit_in_account_currency: debit,
         credit_in_account_currency: credit,
+        against: data.against || null,
+        voucher_type: data.voucher_type,
+        voucher_no: data.voucher_no,
+        company: data.company,
         cost_center: data.cost_center || null,
-        project_id: null,
         remarks: data.remarks || null,
         is_cancelled: false,
+        is_opening: 'No',
+        creation: new Date(),
+        modified: new Date(),
+        owner: 'Administrator',
+        modified_by: 'Administrator',
       },
     });
-
     revalidatePath('/erp/accounts');
     return {
       success: true,
       entry: {
-        id: entry.id,
-        name: entry.id,
-        posting_date: data.posting_date,
-        account: data.account,
-        debit,
-        credit,
-        against: data.against || null,
-        voucher_type: entry.voucher_type ?? data.voucher_type,
-        voucher_no: entry.voucher_no ?? data.voucher_no,
+        id: entry.name, name: entry.name,
+        posting_date: data.posting_date, account: data.account,
+        debit, credit, against: data.against || null,
+        voucher_type: entry.voucher_type || data.voucher_type,
+        voucher_no: entry.voucher_no || data.voucher_no,
         company: data.company,
-        created_at: entry.created_at,
+        created_at: entry.creation || new Date(),
       },
     };
   } catch (error: any) {
@@ -1000,33 +703,198 @@ export async function createGLEntry(data: GLEntryData): Promise<
 
 // ── Business Logic: Payment Reconciliation ──────────────────────────────────
 
-/**
- * Reconcile a payment entry against one or more invoices.
- * Allocates the payment amount across the provided invoice IDs.
- * Ported from erpnext/accounts/doctype/payment_entry/payment_entry.py
- *
- * NOTE: This function is not fully supported with the current Prisma schema
- * because the Payment Entry model lacks `unallocated_amount` and `references`
- * fields required for reconciliation.
- */
 export async function reconcilePayment(
-  paymentId: string,
-  invoiceIds: string[]
+  _paymentId: string,
+  _invoiceIds: string[]
 ): Promise<{ success: true; allocated: number } | { success: false; error: string }> {
+  await requirePermission("Account", "update");
+  return { success: false, error: 'Payment reconciliation is not supported with the current Prisma schema' };
+}
+
+// ── Invoicing Dashboard ──────────────────────────────────────────────────────
+
+export type AgeingBucket = {
+  label: string;
+  count: number;
+  total: number;
+};
+
+export type InvoicingDashboardData = {
+  totalOutgoing: number;
+  totalIncoming: number;
+  totalIncomingPayment: number;
+  totalOutgoingPayment: number;
+};
+
+export type AccountsAgeingData = {
+  buckets: AgeingBucket[];
+  totalOutstanding: number;
+};
+
+export async function getInvoicingDashboardData(): Promise<InvoicingDashboardData> {
+  await requirePermission('Sales Invoice', 'read');
+  const [salesInvoices, purchaseInvoices, incomingPayments, outgoingPayments] = await Promise.all([
+    prisma.salesInvoice.findMany({ where: { docstatus: 1 }, select: { grand_total: true } }),
+    prisma.purchaseInvoice.findMany({ where: { docstatus: 1 }, select: { grand_total: true } }),
+    prisma.paymentEntry.findMany({ where: { docstatus: 1, payment_type: 'Receive' }, select: { paid_amount: true } }),
+    prisma.paymentEntry.findMany({ where: { docstatus: 1, payment_type: 'Pay' }, select: { paid_amount: true } }),
+  ]);
+  return {
+    totalOutgoing: salesInvoices.reduce((s, i) => s + Number(i.grand_total || 0), 0),
+    totalIncoming: purchaseInvoices.reduce((s, i) => s + Number(i.grand_total || 0), 0),
+    totalIncomingPayment: incomingPayments.reduce((s, p) => s + Number(p.paid_amount || 0), 0),
+    totalOutgoingPayment: outgoingPayments.reduce((s, p) => s + Number(p.paid_amount || 0), 0),
+  };
+}
+
+export async function getAccountsReceivableAgeing(): Promise<AccountsAgeingData> {
   try {
-    if (!paymentId || paymentId.trim() === '') {
-      return { success: false, error: 'Payment ID is required' };
-    }
-    if (!invoiceIds || invoiceIds.length === 0) {
-      return { success: false, error: 'At least one invoice ID is required' };
+    await requirePermission('Sales Invoice', 'read');
+    const invoices = await prisma.salesInvoice.findMany({
+      where: {
+        docstatus: 1,
+        outstanding_amount: { gt: 0 },
+      },
+      select: {
+        outstanding_amount: true,
+        due_date: true,
+      },
+    });
+
+    const now = new Date();
+    const buckets: AgeingBucket[] = [
+      { label: '<0', count: 0, total: 0 },
+      { label: '0-30', count: 0, total: 0 },
+      { label: '31-60', count: 0, total: 0 },
+      { label: '61-90', count: 0, total: 0 },
+      { label: '91-120', count: 0, total: 0 },
+      { label: '121-Above', count: 0, total: 0 },
+    ];
+
+    let totalOutstanding = 0;
+
+    for (const inv of invoices) {
+      const outstanding = Number(inv.outstanding_amount || 0);
+      totalOutstanding += outstanding;
+
+      if (!inv.due_date) {
+        buckets[1].count += 1;
+        buckets[1].total += outstanding;
+        continue;
+      }
+
+      const diffDays = Math.floor((now.getTime() - inv.due_date.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        buckets[0].count += 1;
+        buckets[0].total += outstanding;
+      } else if (diffDays <= 30) {
+        buckets[1].count += 1;
+        buckets[1].total += outstanding;
+      } else if (diffDays <= 60) {
+        buckets[2].count += 1;
+        buckets[2].total += outstanding;
+      } else if (diffDays <= 90) {
+        buckets[3].count += 1;
+        buckets[3].total += outstanding;
+      } else if (diffDays <= 120) {
+        buckets[4].count += 1;
+        buckets[4].total += outstanding;
+      } else {
+        buckets[5].count += 1;
+        buckets[5].total += outstanding;
+      }
     }
 
-    return {
-      success: false,
-      error: 'Payment reconciliation is not supported with the current Prisma schema (Payment Entry references model unavailable)',
-    };
+    return { buckets, totalOutstanding };
   } catch (error: any) {
-    console.error('[accounts] reconcilePayment failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to reconcile payment' };
+    console.error('[accounts] getAccountsReceivableAgeing failed:', error?.message);
+    return {
+      buckets: [
+        { label: '<0', count: 0, total: 0 },
+        { label: '0-30', count: 0, total: 0 },
+        { label: '31-60', count: 0, total: 0 },
+        { label: '61-90', count: 0, total: 0 },
+        { label: '91-120', count: 0, total: 0 },
+        { label: '121-Above', count: 0, total: 0 },
+      ],
+      totalOutstanding: 0,
+    };
+  }
+}
+
+export async function getAccountsPayableAgeing(): Promise<AccountsAgeingData> {
+  try {
+    await requirePermission('Purchase Invoice', 'read');
+    const invoices = await prisma.purchaseInvoice.findMany({
+      where: {
+        docstatus: 1,
+        outstanding_amount: { gt: 0 },
+      },
+      select: {
+        outstanding_amount: true,
+        due_date: true,
+      },
+    });
+
+    const now = new Date();
+    const buckets: AgeingBucket[] = [
+      { label: '<0', count: 0, total: 0 },
+      { label: '0-30', count: 0, total: 0 },
+      { label: '31-60', count: 0, total: 0 },
+      { label: '61-90', count: 0, total: 0 },
+      { label: '91-120', count: 0, total: 0 },
+      { label: '121-Above', count: 0, total: 0 },
+    ];
+
+    let totalOutstanding = 0;
+
+    for (const inv of invoices) {
+      const outstanding = Number(inv.outstanding_amount || 0);
+      totalOutstanding += outstanding;
+
+      if (!inv.due_date) {
+        buckets[1].count += 1;
+        buckets[1].total += outstanding;
+        continue;
+      }
+
+      const diffDays = Math.floor((now.getTime() - inv.due_date.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        buckets[0].count += 1;
+        buckets[0].total += outstanding;
+      } else if (diffDays <= 30) {
+        buckets[1].count += 1;
+        buckets[1].total += outstanding;
+      } else if (diffDays <= 60) {
+        buckets[2].count += 1;
+        buckets[2].total += outstanding;
+      } else if (diffDays <= 90) {
+        buckets[3].count += 1;
+        buckets[3].total += outstanding;
+      } else if (diffDays <= 120) {
+        buckets[4].count += 1;
+        buckets[4].total += outstanding;
+      } else {
+        buckets[5].count += 1;
+        buckets[5].total += outstanding;
+      }
+    }
+
+    return { buckets, totalOutstanding };
+  } catch (error: any) {
+    console.error('[accounts] getAccountsPayableAgeing failed:', error?.message);
+    return {
+      buckets: [
+        { label: '<0', count: 0, total: 0 },
+        { label: '0-30', count: 0, total: 0 },
+        { label: '31-60', count: 0, total: 0 },
+        { label: '61-90', count: 0, total: 0 },
+        { label: '91-120', count: 0, total: 0 },
+        { label: '121-Above', count: 0, total: 0 },
+      ],
+      totalOutstanding: 0,
+    };
   }
 }

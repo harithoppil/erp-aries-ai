@@ -4601,6 +4601,7 @@ model DeliveryNote {
   company_contact_person         String?   @db.VarChar(140)
   last_scanned_warehouse         String?   @db.VarChar(255)
   title                          String?   @db.VarChar(255)
+  deleted_at                     DateTime?
 
   @@index([customer])
   @@index([amended_from])
@@ -6888,6 +6889,7 @@ model JournalEntry {
   ignore_tax_withholding_threshold      Boolean?  @default(false)
   override_tax_withholding_entries      Boolean?  @default(false)
   custom_remark                         Boolean?  @default(false)
+  deleted_at                            DateTime?
 
   @@index([company])
   @@index([finance_book])
@@ -7831,6 +7833,7 @@ model MaterialRequest {
   buying_price_list        String?   @db.VarChar(140)
   last_scanned_warehouse   String?   @db.VarChar(255)
   auto_created_via_reorder Boolean?  @default(false)
+  deleted_at               DateTime?
 
   @@index([customer])
   @@index([company])
@@ -8604,6 +8607,7 @@ model PaymentEntry {
   tax_withholding_group                           String?   @db.VarChar(140)
   ignore_tax_withholding_threshold                Boolean?  @default(false)
   override_tax_withholding_entries                Boolean?  @default(false)
+  deleted_at                                       DateTime?
 
   @@index([company])
   @@index([cost_center])
@@ -11320,6 +11324,7 @@ model PurchaseInvoice {
   tax_withholding_group                    String?   @db.VarChar(140)
   ignore_tax_withholding_threshold         Boolean?  @default(false)
   override_tax_withholding_entries         Boolean?  @default(false)
+  deleted_at                               DateTime?
 
   @@index([supplier])
   @@index([company])
@@ -11624,6 +11629,7 @@ model PurchaseOrder {
   last_scanned_warehouse          String?   @db.VarChar(255)
   mps                             String?   @db.VarChar(140)
   transaction_time                String?   @db.VarChar(20)
+  deleted_at                      DateTime?
 
   @@index([supplier])
   @@index([company])
@@ -11880,6 +11886,7 @@ model PurchaseReceipt {
   dispatch_address                String?   @db.VarChar(140)
   dispatch_address_display        String?
   last_scanned_warehouse          String?   @db.VarChar(255)
+  deleted_at                      DateTime?
 
   @@index([supplier])
   @@index([company])
@@ -12712,6 +12719,7 @@ model Quotation {
   has_unit_price_items           Boolean?  @default(false)
   last_scanned_warehouse         String?   @db.VarChar(255)
   title                          String?   @db.VarChar(255)
+  deleted_at                     DateTime?
 
   @@index([quotation_to])
   @@index([amended_from])
@@ -13364,6 +13372,7 @@ model SalesInvoice {
   ignore_tax_withholding_threshold           Boolean?  @default(false)
   override_tax_withholding_entries           Boolean?  @default(false)
   title                                      String?   @db.VarChar(255)
+  deleted_at                                 DateTime?
 
   @@index([customer])
   @@index([project])
@@ -13761,6 +13770,7 @@ model SalesOrder {
   transaction_time                      String?   @db.VarChar(20)
   ignore_default_payment_terms_template Boolean?  @default(false)
   title                                 String?   @db.VarChar(255)
+  deleted_at                            DateTime?
 
   @@index([customer])
   @@index([amended_from])
@@ -14817,6 +14827,7 @@ model StockEntry {
   is_additional_transfer_entry Boolean?  @default(false)
   subcontracting_inward_order  String?   @db.VarChar(140)
   cost_center                  String?   @db.VarChar(140)
+  deleted_at                   DateTime?
 
   @@index([stock_entry_type])
   @@index([outgoing_stock_entry])
@@ -17581,6 +17592,7 @@ model WorkOrder {
   subcontracting_inward_order              String?   @db.VarChar(140)
   subcontracting_inward_order_item         String?   @db.VarChar(255)
   max_producible_qty                       Float?
+  deleted_at                               DateTime?
 
   @@index([status])
   @@index([production_item])
@@ -18058,5 +18070,19 @@ model email_tracking {
   @@index([email_address], map: "ix_email_tracking_email_address")
   @@index([email_type], map: "ix_email_tracking_email_type")
   @@index([sent_at], map: "ix_email_tracking_sent_at")
+  @@schema("public")
+}
+
+model Version {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctype    String
+  docname    String
+  action     String
+  user       String?
+  old_values Json?
+  new_values Json?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([doctype, docname])
   @@schema("public")
 }
