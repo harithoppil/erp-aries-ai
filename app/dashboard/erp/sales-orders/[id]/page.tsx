@@ -1,47 +1,49 @@
-import { frappeGetDoc, frappeGetList } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 import SalesOrderDetailClient from '@/app/dashboard/erp/sales-orders/[id]/sales-order-detail-client';
 
 export default async function SalesOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
-    const salesOrder = await frappeGetDoc<any>('Sales Order', id);
-    const items = salesOrder.items || [];
+    const salesOrder = await prisma.sales_orders.findUnique({
+      where: { id },
+      include: { sales_order_items: true },
+    });
 
-    const quotations = await frappeGetList<any>('Quotation', {
-      filters: { party_name: salesOrder.customer },
-      fields: ['name', 'status', 'docstatus', 'creation'],
-      order_by: 'creation desc',
-      limit_page_length: 5,
+    if (!salesOrder) throw new Error('Not found');
+
+    const items = salesOrder.sales_order_items || [];
+
+    const quotations = await prisma.quotations.findMany({
+      where: { customer_name: salesOrder.customer_name },
+      orderBy: { created_at: 'desc' },
+      take: 5,
     });
 
     const record = {
       ...salesOrder,
-      id: salesOrder.name,
-      status: salesOrder.docstatus === 1 ? 'SUBMITTED' : salesOrder.docstatus === 2 ? 'CANCELLED' : 'DRAFT',
-      delivery_date: salesOrder.delivery_date || null,
-      created_at: salesOrder.creation || new Date().toISOString(),
-      sales_order_items: items.map((item: any) => ({
-        id: item.name || `${id}-${item.idx}`,
+      id: salesOrder.id,
+      status: salesOrder.status === 'CANCELLED' ? 'CANCELLED' : salesOrder.status === 'DRAFT' ? 'DRAFT' : 'SUBMITTED',
+      delivery_date: salesOrder.delivery_date ? salesOrder.delivery_date.toISOString() : null,
+      created_at: salesOrder.created_at.toISOString(),
+      sales_order_items: items.map((item) => ({
+        id: item.id,
         sales_order_id: id,
-        item_code: item.item_code || '',
-        description: item.description || item.item_name || '',
-        quantity: item.qty || 0,
+        item_code: item.item_code ?? null,
+        description: item.description || '',
+        quantity: item.quantity || 0,
         rate: item.rate || 0,
         amount: item.amount || 0,
         delivered_qty: item.delivered_qty || 0,
       })),
-      customers: salesOrder.customer ? {
-        id: salesOrder.customer,
-        customer_name: salesOrder.customer,
-        customer_code: salesOrder.customer,
+      customers: salesOrder.customer_id ? {
+        id: salesOrder.customer_id,
+        customer_name: salesOrder.customer_name,
+        customer_code: salesOrder.customer_name,
       } : null,
-      quotations: quotations.map((q: any) => ({
-        id: q.name,
-        quotation_number: q.name,
-        status: q.docstatus === 1 ? 'SUBMITTED' : 'DRAFT',
-        created_at: q.creation || new Date().toISOString(),
-      })),
+      quotations: quotations.length > 0
+        ? { id: quotations[0].id, quotation_number: quotations[0].quotation_number }
+        : null,
     };
 
     return <SalesOrderDetailClient record={record} />;

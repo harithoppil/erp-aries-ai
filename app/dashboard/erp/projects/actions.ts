@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeCallMethod } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type ClientSafeProject = {
   id: string;
@@ -51,28 +51,30 @@ export async function listProjects(): Promise<
   { success: true; projects: ClientSafeProject[] } | { success: false; error: string }
 > {
   try {
-    const projects = await frappeGetList<any>('Project', {
-      fields: ['name', 'project_name', 'status', 'customer', 'expected_start_date', 'expected_end_date', 'estimated_costing', 'total_sales_cost', 'total_purchase_cost', 'gross_margin', 'notes', 'creation'],
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const rows = await prisma.projects.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 200,
     });
 
     return {
       success: true,
-      projects: projects.map((p: any) => ({
-        id: p.name,
-        project_name: p.project_name || p.name,
-        project_code: p.name,
+      projects: rows.map((p) => ({
+        id: p.id,
+        project_name: p.project_name || p.project_code,
+        project_code: p.project_code,
         status: p.status || 'Open',
-        customer_name: p.customer || 'Internal',
-        expected_start_date: p.expected_start_date ? new Date(p.expected_start_date) : null,
-        expected_end_date: p.expected_end_date ? new Date(p.expected_end_date) : null,
-        estimated_costing: p.estimated_costing || 0,
-        total_sales_cost: p.total_sales_cost || 0,
-        total_purchase_cost: p.total_purchase_cost || 0,
-        gross_margin: p.gross_margin || 0,
+        customer_name: p.customer_name || 'Internal',
+        expected_start_date: p.expected_start,
+        expected_end_date: p.expected_end,
+        estimated_costing: p.estimated_cost || 0,
+        total_sales_cost: 0,
+        total_purchase_cost: 0,
+        gross_margin: 0,
         notes: p.notes || null,
-        created_at: p.creation ? new Date(p.creation) : new Date(),
+        created_at: p.created_at,
+        project_type: p.project_type || null,
+        project_location: p.project_location || null,
+        day_rate: p.day_rate || null,
       })),
     };
   } catch (error: any) {
@@ -98,35 +100,42 @@ export async function createProject(data: {
   notes?: string;
 }) {
   try {
-    const project = await frappeInsertDoc<any>('Project', {
-      project_name: data.project_name,
-      project_type: data.project_type || undefined,
-      customer: data.customer_name || data.customer || undefined,
-      project_location: data.project_location || undefined,
-      vessel_name: data.vessel_name || undefined,
-      expected_start_date: (data.expected_start || data.expected_start_date) ? (data.expected_start || data.expected_start_date)!.toISOString().slice(0, 10) : undefined,
-      expected_end_date: (data.expected_end || data.expected_end_date) ? (data.expected_end || data.expected_end_date)!.toISOString().slice(0, 10) : undefined,
-      estimated_costing: data.estimated_cost || data.estimated_costing || 0,
-      day_rate: data.day_rate || undefined,
-      notes: data.notes || undefined,
+    const record = await prisma.projects.create({
+      data: {
+        id: crypto.randomUUID(),
+        project_code: `PRJ-${Date.now()}`,
+        project_name: data.project_name,
+        project_type: data.project_type || 'General',
+        customer_name: data.customer_name || data.customer || 'Internal',
+        project_location: data.project_location || null,
+        vessel_name: data.vessel_name || null,
+        expected_start: data.expected_start || data.expected_start_date || null,
+        expected_end: data.expected_end || data.expected_end_date || null,
+        estimated_cost: data.estimated_cost || data.estimated_costing || 0,
+        day_rate: data.day_rate || null,
+        notes: data.notes || null,
+        status: 'PLANNING',
+        currency: 'USD',
+        actual_cost: 0,
+      },
     });
     revalidatePath('/erp/projects');
     return {
       success: true as const,
       project: {
-        id: project.name,
-        project_name: project.project_name,
-        project_code: project.name,
-        status: 'Open',
+        id: record.id,
+        project_name: record.project_name,
+        project_code: record.project_code,
+        status: 'TODO',
         customer_name: data.customer_name || data.customer || 'Internal',
-        expected_start_date: (data.expected_start || data.expected_start_date) || null,
-        expected_end_date: (data.expected_end || data.expected_end_date) || null,
+        expected_start_date: data.expected_start || data.expected_start_date || null,
+        expected_end_date: data.expected_end || data.expected_end_date || null,
         estimated_costing: data.estimated_cost || data.estimated_costing || 0,
         total_sales_cost: 0,
         total_purchase_cost: 0,
         gross_margin: 0,
         notes: data.notes || null,
-        created_at: new Date(),
+        created_at: record.created_at,
         project_type: data.project_type || null,
         project_location: data.project_location || null,
         day_rate: data.day_rate || null,
@@ -142,25 +151,25 @@ export async function listTasks(projectId?: string): Promise<
   { success: true; tasks: ClientSafeTask[] } | { success: false; error: string }
 > {
   try {
-    const filters: Record<string, unknown> = {};
-    if (projectId) filters.project = projectId;
-    const tasks = await frappeGetList<any>('Task', {
-      fields: ['name', 'subject', 'status', 'priority', 'project', 'exp_start_date', 'exp_end_date', 'progress'],
-      filters,
-      order_by: 'creation desc',
-      limit_page_length: 500,
+    const where = projectId ? { project_id: projectId } : {};
+    const rows = await prisma.tasks.findMany({
+      where,
+      orderBy: { id: 'desc' },
+      take: 500,
     });
     return {
       success: true,
-      tasks: tasks.map((t: any) => ({
-        id: t.name,
-        subject: t.subject || t.name,
+      tasks: rows.map((t) => ({
+        id: t.id,
+        subject: t.subject || t.id,
         status: t.status || 'Open',
-        priority: t.priority || 'Medium',
-        project: t.project || '',
-        exp_start_date: t.exp_start_date ? new Date(t.exp_start_date) : null,
-        exp_end_date: t.exp_end_date ? new Date(t.exp_end_date) : null,
+        priority: 'Medium',
+        project: t.project_id || '',
+        exp_start_date: t.start_date,
+        exp_end_date: t.end_date,
         progress: t.progress || 0,
+        assigned_to: t.assigned_to || null,
+        description: t.description || null,
       })),
     };
   } catch (error: any) {
@@ -169,31 +178,27 @@ export async function listTasks(projectId?: string): Promise<
   }
 }
 
-export async function listTimesheets(projectId?: string): Promise<
+export async function listTimesheets(_projectId?: string): Promise<
   { success: true; timesheets: ClientSafeTimesheet[] } | { success: false; error: string }
 > {
   try {
-    const filters: Record<string, unknown> = {};
-    if (projectId) filters.project = projectId;
-    const timesheets = await frappeGetList<any>('Timesheet', {
-      fields: ['name', 'employee_name', 'status', 'creation'],
-      filters,
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    // Note: prisma.timesheets does not have project_id filter directly in this model shape
+    const rows = await prisma.timesheets.findMany({
+      orderBy: { date: 'desc' },
+      take: 200,
     });
 
-    // Timesheet details are in child table; fetch summary only
     return {
       success: true,
-      timesheets: timesheets.map((ts: any) => ({
-        id: ts.name,
-        employee_name: ts.employee_name || 'Unknown',
-        activity_type: 'General',
-        from_time: ts.creation ? new Date(ts.creation) : new Date(),
-        to_time: ts.creation ? new Date(ts.creation) : new Date(),
-        hours: 0,
-        project: projectId || '',
-        status: ts.status || 'Draft',
+      timesheets: rows.map((ts) => ({
+        id: ts.id,
+        employee_name: 'Unknown',
+        activity_type: ts.activity_type || 'General',
+        from_time: ts.date,
+        to_time: ts.date,
+        hours: ts.hours || 0,
+        project: _projectId || '',
+        status: 'Draft',
       })),
     };
   } catch (error: any) {
@@ -201,7 +206,6 @@ export async function listTimesheets(projectId?: string): Promise<
     return { success: false, error: error?.message || 'Failed to fetch timesheets' };
   }
 }
-
 
 export async function createTask(data: {
   project_id?: string;
@@ -212,20 +216,26 @@ export async function createTask(data: {
   end_date?: Date;
 }): Promise<{ success: true; task: ClientSafeTask } | { success: false; error: string }> {
   try {
-    const task = await frappeInsertDoc<any>('Task', {
-      subject: data.subject,
-      project: data.project_id || undefined,
-      description: data.description || undefined,
-      exp_start_date: data.start_date ? data.start_date.toISOString().slice(0, 10) : undefined,
-      exp_end_date: data.end_date ? data.end_date.toISOString().slice(0, 10) : undefined,
+    const record = await prisma.tasks.create({
+      data: {
+        id: crypto.randomUUID(),
+        project_id: data.project_id || '00000000-0000-0000-0000-000000000000',
+        subject: data.subject,
+        description: data.description || null,
+        start_date: data.start_date || null,
+        end_date: data.end_date || null,
+        status: 'TODO',
+        progress: 0,
+        assigned_to: data.assigned_to || null,
+      },
     });
     revalidatePath('/erp/projects');
     return {
       success: true,
       task: {
-        id: task.name,
-        subject: task.subject || data.subject,
-        status: 'Open',
+        id: record.id,
+        subject: record.subject || data.subject,
+        status: 'ACTIVE',
         priority: 'Medium',
         project: data.project_id || '',
         project_id: data.project_id || '',

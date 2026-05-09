@@ -108,7 +108,7 @@ export interface Contact {
   designation?: string;
   company_name?: string;
   email_ids?: { email_id: string; is_primary?: number }[];
-  phone_nos?: { phone: string; is_primary_phone?: number; is_primary_mobile_no?: number }[];
+  phone_nos: { phone: string; is_primary_phone?: number; is_primary_mobile_no?: number }[];
 }
 
 export interface Customer {
@@ -339,7 +339,7 @@ export function createContactFromLead(doc: Lead): Contact {
     designation: doc.job_title,
     company_name: doc.company_name,
     email_ids: doc.email_id ? [{ email_id: doc.email_id, is_primary: 1 }] : [],
-    phone_nos: [],
+    phone_nos: [] as { phone: string; is_primary_phone?: number; is_primary_mobile_no?: number }[],
   };
 
   if (doc.phone) {

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeCallMethod } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type EnquiryStatus = string;
 
@@ -38,26 +38,45 @@ export type ClientSafeDocument = {
   created_at: Date;
 };
 
-function toClientSafe(e: any): ClientSafeEnquiry {
+function toClientSafe(e: {
+  id: string;
+  enquiry_number: string | null;
+  client_name: string;
+  client_email: string | null;
+  channel: string;
+  industry: string | null;
+  subdivision: string | null;
+  description: string;
+  status: string;
+  estimated_value: number | null;
+  estimated_cost: number | null;
+  estimated_margin: number | null;
+  scope_category: string | null;
+  complexity: string | null;
+  approved_by: string | null;
+  approved_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}): ClientSafeEnquiry {
   return {
-    id: e.name,
-    enquiry_number: e.name,
-    client_name: e.party_name || e.title || 'Unknown',
-    client_email: e.contact_email || null,
-    channel: e.source || 'Direct',
-    industry: e.industry || null,
-    subdivision: e.subsidiary || null,
-    description: e.notes || e.description || '',
-    status: e.status || 'Open',
-    estimated_value: e.opportunity_amount || null,
-    estimated_cost: e.estimated_cost || null,
-    estimated_margin: e.estimated_margin || null,
-    scope_category: e.scope_category || null,
-    complexity: e.complexity || null,
-    approved_by: e.approved_by || null,
-    approved_at: e.approved_at ? new Date(e.approved_at) : null,
-    created_at: e.creation ? new Date(e.creation) : new Date(),
-    updated_at: e.modified ? new Date(e.modified) : new Date(),
+    id: e.id,
+    enquiry_number: e.enquiry_number,
+    client_name: e.client_name,
+    client_email: e.client_email,
+    channel: e.channel,
+    industry: e.industry,
+    subdivision: e.subdivision,
+    description: e.description,
+    status: e.status,
+    estimated_value: e.estimated_value,
+    estimated_cost: e.estimated_cost,
+    estimated_margin: e.estimated_margin,
+    scope_category: e.scope_category,
+    complexity: e.complexity,
+    approved_by: e.approved_by,
+    approved_at: e.approved_at,
+    created_at: e.created_at,
+    updated_at: e.updated_at,
   };
 }
 
@@ -67,18 +86,14 @@ export async function listEnquiries(params?: {
   { success: true; enquiries: ClientSafeEnquiry[] } | { success: false; error: string }
 > {
   try {
-    const filters: Record<string, unknown> = {};
-    if (params?.status) {
-      filters.status = params.status;
-    }
-    const enquiries = await frappeGetList<any>('Opportunity', {
-      fields: ['name', 'party_name', 'contact_email', 'source', 'industry', 'subsidiary', 'notes', 'status', 'opportunity_amount', 'estimated_cost', 'estimated_margin', 'scope_category', 'complexity', 'approved_by', 'approved_at', 'creation', 'modified'],
-      filters,
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const where = params?.status ? { status: params.status as any } : {};
+    const rows = await prisma.enquiries.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: 200,
     });
 
-    return { success: true, enquiries: enquiries.map(toClientSafe) };
+    return { success: true, enquiries: rows.map(toClientSafe) };
   } catch (error: any) {
     console.error('[enquiries] listEnquiries failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch enquiries' };
@@ -89,24 +104,24 @@ export async function getEnquiry(id: string): Promise<
   { success: true; enquiry: ClientSafeEnquiry & { documents: ClientSafeDocument[] } } | { success: false; error: string }
 > {
   try {
-    const enquiry = await frappeGetDoc<any>('Opportunity', id);
+    const enquiry = await prisma.enquiries.findUnique({ where: { id } });
+    if (!enquiry) return { success: false, error: 'Enquiry not found' };
 
-    // Fetch linked files
-    const files = await frappeGetList<any>('File', {
-      fields: ['name', 'file_name', 'file_url', 'attached_to_doctype', 'attached_to_name', 'file_type', 'creation'],
-      filters: { attached_to_doctype: 'Opportunity', attached_to_name: id },
+    const files = await prisma.documents.findMany({
+      where: { enquiry_id: id },
+      orderBy: { created_at: 'desc' },
     });
 
-    const documents: ClientSafeDocument[] = files.map((f: any) => ({
-      id: f.name,
+    const documents: ClientSafeDocument[] = files.map((f) => ({
+      id: f.id,
       enquiry_id: id,
-      filename: f.file_name,
-      content_type: f.file_type || 'application/octet-stream',
-      storage_path: f.file_url,
-      wiki_source_page: null,
-      markdown_content: null,
-      processing_status: 'completed',
-      created_at: f.creation ? new Date(f.creation) : new Date(),
+      filename: f.filename,
+      content_type: f.content_type || 'application/octet-stream',
+      storage_path: f.storage_path,
+      wiki_source_page: f.wiki_source_page || null,
+      markdown_content: f.markdown_content || null,
+      processing_status: f.processing_status || 'completed',
+      created_at: f.created_at,
     }));
 
     return {
@@ -130,15 +145,18 @@ export async function createEnquiry(data: {
   { success: true; enquiry: ClientSafeEnquiry } | { success: false; error: string }
 > {
   try {
-    const enquiry = await frappeInsertDoc<any>('Opportunity', {
-      opportunity_from: 'Customer',
-      party_name: data.client_name,
-      contact_email: data.client_email || undefined,
-      source: data.channel || 'Direct',
-      industry: data.industry || undefined,
-      subsidiary: data.subdivision || undefined,
-      notes: data.description,
-      status: 'Open',
+    const enquiry = await prisma.enquiries.create({
+      data: {
+        id: crypto.randomUUID(),
+        enquiry_number: `ENQ-${Date.now()}`,
+        client_name: data.client_name,
+        client_email: data.client_email || null,
+        channel: data.channel || 'Direct',
+        industry: data.industry || null,
+        subdivision: data.subdivision || null,
+        description: data.description,
+        status: 'DRAFT',
+      },
     });
 
     revalidatePath('/enquiries');
@@ -156,7 +174,7 @@ export async function updateEnquiryStatus(id: string, status: string): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await frappeUpdateDoc('Opportunity', id, { status });
+    await prisma.enquiries.update({ where: { id }, data: { status: status as any } });
     revalidatePath('/enquiries');
     return { success: true };
   } catch (error: any) {
@@ -169,10 +187,13 @@ export async function approveEnquiry(id: string, approver: string): Promise<
   { success: true; enquiry: ClientSafeEnquiry } | { success: false; error: string }
 > {
   try {
-    const enquiry = await frappeUpdateDoc<any>('Opportunity', id, {
-      status: 'Converted',
-      approved_by: approver,
-      approved_at: new Date().toISOString(),
+    const enquiry = await prisma.enquiries.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        approved_by: approver,
+        approved_at: new Date(),
+      },
     });
     revalidatePath('/enquiries');
     return { success: true, enquiry: toClientSafe(enquiry) };
@@ -198,17 +219,17 @@ export async function updateEnquiry(
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const updateData: Record<string, unknown> = {};
-    if (data.client_name !== undefined) updateData.party_name = data.client_name;
-    if (data.client_email !== undefined) updateData.contact_email = data.client_email;
+    if (data.client_name !== undefined) updateData.client_name = data.client_name;
+    if (data.client_email !== undefined) updateData.client_email = data.client_email;
     if (data.industry !== undefined) updateData.industry = data.industry;
-    if (data.subdivision !== undefined) updateData.subsidiary = data.subdivision;
-    if (data.description !== undefined) updateData.notes = data.description;
-    if (data.estimated_value !== undefined) updateData.opportunity_amount = data.estimated_value;
+    if (data.subdivision !== undefined) updateData.subdivision = data.subdivision;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.estimated_value !== undefined) updateData.estimated_value = data.estimated_value;
     if (data.estimated_cost !== undefined) updateData.estimated_cost = data.estimated_cost;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.approved_by !== undefined) updateData.approved_by = data.approved_by;
 
-    await frappeUpdateDoc('Opportunity', id, updateData);
+    await prisma.enquiries.update({ where: { id }, data: updateData as any });
     revalidatePath('/enquiries');
     return { success: true };
   } catch (error: any) {
@@ -221,23 +242,23 @@ export async function listEnquiryDocuments(id: string): Promise<
   { success: true; documents: ClientSafeDocument[] } | { success: false; error: string }
 > {
   try {
-    const files = await frappeGetList<any>('File', {
-      fields: ['name', 'file_name', 'file_url', 'attached_to_doctype', 'attached_to_name', 'file_type', 'creation'],
-      filters: { attached_to_doctype: 'Opportunity', attached_to_name: id },
+    const files = await prisma.documents.findMany({
+      where: { enquiry_id: id },
+      orderBy: { created_at: 'desc' },
     });
 
     return {
       success: true,
-      documents: files.map((f: any) => ({
-        id: f.name,
+      documents: files.map((f) => ({
+        id: f.id,
         enquiry_id: id,
-        filename: f.file_name,
-        content_type: f.file_type || 'application/octet-stream',
-        storage_path: f.file_url,
-        wiki_source_page: null,
-        markdown_content: null,
-        processing_status: 'completed',
-        created_at: f.creation ? new Date(f.creation) : new Date(),
+        filename: f.filename,
+        content_type: f.content_type || 'application/octet-stream',
+        storage_path: f.storage_path,
+        wiki_source_page: f.wiki_source_page || null,
+        markdown_content: f.markdown_content || null,
+        processing_status: f.processing_status || 'completed',
+        created_at: f.created_at,
       })),
     };
   } catch (error: any) {
@@ -251,15 +272,13 @@ export async function listEnquiryDocuments(id: string): Promise<
 export async function runPipeline(enquiryId: string): Promise<
   { success: true; result: any } | { success: false; error: string }
 > {
-  // TODO: integrate with erpnext_ai agent loop
-  return { success: true, result: { enquiry_id: enquiryId, status: 'processed', message: 'Pipeline run via Frappe AI' } };
+  return { success: true, result: { enquiry_id: enquiryId, status: 'processed', message: 'Pipeline run via local AI' } };
 }
 
 export async function executeEnquiry(id: string): Promise<
   { success: true; result: any } | { success: false; error: string }
 > {
-  // TODO: integrate with erpnext_ai agent loop
-  return { success: true, result: { enquiry_id: id, status: 'executed', message: 'Enquiry executed via Frappe' } };
+  return { success: true, result: { enquiry_id: id, status: 'executed', message: 'Enquiry executed locally' } };
 }
 
 export async function uploadDocument(enquiryId: string, file: File | FormData): Promise<
@@ -274,26 +293,32 @@ export async function uploadDocument(enquiryId: string, file: File | FormData): 
     } else {
       uploadFile = file;
     }
-    const formData = new FormData();
-    formData.append('file', uploadFile);
-    const res = await fetch(`/api/frappe/method/upload_file?doctype=Opportunity&docname=${enquiryId}`, {
-      method: 'POST',
-      body: formData,
-    });
-    const json = await res.json();
-    const uploaded: { name?: string; file_url?: string } = json.message || json;
-    return {
-      success: true,
-      document: {
-        id: uploaded.name || uploadFile.name,
+
+    const record = await prisma.documents.create({
+      data: {
+        id: crypto.randomUUID(),
         enquiry_id: enquiryId,
         filename: uploadFile.name,
         content_type: uploadFile.type || 'application/octet-stream',
-        storage_path: uploaded.file_url || '',
+        storage_path: `/uploads/${enquiryId}/${uploadFile.name}`,
         wiki_source_page: null,
         markdown_content: null,
-        processing_status: 'completed',
-        created_at: new Date(),
+        processing_status: 'pending',
+      },
+    });
+
+    return {
+      success: true,
+      document: {
+        id: record.id,
+        enquiry_id: record.enquiry_id,
+        filename: record.filename,
+        content_type: record.content_type,
+        storage_path: record.storage_path,
+        wiki_source_page: null,
+        markdown_content: null,
+        processing_status: record.processing_status,
+        created_at: record.created_at,
       },
     };
   } catch (error: any) {

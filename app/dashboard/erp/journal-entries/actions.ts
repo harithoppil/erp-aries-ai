@@ -1,6 +1,6 @@
 'use server';
 
-import { frappeGetList, frappeGetDoc, frappeInsertDoc } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type ClientSafeJournalEntry = {
   id: string;
@@ -24,24 +24,23 @@ export async function listJournalEntries(): Promise<
   { success: true; entries: ClientSafeJournalEntry[] } | { success: false; error: string }
 > {
   try {
-    const entries = await frappeGetList<any>('Journal Entry', {
-      fields: ['name', 'posting_date', 'voucher_type', 'total_debit', 'total_credit', 'docstatus', 'user_remark', 'creation'],
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const rows = await prisma.journal_entries.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 200,
     });
 
     return {
       success: true,
-      entries: entries.map((e: any) => ({
-        id: e.name,
-        entry_number: e.name,
-        posting_date: e.posting_date || new Date().toISOString().slice(0, 10),
-        voucher_type: e.voucher_type || 'Journal Entry',
+      entries: rows.map((e) => ({
+        id: e.id,
+        entry_number: e.entry_number,
+        posting_date: e.posting_date.toISOString().slice(0, 10),
+        voucher_type: 'Journal Entry',
         total_debit: e.total_debit || 0,
         total_credit: e.total_credit || 0,
-        status: e.docstatus === 1 ? 'SUBMITTED' : e.docstatus === 2 ? 'CANCELLED' : 'DRAFT',
-        remarks: e.user_remark || null,
-        created_at: e.creation ? new Date(e.creation) : new Date(),
+        status: e.status || 'DRAFT',
+        remarks: e.notes || e.reference || null,
+        created_at: e.created_at,
       })),
     };
   } catch (error: any) {
@@ -72,18 +71,44 @@ export async function createJournalEntry(data: {
         ? [{ account: data.account, debit: data.amount, credit: 0 }]
         : [{ account: data.account, debit: 0, credit: data.amount }]
       : [];
+
+  const totalDebit = accounts.reduce((s, a) => s + a.debit, 0);
+  const totalCredit = accounts.reduce((s, a) => s + a.credit, 0);
+
   try {
-    const doc = await frappeInsertDoc<any>('Journal Entry', {
-      posting_date: data.posting_date || new Date().toISOString().slice(0, 10),
-      voucher_type: data.voucher_type || 'Journal Entry',
-      accounts: accounts.map((a) => ({
-        account: a.account,
-        debit_in_account_currency: a.debit,
-        credit_in_account_currency: a.credit,
-      })),
-      user_remark: data.remarks || data.notes || data.reference || undefined,
+    const record = await prisma.journal_entries.create({
+      data: {
+        id: crypto.randomUUID(),
+        entry_number: `JV-${Date.now()}`,
+        posting_date: data.posting_date ? new Date(data.posting_date) : new Date(),
+        reference: data.reference || data.notes || null,
+        account: data.account || (accounts[0]?.account ?? null),
+        party_type: data.party_type || null,
+        party_name: data.party_name || null,
+        entry_type: data.entry_type as any,
+        amount: data.amount || totalDebit || totalCredit || 0,
+        currency: 'USD',
+        notes: data.remarks || data.notes || data.reference || null,
+        total_debit: totalDebit,
+        total_credit: totalCredit,
+        status: 'DRAFT',
+      },
     });
-    return { success: true as const, entry: { id: doc.name, entry_number: doc.name, posting_date: data.posting_date || new Date().toISOString().slice(0, 10), voucher_type: data.voucher_type || 'Journal Entry', total_debit: accounts.reduce((s, a) => s + a.debit, 0), total_credit: accounts.reduce((s, a) => s + a.credit, 0), status: 'DRAFT', remarks: data.remarks || data.notes || data.reference || null, created_at: new Date() } as ClientSafeJournalEntry };
+
+    return {
+      success: true as const,
+      entry: {
+        id: record.id,
+        entry_number: record.entry_number,
+        posting_date: data.posting_date || new Date().toISOString().slice(0, 10),
+        voucher_type: 'Journal Entry',
+        total_debit: totalDebit,
+        total_credit: totalCredit,
+        status: 'DRAFT',
+        remarks: data.remarks || data.notes || data.reference || null,
+        created_at: record.created_at,
+      } as ClientSafeJournalEntry,
+    };
   } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create journal entry' };
   }

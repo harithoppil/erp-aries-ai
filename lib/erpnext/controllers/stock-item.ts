@@ -45,6 +45,10 @@ export interface ItemDefault {
   expense_account?: string;
   income_account?: string;
   default_supplier?: string;
+  default_cogs_account?: string;
+  default_inventory_account?: string;
+  default_provisional_account?: string;
+  default_discount_account?: string;
   idx?: number;
 }
 
@@ -106,6 +110,23 @@ export interface ItemDoc {
   is_purchase_item?: boolean;
   default_bom?: string;
   customer_code?: string;
+  sales_uom?: string;
+  purchase_uom?: string;
+  min_order_qty?: number;
+  delivered_by_supplier?: boolean;
+  weight_per_unit?: number;
+  weight_uom?: string;
+  grant_commission?: boolean;
+  last_purchase_rate?: number;
+  enable_deferred_revenue?: boolean;
+  enable_deferred_expense?: boolean;
+  no_of_months?: number;
+  no_of_months_exp?: number;
+  deferred_revenue_account?: string;
+  deferred_expense_account?: string;
+  asset_category?: string;
+  lead_time_days?: number;
+  image?: string;
 }
 
 export interface ValidationResult {

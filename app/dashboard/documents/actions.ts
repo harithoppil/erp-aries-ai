@@ -1,6 +1,6 @@
 'use server';
 
-import { frappeGetList, frappeGetDoc, frappeUploadFile, frappeInsertDoc, frappeDeleteDoc } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type ClientSafeDocument = {
   id: string;
@@ -18,30 +18,25 @@ export async function listDocuments(enquiryId?: string): Promise<
   { success: true; documents: ClientSafeDocument[] } | { success: false; error: string }
 > {
   try {
-    const filters: Record<string, unknown> = {};
-    if (enquiryId) {
-      filters.attached_to_doctype = 'Opportunity';
-      filters.attached_to_name = enquiryId;
-    }
-    const files = await frappeGetList<any>('File', {
-      fields: ['name', 'file_name', 'file_url', 'attached_to_doctype', 'attached_to_name', 'file_type', 'creation'],
-      filters,
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const where = enquiryId ? { enquiry_id: enquiryId } : {};
+    const rows = await prisma.documents.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: 200,
     });
 
     return {
       success: true,
-      documents: files.map((f: any) => ({
-        id: f.name,
-        enquiry_id: f.attached_to_name || '',
-        filename: f.file_name,
-        content_type: f.file_type || 'application/octet-stream',
-        storage_path: f.file_url,
-        wiki_source_page: null,
-        markdown_content: null,
-        processing_status: 'completed',
-        created_at: f.creation ? new Date(f.creation) : new Date(),
+      documents: rows.map((f) => ({
+        id: f.id,
+        enquiry_id: f.enquiry_id,
+        filename: f.filename,
+        content_type: f.content_type || 'application/octet-stream',
+        storage_path: f.storage_path,
+        wiki_source_page: f.wiki_source_page || null,
+        markdown_content: f.markdown_content || null,
+        processing_status: f.processing_status || 'completed',
+        created_at: f.created_at,
       })),
     };
   } catch (error: any) {
@@ -50,30 +45,38 @@ export async function listDocuments(enquiryId?: string): Promise<
   }
 }
 
-export async function uploadDocument(enquiryId: string, file: File): Promise<
-  { success: true; document: ClientSafeDocument } | { success: false; error: string }
-> {
+export async function uploadDocument(
+  enquiryId: string,
+  file: File
+): Promise<{ success: true; document: ClientSafeDocument } | { success: false; error: string }> {
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await frappeUploadFile(buffer, file.name, {
-      doctype: 'Opportunity',
-      docname: enquiryId,
-      is_private: false,
-    });
-
-    const uploaded = (result as any).message || result as any;
-    return {
-      success: true,
-      document: {
-        id: uploaded.name || file.name,
+    // File upload requires blob storage integration (GCS/Azure Blob).
+    // For now, create a document record with a placeholder path.
+    const record = await prisma.documents.create({
+      data: {
+        id: crypto.randomUUID(),
         enquiry_id: enquiryId,
         filename: file.name,
         content_type: file.type || 'application/octet-stream',
-        storage_path: uploaded.file_url,
+        storage_path: `/uploads/${enquiryId}/${file.name}`,
         wiki_source_page: null,
         markdown_content: null,
-        processing_status: 'completed',
-        created_at: new Date(),
+        processing_status: 'pending',
+      },
+    });
+
+    return {
+      success: true,
+      document: {
+        id: record.id,
+        enquiry_id: record.enquiry_id,
+        filename: record.filename,
+        content_type: record.content_type,
+        storage_path: record.storage_path,
+        wiki_source_page: null,
+        markdown_content: null,
+        processing_status: record.processing_status,
+        created_at: record.created_at,
       },
     };
   } catch (error: any) {
@@ -86,7 +89,7 @@ export async function deleteDocument(id: string): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await frappeDeleteDoc('File', id);
+    await prisma.documents.delete({ where: { id } });
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.message || 'Failed to delete document' };

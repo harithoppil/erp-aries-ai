@@ -1,34 +1,31 @@
-import { frappeGetDoc, frappeGetList } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 import PersonnelDetailClient from '@/app/dashboard/erp/hr/[id]/personnel-detail-client';
 
 export default async function PersonnelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
-    const employee = await frappeGetDoc<any>('Employee', id);
+    const employee = await prisma.personnel.findUnique({ where: { id } });
 
-    const certifications = await frappeGetList<any>('Certification', {
-      filters: { employee: id },
-      fields: ['name', 'certification_name', 'certification_number', 'issuing_body', 'issue_date', 'expiry_date', 'status'],
-      order_by: 'creation desc',
-      limit_page_length: 50,
-    });
+    if (!employee) throw new Error('Personnel not found');
+
+    const certifications = await prisma.certifications.findMany({ where: { personnel_id: id } });
 
     const record = {
       ...employee,
-      id: employee.name,
+      id: employee.id,
       first_name: employee.first_name || 'Unknown',
       last_name: employee.last_name || null,
-      email: employee.personal_email || null,
+      email: employee.email || null,
       designation: employee.designation || null,
       department: employee.department || null,
       status: employee.status || 'Active',
-      date_of_joining: employee.date_of_joining || null,
+      date_of_joining: null,
       certifications: certifications.map((c: any) => ({
-        id: c.name,
+        id: c.id,
         personnel_id: id,
-        cert_type: c.certification_name || 'Certification',
-        cert_number: c.certification_number || null,
+        cert_type: c.cert_type || 'Certification',
+        cert_number: c.cert_number || null,
         issuing_body: c.issuing_body || null,
         issue_date: c.issue_date || null,
         expiry_date: c.expiry_date || null,

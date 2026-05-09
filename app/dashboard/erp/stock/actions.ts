@@ -1,59 +1,51 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import {
-  frappeGetList,
-  frappeGetDoc,
-  frappeInsertDoc,
-  frappeUpdateDoc,
-  frappeDeleteDoc,
-  frappeSetValue,
-  frappeGetCount,
-} from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
+import { $Enums } from '@/prisma/client';
+import { randomUUID } from 'crypto';
+import type { items, warehouses, bins } from '@/prisma/client';
 
-// ── Frappe raw response types (internal) ────────────────────────────────────
+// ── Internal helpers ────────────────────────────────────────────────────────
 
-interface FrappeItem {
-  name: string;
-  item_code: string;
-  item_name: string;
-  item_group: string;
-  description: string | null;
-  stock_uom: string;
-  has_batch_no: 0 | 1;
-  has_serial_no: 0 | 1;
-  valuation_method: string;
-  standard_rate: number | null;
-  min_order_qty: number | null;
-  safety_stock: number | null;
-  creation: string;
+function toItemGroup(value: string): $Enums.itemgroup {
+  const map: Record<string, $Enums.itemgroup> = {
+    CONSUMABLE: 'CONSUMABLE',
+    EQUIPMENT: 'EQUIPMENT',
+    SERVICE: 'SERVICE',
+    RAW_MATERIAL: 'RAW_MATERIAL',
+    SPARE_PART: 'SPARE_PART',
+    Products: 'CONSUMABLE',
+    Consumable: 'CONSUMABLE',
+    Equipment: 'EQUIPMENT',
+    Service: 'SERVICE',
+    'Raw Material': 'RAW_MATERIAL',
+    'Spare Part': 'SPARE_PART',
+  };
+  return map[value] || 'CONSUMABLE';
 }
 
-interface FrappeWarehouse {
-  name: string;
-  warehouse_name: string;
-  parent_warehouse: string | null;
-  is_group: 0 | 1;
-  lft: number;
-  rgt: number;
+function toValuationMethod(value: string): $Enums.stockvaluationmethod {
+  if (value === 'Moving Average' || value === 'MOVING_AVERAGE') return 'MOVING_AVERAGE';
+  return 'FIFO';
 }
 
-interface FrappeStockEntry {
-  name: string;
-  stock_entry_type: string;
-  creation: string;
-  posting_date: string | null;
-  from_warehouse: string | null;
-  to_warehouse: string | null;
+async function resolveItemId(codeOrId: string): Promise<string | null> {
+  if (!codeOrId) return null;
+  const byId = await prisma.items.findUnique({ where: { id: codeOrId }, select: { id: true } });
+  if (byId) return byId.id;
+  const byCode = await prisma.items.findUnique({ where: { item_code: codeOrId }, select: { id: true } });
+  if (byCode) return byCode.id;
+  return null;
 }
 
-interface FrappeBin {
-  name: string;
-  item_code: string;
-  warehouse: string;
-  actual_qty: number;
-  valuation_rate: number;
-  stock_value: number;
+async function resolveWarehouseId(codeOrId: string): Promise<string | null> {
+  if (!codeOrId) return null;
+  const byId = await prisma.warehouses.findUnique({ where: { id: codeOrId }, select: { id: true } });
+  if (byId) return byId.id;
+  const byCode = await prisma.warehouses.findUnique({ where: { warehouse_code: codeOrId }, select: { id: true } });
+  if (byCode) return byCode.id;
+  return null;
 }
 
 // ── Exported client-safe types ───────────────────────────────────────────────
@@ -241,44 +233,45 @@ const VALID_VALUATION_METHODS = ['FIFO', 'Moving Average', 'LIFO'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function toClientItem(i: FrappeItem): ClientSafeItem {
+function toClientItem(i: items & { bins?: bins[] }): ClientSafeItem {
+  const totalQty = i.bins?.reduce((sum, b) => sum + (b.quantity || 0), 0) || 0;
   return {
-    id: i.name,
-    item_code: i.item_code || i.name,
+    id: i.id,
+    item_code: i.item_code || i.id,
     item_name: i.item_name || i.item_code,
     item_group: i.item_group || 'Products',
     description: i.description || null,
-    unit: i.stock_uom || 'Nos',
-    has_batch: !!i.has_batch_no,
-    has_serial: !!i.has_serial_no,
-    valuation_method: i.valuation_method || 'FIFO',
+    unit: i.unit || 'Nos',
+    has_batch: i.has_batch,
+    has_serial: i.has_serial,
+    valuation_method: i.valuation_method === 'MOVING_AVERAGE' ? 'Moving Average' : i.valuation_method,
     standard_rate: i.standard_rate ?? null,
     min_order_qty: i.min_order_qty ?? null,
     safety_stock: i.safety_stock ?? null,
-    stock_qty: 0,
+    stock_qty: totalQty,
     reorder_level: i.safety_stock ?? null,
-    quantity: 0,
+    quantity: totalQty,
     unit_cost: i.standard_rate ?? null,
-    created_at: i.creation ? new Date(i.creation) : new Date(),
+    created_at: i.created_at,
   };
 }
 
-function toClientWarehouse(w: FrappeWarehouse): ClientSafeWarehouse {
+function toClientWarehouse(w: warehouses): ClientSafeWarehouse {
   return {
-    id: w.name,
-    warehouse_name: w.warehouse_name || w.name,
-    warehouse_code: w.name,
+    id: w.id,
+    warehouse_name: w.warehouse_name || w.warehouse_code,
+    warehouse_code: w.warehouse_code,
     parent_warehouse: w.parent_warehouse || null,
-    is_group: !!w.is_group,
+    is_group: w.is_group,
   };
 }
 
-function toClientBin(b: FrappeBin): ClientSafeBin {
+function toClientBin(b: bins): ClientSafeBin {
   return {
-    id: b.name,
-    item_id: b.item_code,
-    warehouse_id: b.warehouse,
-    quantity: b.actual_qty || 0,
+    id: b.id,
+    item_id: b.item_id,
+    warehouse_id: b.warehouse_id,
+    quantity: b.quantity || 0,
     valuation_rate: b.valuation_rate || 0,
     stock_value: b.stock_value || 0,
   };
@@ -299,15 +292,15 @@ export async function validateItem(
   }
 
   try {
-    const count = await frappeGetCount('Item', {
-      item_code: data.item_code.trim(),
+    const count = await prisma.items.count({
+      where: { item_code: data.item_code.trim() },
     });
     if (count > 0) {
       return { success: false, error: `Item Code ${data.item_code} already exists` };
     }
   } catch (error: any) {
     console.error('[stock] validateItem count failed:', error?.message);
-    // If count fails, we continue; Frappe insert will catch duplicates anyway
+    // If count fails, we continue; insert will catch duplicates anyway
   }
 
   // 2. UOM validation
@@ -431,21 +424,25 @@ export async function getStockBalance(
   }
 
   try {
-    const bins = await frappeGetList<FrappeBin>('Bin', {
-      fields: ['name', 'item_code', 'warehouse', 'actual_qty', 'valuation_rate', 'stock_value'],
-      filters: { item_code: itemCode, warehouse: warehouse },
-      limit_page_length: 1,
-    });
+    const itemId = await resolveItemId(itemCode);
+    const warehouseId = await resolveWarehouseId(warehouse);
 
-    if (!bins || bins.length === 0) {
+    if (!itemId || !warehouseId) {
       return { success: true, actual_qty: 0, projected_qty: 0 };
     }
 
-    const bin = bins[0];
+    const bin = await prisma.bins.findFirst({
+      where: { item_id: itemId, warehouse_id: warehouseId },
+    });
+
+    if (!bin) {
+      return { success: true, actual_qty: 0, projected_qty: 0 };
+    }
+
     return {
       success: true,
-      actual_qty: bin.actual_qty || 0,
-      projected_qty: bin.actual_qty || 0, // Simplified; full projected qty requires ordered/reserved quantities
+      actual_qty: bin.quantity || 0,
+      projected_qty: bin.quantity || 0, // Simplified; full projected qty requires ordered/reserved quantities
     };
   } catch (error: any) {
     console.error('[stock] getStockBalance failed:', error?.message);
@@ -464,24 +461,29 @@ export async function getItemValuationRate(
   }
 
   try {
-    const bins = await frappeGetList<FrappeBin>('Bin', {
-      fields: ['valuation_rate'],
-      filters: { item_code: itemCode, warehouse: warehouse },
-      limit_page_length: 1,
-    });
+    const itemId = await resolveItemId(itemCode);
+    const warehouseId = await resolveWarehouseId(warehouse);
 
-    if (!bins || bins.length === 0) {
+    if (!itemId || !warehouseId) {
       return { success: true, valuation_rate: 0 };
     }
 
-    return { success: true, valuation_rate: bins[0].valuation_rate || 0 };
+    const bin = await prisma.bins.findFirst({
+      where: { item_id: itemId, warehouse_id: warehouseId },
+    });
+
+    if (!bin) {
+      return { success: true, valuation_rate: 0 };
+    }
+
+    return { success: true, valuation_rate: bin.valuation_rate || 0 };
   } catch (error: any) {
     console.error('[stock] getItemValuationRate failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch valuation rate' };
   }
 }
 
-// ── Update Bin ───────────────────────────────────────────────────────────────
+// ── Update Bin ─────────────────────────────────────────────────────────────────
 
 export async function updateBin(
   itemCode: string,
@@ -493,55 +495,66 @@ export async function updateBin(
   }
 
   try {
-    // Find existing bin
-    const bins = await frappeGetList<FrappeBin>('Bin', {
-      fields: ['name', 'item_code', 'warehouse', 'actual_qty', 'valuation_rate', 'stock_value'],
-      filters: { item_code: itemCode, warehouse: warehouse },
-      limit_page_length: 1,
+    const itemId = await resolveItemId(itemCode);
+    const warehouseId = await resolveWarehouseId(warehouse);
+
+    if (!itemId || !warehouseId) {
+      return { success: false, error: 'Item or warehouse not found' };
+    }
+
+    const existing = await prisma.bins.findFirst({
+      where: { item_id: itemId, warehouse_id: warehouseId },
     });
 
-    if (bins && bins.length > 0) {
-      const bin = bins[0];
-      const newQty = (bin.actual_qty || 0) + qtyDelta;
-      const valuationRate = bin.valuation_rate || 0;
+    if (existing) {
+      const newQty = existing.quantity + qtyDelta;
+      const valuationRate = existing.valuation_rate || 0;
       const newStockValue = newQty * valuationRate;
 
-      await frappeUpdateDoc('Bin', bin.name, {
-        actual_qty: newQty,
-        stock_value: newStockValue,
+      const updated = await prisma.bins.update({
+        where: { id: existing.id },
+        data: {
+          quantity: newQty,
+          stock_value: newStockValue,
+          updated_at: new Date(),
+        },
       });
 
       return {
         success: true,
         bin: {
-          id: bin.name,
-          item_id: bin.item_code,
-          warehouse_id: bin.warehouse,
-          quantity: newQty,
-          valuation_rate: valuationRate,
-          stock_value: newStockValue,
+          id: updated.id,
+          item_id: updated.item_id,
+          warehouse_id: updated.warehouse_id,
+          quantity: updated.quantity,
+          valuation_rate: updated.valuation_rate,
+          stock_value: updated.stock_value,
         },
       };
     }
 
     // Create new bin if none exists (mirrors ERPNext get_bin behaviour)
-    const newBin = await frappeInsertDoc<FrappeBin>('Bin', {
-      item_code: itemCode,
-      warehouse: warehouse,
-      actual_qty: qtyDelta,
-      valuation_rate: 0,
-      stock_value: 0,
+    const newBin = await prisma.bins.create({
+      data: {
+        id: randomUUID(),
+        item_id: itemId,
+        warehouse_id: warehouseId,
+        quantity: qtyDelta,
+        valuation_rate: 0,
+        stock_value: 0,
+        updated_at: new Date(),
+      },
     });
 
     return {
       success: true,
       bin: {
-        id: newBin.name,
-        item_id: itemCode,
-        warehouse_id: warehouse,
-        quantity: qtyDelta,
-        valuation_rate: 0,
-        stock_value: 0,
+        id: newBin.id,
+        item_id: newBin.item_id,
+        warehouse_id: newBin.warehouse_id,
+        quantity: newBin.quantity,
+        valuation_rate: newBin.valuation_rate,
+        stock_value: newBin.stock_value,
       },
     };
   } catch (error: any) {
@@ -587,17 +600,31 @@ export async function checkNegativeStock(
 
 export async function makeStockTransfer(
   data: StockTransferInput
-): Promise<{ success: true; entry: FrappeStockEntry } | { success: false; error: string }> {
+): Promise<{ success: true; entry: ClientSafeStockEntry } | { success: false; error: string }> {
   // 1. Validate business rules first
   const validation = await validateStockEntry(data);
   if (!validation.success) {
     return { success: false, error: validation.error };
   }
 
+  // Resolve warehouses
+  const fromWarehouseId = data.from_warehouse ? await resolveWarehouseId(data.from_warehouse) : null;
+  const toWarehouseId = data.to_warehouse ? await resolveWarehouseId(data.to_warehouse) : null;
+
+  // Resolve items
+  const resolvedItems = await Promise.all(
+    data.items.map(async (row) => ({
+      ...row,
+      item_id: await resolveItemId(row.item_code),
+      s_warehouse_id: row.s_warehouse ? await resolveWarehouseId(row.s_warehouse) : null,
+      t_warehouse_id: row.t_warehouse ? await resolveWarehouseId(row.t_warehouse) : null,
+    }))
+  );
+
   // 2. Negative stock check for outgoing items
-  for (const row of data.items) {
-    if (row.s_warehouse || data.from_warehouse) {
-      const sourceWh = row.s_warehouse || data.from_warehouse || '';
+  for (const row of resolvedItems) {
+    if (row.s_warehouse_id || fromWarehouseId) {
+      const sourceWh = row.s_warehouse_id || fromWarehouseId || '';
       const negCheck = await checkNegativeStock(row.item_code, sourceWh, row.qty);
       if (!negCheck.success) {
         return { success: false, error: negCheck.error };
@@ -608,28 +635,48 @@ export async function makeStockTransfer(
     }
   }
 
-  // 3. Build ERPNext-compatible items array
-  const items = data.items.map((row) => ({
-    item_code: row.item_code,
-    qty: row.qty,
-    s_warehouse: row.s_warehouse || data.from_warehouse || undefined,
-    t_warehouse: row.t_warehouse || data.to_warehouse || undefined,
-    batch_no: row.batch_no || undefined,
-    serial_no: row.serial_no || undefined,
-  }));
-
   try {
-    const entry = await frappeInsertDoc<FrappeStockEntry>('Stock Entry', {
-      stock_entry_type: data.entry_type,
-      from_warehouse: data.from_warehouse || undefined,
-      to_warehouse: data.to_warehouse || undefined,
-      items,
-      posting_date: data.posting_date || new Date().toISOString().split('T')[0],
-      remarks: data.reference || undefined,
+    const entry = await prisma.stock_entries.create({
+      data: {
+        id: randomUUID(),
+        entry_number: `STE-${Date.now()}`,
+        entry_type: data.entry_type,
+        posting_date: data.posting_date ? new Date(data.posting_date) : new Date(),
+        from_warehouse_id: fromWarehouseId,
+        to_warehouse_id: toWarehouseId,
+        status: 'SUBMITTED',
+        currency: 'USD',
+        notes: data.reference || null,
+        stock_entry_items: {
+          create: resolvedItems.map((row) => ({
+            id: randomUUID(),
+            item_id: row.item_id!,
+            item_code: row.item_code,
+            qty: row.qty,
+            serial_no: row.serial_no || null,
+            batch_no: row.batch_no || null,
+          })),
+        },
+      },
+      include: { stock_entry_items: true },
     });
 
     revalidatePath('/erp/stock');
-    return { success: true, entry };
+    const firstItem = entry.stock_entry_items[0];
+    return {
+      success: true,
+      entry: {
+        id: entry.id,
+        entry_type: entry.entry_type,
+        item_id: firstItem?.item_id || '',
+        quantity: firstItem?.qty || 0,
+        source_warehouse: entry.from_warehouse_id,
+        target_warehouse: entry.to_warehouse_id,
+        reference: entry.notes,
+        posting_date: entry.posting_date,
+        created_at: entry.created_at,
+      },
+    };
   } catch (error: any) {
     console.error('[stock] makeStockTransfer failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create stock transfer' };
@@ -640,11 +687,9 @@ export async function makeStockTransfer(
 
 export async function getWarehouseTree(): Promise<WarehouseTreeResult> {
   try {
-    const warehouses = await frappeGetList<FrappeWarehouse>('Warehouse', {
-      fields: ['name', 'warehouse_name', 'parent_warehouse', 'is_group', 'lft', 'rgt'],
-      filters: { disabled: 0 },
-      order_by: 'lft asc',
-      limit_page_length: 1000,
+    const warehouses = await prisma.warehouses.findMany({
+      orderBy: { created_at: 'asc' },
+      take: 1000,
     });
 
     const map = new Map<string, ClientSafeWarehouse>();
@@ -654,10 +699,11 @@ export async function getWarehouseTree(): Promise<WarehouseTreeResult> {
       const node = toClientWarehouse(w);
       node.children = [];
       map.set(node.id, node);
+      map.set(w.warehouse_code, node);
     }
 
     for (const w of warehouses) {
-      const node = map.get(w.name)!;
+      const node = map.get(w.id)!;
       if (w.parent_warehouse && map.has(w.parent_warehouse)) {
         const parent = map.get(w.parent_warehouse)!;
         parent.children = parent.children || [];
@@ -678,24 +724,10 @@ export async function getWarehouseTree(): Promise<WarehouseTreeResult> {
 
 export async function listItems(): Promise<ItemListResult> {
   try {
-    const items = await frappeGetList<FrappeItem>('Item', {
-      fields: [
-        'name',
-        'item_code',
-        'item_name',
-        'item_group',
-        'description',
-        'stock_uom',
-        'has_batch_no',
-        'has_serial_no',
-        'valuation_method',
-        'standard_rate',
-        'min_order_qty',
-        'safety_stock',
-        'creation',
-      ],
-      order_by: 'creation desc',
-      limit_page_length: 500,
+    const items = await prisma.items.findMany({
+      include: { bins: true },
+      orderBy: { created_at: 'desc' },
+      take: 500,
     });
 
     return {
@@ -718,33 +750,36 @@ export async function createItem(
   }
 
   try {
-    const item = await frappeInsertDoc<FrappeItem>('Item', {
-      item_code: data.item_code,
-      item_name: data.item_name,
-      item_group: data.item_group,
-      description: data.description || '',
-      stock_uom: data.unit || 'Nos',
-      has_batch_no: data.has_batch || false,
-      has_serial_no: data.has_serial || false,
-      valuation_method: data.valuation_method || 'FIFO',
-      standard_rate: data.standard_rate || 0,
-      min_order_qty: data.min_order_qty || 0,
-      safety_stock: data.safety_stock || 0,
+    const item = await prisma.items.create({
+      data: {
+        id: randomUUID(),
+        item_code: data.item_code,
+        item_name: data.item_name,
+        item_group: toItemGroup(data.item_group),
+        description: data.description || null,
+        unit: data.unit || 'Nos',
+        has_batch: data.has_batch || false,
+        has_serial: data.has_serial || false,
+        valuation_method: toValuationMethod(data.valuation_method || 'FIFO'),
+        standard_rate: data.standard_rate ?? null,
+        min_order_qty: data.min_order_qty ?? null,
+        safety_stock: data.safety_stock ?? null,
+      },
     });
 
     revalidatePath('/erp/stock');
     return {
       success: true,
       item: {
-        id: item.name,
+        id: item.id,
         item_code: item.item_code,
         item_name: item.item_name,
         item_group: item.item_group,
         description: item.description,
-        unit: item.stock_uom,
-        has_batch: !!item.has_batch_no,
-        has_serial: !!item.has_serial_no,
-        valuation_method: item.valuation_method,
+        unit: item.unit,
+        has_batch: item.has_batch,
+        has_serial: item.has_serial,
+        valuation_method: item.valuation_method === 'MOVING_AVERAGE' ? 'Moving Average' : item.valuation_method,
         standard_rate: item.standard_rate,
         min_order_qty: item.min_order_qty,
         safety_stock: item.safety_stock,
@@ -752,7 +787,7 @@ export async function createItem(
         reorder_level: item.safety_stock,
         quantity: 0,
         unit_cost: item.standard_rate,
-        created_at: new Date(),
+        created_at: item.created_at,
       },
     };
   } catch (error: any) {
@@ -768,16 +803,18 @@ export async function updateItem(
   data: UpdateItemInput
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const updateData: Record<string, unknown> = {};
-    if (data.item_name !== undefined) updateData.item_name = data.item_name;
-    if (data.item_group !== undefined) updateData.item_group = data.item_group;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.unit !== undefined) updateData.stock_uom = data.unit;
-    if (data.standard_rate !== undefined) updateData.standard_rate = data.standard_rate;
-    if (data.min_order_qty !== undefined) updateData.min_order_qty = data.min_order_qty;
-    if (data.safety_stock !== undefined) updateData.safety_stock = data.safety_stock;
-
-    await frappeUpdateDoc('Item', id, updateData);
+    await prisma.items.update({
+      where: { id },
+      data: {
+        ...(data.item_name !== undefined && { item_name: data.item_name }),
+        ...(data.item_group !== undefined && { item_group: toItemGroup(data.item_group) }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.unit !== undefined && { unit: data.unit }),
+        ...(data.standard_rate !== undefined && { standard_rate: data.standard_rate }),
+        ...(data.min_order_qty !== undefined && { min_order_qty: data.min_order_qty }),
+        ...(data.safety_stock !== undefined && { safety_stock: data.safety_stock }),
+      },
+    });
     revalidatePath('/erp/stock');
     return { success: true };
   } catch (error: any) {
@@ -790,7 +827,7 @@ export async function deleteItem(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await frappeDeleteDoc('Item', id);
+    await prisma.items.delete({ where: { id } });
     revalidatePath('/erp/stock');
     return { success: true };
   } catch (error: any) {
@@ -803,19 +840,18 @@ export async function deleteItem(
 
 export async function listWarehouses(): Promise<WarehouseListResult> {
   try {
-    const warehouses = await frappeGetList<FrappeWarehouse>('Warehouse', {
-      fields: ['name', 'warehouse_name'],
-      limit_page_length: 500,
+    const warehouses = await prisma.warehouses.findMany({
+      take: 500,
     });
 
     return {
       success: true,
       warehouses: warehouses.map((w) => ({
-        id: w.name,
-        warehouse_name: w.warehouse_name || w.name,
-        warehouse_code: w.name,
-        parent_warehouse: null,
-        is_group: false,
+        id: w.id,
+        warehouse_name: w.warehouse_name || w.warehouse_code,
+        warehouse_code: w.warehouse_code,
+        parent_warehouse: w.parent_warehouse || null,
+        is_group: w.is_group,
       })),
     };
   } catch (error: any) {
@@ -827,25 +863,28 @@ export async function listWarehouses(): Promise<WarehouseListResult> {
 
 export async function listStockEntries(): Promise<StockEntryListResult> {
   try {
-    const entries = await frappeGetList<FrappeStockEntry>('Stock Entry', {
-      fields: ['name', 'stock_entry_type', 'creation', 'posting_date', 'from_warehouse', 'to_warehouse'],
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const entries = await prisma.stock_entries.findMany({
+      include: { stock_entry_items: true },
+      orderBy: { created_at: 'desc' },
+      take: 200,
     });
 
     return {
       success: true,
-      entries: entries.map((e) => ({
-        id: e.name,
-        entry_type: e.stock_entry_type || 'Material Issue',
-        item_id: '',
-        quantity: 0,
-        source_warehouse: e.from_warehouse || null,
-        target_warehouse: e.to_warehouse || null,
-        reference: null,
-        posting_date: e.posting_date ? new Date(e.posting_date) : new Date(),
-        created_at: e.creation ? new Date(e.creation) : new Date(),
-      })),
+      entries: entries.map((e) => {
+        const firstItem = e.stock_entry_items[0];
+        return {
+          id: e.id,
+          entry_type: e.entry_type || 'Material Issue',
+          item_id: firstItem?.item_id || '',
+          quantity: firstItem?.qty || 0,
+          source_warehouse: e.from_warehouse_id || null,
+          target_warehouse: e.to_warehouse_id || null,
+          reference: e.notes || null,
+          posting_date: e.posting_date,
+          created_at: e.created_at,
+        };
+      }),
     };
   } catch (error: any) {
     console.error('Error fetching stock entries:', error?.message);
@@ -855,23 +894,56 @@ export async function listStockEntries(): Promise<StockEntryListResult> {
 
 export async function createStockEntry(
   data: CreateStockEntryInput
-): Promise<{ success: true; entry: FrappeStockEntry } | { success: false; error: string }> {
+): Promise<{ success: true; entry: ClientSafeStockEntry } | { success: false; error: string }> {
   try {
-    const entry = await frappeInsertDoc<FrappeStockEntry>('Stock Entry', {
-      stock_entry_type: data.entry_type,
-      items: [
-        {
-          item_code: data.item_id,
-          s_warehouse: data.source_warehouse,
-          t_warehouse: data.target_warehouse,
-          qty: data.quantity,
+    const itemId = await resolveItemId(data.item_id);
+    if (!itemId) {
+      return { success: false, error: `Item ${data.item_id} not found` };
+    }
+
+    const sourceWhId = data.source_warehouse ? await resolveWarehouseId(data.source_warehouse) : null;
+    const targetWhId = data.target_warehouse ? await resolveWarehouseId(data.target_warehouse) : null;
+
+    const entry = await prisma.stock_entries.create({
+      data: {
+        id: randomUUID(),
+        entry_type: data.entry_type,
+        posting_date: new Date(),
+        from_warehouse_id: sourceWhId,
+        to_warehouse_id: targetWhId,
+        status: 'SUBMITTED',
+        currency: 'USD',
+        notes: data.reference || null,
+        stock_entry_items: {
+          create: {
+            id: randomUUID(),
+            item_id: itemId,
+            item_code: data.item_id,
+            qty: data.quantity,
+          },
         },
-      ],
+      },
+      include: { stock_entry_items: true },
     });
 
     revalidatePath('/erp/stock');
-    return { success: true, entry };
+    const firstItem = entry.stock_entry_items[0];
+    return {
+      success: true,
+      entry: {
+        id: entry.id,
+        entry_type: entry.entry_type,
+        item_id: firstItem?.item_id || '',
+        quantity: firstItem?.qty || 0,
+        source_warehouse: entry.from_warehouse_id,
+        target_warehouse: entry.to_warehouse_id,
+        reference: entry.notes,
+        posting_date: entry.posting_date,
+        created_at: entry.created_at,
+      },
+    };
   } catch (error: any) {
+    console.error('[stock] createStockEntry failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create stock entry' };
   }
 }
@@ -880,10 +952,9 @@ export async function createStockEntry(
 
 export async function listBins(): Promise<BinListResult> {
   try {
-    const bins = await frappeGetList<FrappeBin>('Bin', {
-      fields: ['name', 'item_code', 'warehouse', 'actual_qty', 'valuation_rate', 'stock_value'],
-      order_by: 'item_code asc',
-      limit_page_length: 1000,
+    const bins = await prisma.bins.findMany({
+      orderBy: { updated_at: 'asc' },
+      take: 1000,
     });
 
     return {

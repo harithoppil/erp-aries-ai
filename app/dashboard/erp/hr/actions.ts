@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeCallMethod } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type ClientSafePersonnel = {
   id: string;
@@ -30,24 +30,23 @@ export async function listPersonnel(): Promise<
   { success: true; personnel: ClientSafePersonnel[] } | { success: false; error: string }
 > {
   try {
-    const employees = await frappeGetList<any>('Employee', {
-      fields: ['name', 'first_name', 'last_name', 'personal_email', 'designation', 'department', 'status', 'date_of_joining', 'creation'],
-      order_by: 'creation desc',
-      limit_page_length: 500,
+    const rows = await prisma.personnel.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 500,
     });
 
     return {
       success: true,
-      personnel: employees.map((e: any) => ({
-        id: e.name,
+      personnel: rows.map((e) => ({
+        id: e.id,
         first_name: e.first_name || 'Unknown',
         last_name: e.last_name || null,
-        email: e.personal_email || null,
+        email: e.email || null,
         designation: e.designation || null,
         department: e.department || null,
-        status: e.status || 'Active',
-        date_of_joining: e.date_of_joining ? new Date(e.date_of_joining) : null,
-        created_at: e.creation ? new Date(e.creation) : new Date(),
+        status: e.status,
+        date_of_joining: null,
+        created_at: e.created_at,
       })),
     };
   } catch (error: any) {
@@ -67,28 +66,33 @@ export async function createPersonnel(data: {
   day_rate?: number;
 }) {
   try {
-    const doc = await frappeInsertDoc<any>('Employee', {
-      first_name: data.first_name,
-      last_name: data.last_name || undefined,
-      personal_email: data.email || undefined,
-      designation: data.designation || undefined,
-      department: data.department || undefined,
-      date_of_joining: data.date_of_joining || undefined,
-      status: 'Active',
+    const record = await prisma.personnel.create({
+      data: {
+        id: crypto.randomUUID(),
+        employee_id: data.employee_id || `EMP-${Date.now()}`,
+        first_name: data.first_name || 'Unknown',
+        last_name: data.last_name || '',
+        email: data.email || null,
+        designation: data.designation || null,
+        department: data.department || null,
+        day_rate: data.day_rate || null,
+        status: 'ACTIVE',
+        currency: 'USD',
+      },
     });
     revalidatePath('/erp/hr');
     return {
       success: true as const,
       personnel: {
-        id: doc.name,
-        first_name: doc.first_name || 'Unknown',
-        last_name: doc.last_name || null,
-        email: doc.personal_email || null,
-        designation: doc.designation || null,
-        department: doc.department || null,
-        status: 'Active',
+        id: record.id,
+        first_name: record.first_name || 'Unknown',
+        last_name: record.last_name || null,
+        email: record.email || null,
+        designation: record.designation || null,
+        department: record.department || null,
+        status: 'ACTIVE',
         date_of_joining: data.date_of_joining ? new Date(data.date_of_joining) : null,
-        created_at: new Date(),
+        created_at: record.created_at,
       } as ClientSafePersonnel,
     };
   } catch (error: any) {
@@ -97,31 +101,31 @@ export async function createPersonnel(data: {
 }
 
 export async function listComplianceAlerts(): Promise<
-  { success: true; alerts: any[] } | { success: false; error: string }
+  { success: true; alerts: ClientSafeCertification[] } | { success: false; error: string }
 > {
   try {
-    // Fetch certifications expiring within 60 days
     const sixtyDaysFromNow = new Date();
     sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
-    const dateStr = sixtyDaysFromNow.toISOString().slice(0, 10);
 
-    const certs = await frappeGetList<any>('Certification', {
-      fields: ['name', 'employee', 'certification_name', 'certification_number', 'issuing_body', 'issue_date', 'expiry_date', 'status'],
-      filters: { expiry_date: ['<=', dateStr], status: ['!=', 'Expired'] },
-      order_by: 'expiry_date asc',
-      limit_page_length: 100,
+    const rows = await prisma.certifications.findMany({
+      where: {
+        expiry_date: { lte: sixtyDaysFromNow },
+        status: { not: 'EXPIRED' },
+      },
+      orderBy: { expiry_date: 'asc' },
+      take: 100,
     });
 
     return {
       success: true,
-      alerts: certs.map((c: any) => ({
-        id: c.name,
-        personnel_id: c.employee,
-        cert_type: c.certification_name || 'Certification',
-        cert_number: c.certification_number || null,
+      alerts: rows.map((c) => ({
+        id: c.id,
+        personnel_id: c.personnel_id,
+        cert_type: c.cert_type || 'Certification',
+        cert_number: c.cert_number || null,
         issuing_body: c.issuing_body || null,
-        issue_date: c.issue_date ? new Date(c.issue_date) : null,
-        expiry_date: c.expiry_date ? new Date(c.expiry_date) : null,
+        issue_date: c.issue_date,
+        expiry_date: c.expiry_date,
         status: c.status || 'Valid',
       })),
     };
@@ -140,28 +144,32 @@ export async function createEmployee(data: {
   date_of_joining?: Date;
 }) {
   try {
-    const employee = await frappeInsertDoc<any>('Employee', {
-      first_name: data.first_name,
-      last_name: data.last_name || undefined,
-      personal_email: data.email || undefined,
-      designation: data.designation || undefined,
-      department: data.department || undefined,
-      date_of_joining: data.date_of_joining ? data.date_of_joining.toISOString().slice(0, 10) : undefined,
-      status: 'Active',
+    const record = await prisma.personnel.create({
+      data: {
+        id: crypto.randomUUID(),
+        employee_id: `EMP-${Date.now()}`,
+        first_name: data.first_name,
+        last_name: data.last_name || '',
+        email: data.email || null,
+        designation: data.designation || null,
+        department: data.department || null,
+        status: 'ACTIVE',
+        currency: 'USD',
+      },
     });
     revalidatePath('/erp/hr');
     return {
       success: true as const,
       employee: {
-        id: employee.name,
+        id: record.id,
         first_name: data.first_name,
-        last_name: data.last_name || null,
+        last_name: data.last_name || '',
         email: data.email || null,
         designation: data.designation || null,
         department: data.department || null,
         status: 'Active',
         date_of_joining: data.date_of_joining || null,
-        created_at: new Date(),
+        created_at: record.created_at,
       } as ClientSafePersonnel,
     };
   } catch (error: any) {

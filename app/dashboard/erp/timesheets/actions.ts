@@ -1,6 +1,6 @@
 'use server';
 
-import { frappeGetList, frappeGetDoc, frappeInsertDoc } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type ClientSafeTimesheet = {
   id: string;
@@ -21,27 +21,27 @@ export async function listTimesheets(): Promise<
   { success: true; timesheets: ClientSafeTimesheet[] } | { success: false; error: string }
 > {
   try {
-    const timesheets = await frappeGetList<Record<string, unknown>>('Timesheet', {
-      fields: ['name', 'employee_name', 'status', 'total_hours', 'creation'],
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const rows = await prisma.timesheets.findMany({
+      include: { personnel: true, projects: true },
+      orderBy: { date: 'desc' },
+      take: 200,
     });
 
     return {
       success: true,
-      timesheets: timesheets.map((ts) => ({
-        id: String(ts.name),
-        employee_name: String(ts.employee_name || 'Unknown'),
-        activity_type: 'General',
-        from_time: ts.creation ? new Date(String(ts.creation)) : new Date(),
-        to_time: ts.creation ? new Date(String(ts.creation)) : new Date(),
-        hours: Number(ts.total_hours || 0),
-        project: '',
-        status: String(ts.status || 'Draft'),
-        created_at: ts.creation ? new Date(String(ts.creation)) : new Date(),
-        date: ts.creation ? new Date(String(ts.creation)).toISOString().slice(0, 10) : undefined,
-        description: undefined,
-        billable: true,
+      timesheets: rows.map((ts) => ({
+        id: ts.id,
+        employee_name: (ts.personnel as any)?.name || 'Unknown',
+        activity_type: ts.activity_type || 'General',
+        from_time: ts.date,
+        to_time: ts.date,
+        hours: ts.hours || 0,
+        project: (ts.projects as any)?.name || '',
+        status: 'Draft',
+        created_at: ts.date,
+        date: ts.date.toISOString().slice(0, 10),
+        description: ts.description || undefined,
+        billable: ts.billable ?? true,
       })),
     };
   } catch (error: any) {
@@ -62,23 +62,39 @@ export async function createTimesheet(data: {
   billable?: boolean;
 }): Promise<{ success: true; timesheet: ClientSafeTimesheet } | { success: false; error: string }> {
   try {
-    const now = new Date();
-    const ts: ClientSafeTimesheet = {
-      id: crypto.randomUUID(),
-      employee_name: data.employee_name || 'Unknown',
-      activity_type: data.activity_type || 'General',
-      from_time: now,
-      to_time: now,
-      hours: data.hours || 0,
-      project: data.project || '',
-      status: 'Draft',
-      created_at: now,
-      date: data.date,
-      description: data.description,
-      billable: data.billable ?? true,
+    const date = data.date ? new Date(data.date) : new Date();
+    const record = await prisma.timesheets.create({
+      data: {
+        id: crypto.randomUUID(),
+        project_id: data.project_id || '00000000-0000-0000-0000-000000000000',
+        personnel_id: data.personnel_id || '00000000-0000-0000-0000-000000000000',
+        date,
+        hours: data.hours || 0,
+        activity_type: data.activity_type || 'General',
+        description: data.description || null,
+        billable: data.billable ?? true,
+      },
+    });
+
+    return {
+      success: true,
+      timesheet: {
+        id: record.id,
+        employee_name: data.employee_name || 'Unknown',
+        activity_type: record.activity_type,
+        from_time: record.date,
+        to_time: record.date,
+        hours: record.hours,
+        project: data.project || '',
+        status: 'Draft',
+        created_at: record.date,
+        date: record.date.toISOString().slice(0, 10),
+        description: record.description || undefined,
+        billable: record.billable,
+      },
     };
-    return { success: true, timesheet: ts };
   } catch (error: any) {
+    console.error('[timesheets] create failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create timesheet' };
   }
 }

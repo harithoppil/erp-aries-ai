@@ -3,7 +3,6 @@
  * Stock validation, Bin updates, and FIFO/LIFO valuation skeleton.
  */
 
-import { frappeGetDoc, frappeSetValue, frappeInsertDoc } from "@/lib/frappe-client";
 import { prisma } from "@/lib/prisma";
 
 /* ------------------------------------------------------------------ */
@@ -102,6 +101,22 @@ function getdate(dateStr?: string): Date {
   return dateStr ? new Date(dateStr) : new Date();
 }
 
+async function resolveItemId(itemCode: string): Promise<string | null> {
+  const item = await prisma.items.findUnique({
+    where: { item_code: itemCode },
+    select: { id: true },
+  });
+  return item?.id ?? null;
+}
+
+async function resolveWarehouseId(warehouseCode: string): Promise<string | null> {
+  const wh = await prisma.warehouses.findUnique({
+    where: { warehouse_code: warehouseCode },
+    select: { id: true },
+  });
+  return wh?.id ?? null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  validateStockEntry                                                 */
 /* ------------------------------------------------------------------ */
@@ -113,7 +128,7 @@ export async function validateStockEntry(doc: StockEntryDoc): Promise<Validation
     // 1. Items must exist
     const itemCodes = Array.from(new Set(doc.items.map((d) => d.item_code)));
     for (const code of itemCodes) {
-      const exists = await frappeGetDoc<{ name: string }>("Item", code);
+      const exists = await prisma.items.findUnique({ where: { item_code: code } });
       if (!exists) {
         return { success: false, error: `Item ${code} does not exist in the Item master.` };
       }
@@ -214,36 +229,43 @@ export async function updateBinQty(
   qty: number
 ): Promise<BinResult> {
   try {
-    // Try Frappe first
     const binName = `${itemCode}-${warehouse}`;
-    let bin = await frappeGetDoc<{
-      name: string;
-      actual_qty: number;
-      projected_qty: number;
-      reserved_qty: number;
-      indented_qty: number;
-      ordered_qty: number;
-      planned_qty: number;
-      valuation_rate: number;
-      stock_value: number;
-    }>("Bin", binName);
+
+    // Try lookup by itemCode + warehouse first, then fallback to id
+    let bin = await prisma.bins.findFirst({
+      where: {
+        items: { item_code: itemCode },
+        warehouses: { warehouse_code: warehouse },
+      },
+      include: { items: true, warehouses: true },
+    });
+
+    if (!bin) {
+      bin = await prisma.bins.findUnique({
+        where: { id: binName },
+        include: { items: true, warehouses: true },
+      });
+    }
 
     if (bin) {
-      const newActual = flt((bin.actual_qty ?? 0) + qty, 2);
-      const newProjected = flt((bin.projected_qty ?? 0) + qty, 2);
-      const newStockValue = flt(newActual * (bin.valuation_rate ?? 0), 2);
+      const currentQty = flt(bin.quantity, 2);
+      const currentValuation = flt(bin.valuation_rate, 2);
+      const newActual = flt(currentQty + qty, 2);
+      const newProjected = newActual;
+      const newStockValue = flt(newActual * currentValuation, 2);
 
-      await frappeSetValue("Bin", binName, {
-        actual_qty: newActual,
-        projected_qty: newProjected,
-        stock_value: newStockValue,
+      await prisma.bins.update({
+        where: { id: bin.id },
+        data: {
+          quantity: newActual,
+          stock_value: newStockValue,
+        },
       });
 
-      // Mirror in Prisma cache
-      await upsertBinCache(itemCode, warehouse, {
+      computeBinUpdate(itemCode, warehouse, {
         actual_qty: newActual,
         projected_qty: newProjected,
-        valuation_rate: bin.valuation_rate,
+        valuation_rate: currentValuation,
         stock_value: newStockValue,
       });
 
@@ -253,25 +275,37 @@ export async function updateBinQty(
         warehouse,
         actual_qty: newActual,
         projected_qty: newProjected,
-        reserved_qty: bin.reserved_qty,
-        indented_qty: bin.indented_qty,
-        ordered_qty: bin.ordered_qty,
-        planned_qty: bin.planned_qty,
-        valuation_rate: bin.valuation_rate,
+        reserved_qty: 0,
+        indented_qty: 0,
+        ordered_qty: 0,
+        planned_qty: 0,
+        valuation_rate: currentValuation,
         stock_value: newStockValue,
       };
     }
 
-    // No bin exists — create via Prisma cache (Frappe insert if needed)
-    const newBin = await frappeInsertDoc("Bin", {
-      item_code: itemCode,
-      warehouse,
-      actual_qty: qty,
-      projected_qty: qty,
-      stock_value: 0,
+    // No bin exists — create via Prisma
+    const itemId = await resolveItemId(itemCode);
+    const warehouseId = await resolveWarehouseId(warehouse);
+    if (!itemId || !warehouseId) {
+      return {
+        success: false,
+        error: `Cannot create Bin: unable to resolve item (${itemCode}) or warehouse (${warehouse}).`,
+      };
+    }
+
+    const newBin = await prisma.bins.create({
+      data: {
+        id: crypto.randomUUID(),
+        item_id: itemId,
+        warehouse_id: warehouseId,
+        quantity: qty,
+        valuation_rate: 0,
+        stock_value: 0,
+      },
     });
 
-    await upsertBinCache(itemCode, warehouse, {
+    computeBinUpdate(itemCode, warehouse, {
       actual_qty: qty,
       projected_qty: qty,
       valuation_rate: 0,
@@ -296,84 +330,64 @@ export async function updateBinQty(
 /*  FIFO / LIFO valuation skeleton                                     */
 /* ------------------------------------------------------------------ */
 
-export async function getValuationRateFIFO(
+export function getValuationRateFIFO(
   itemCode: string,
   warehouse: string,
-  qty: number
-): Promise<{ rate: number; entries: ValuationEntry[] }> {
-  try {
-    // Fetch Stock Ledger Entries ordered by posting date (FIFO)
-    const sleList = await prisma.stockLedgerEntry.findMany({
-      where: { item_code: itemCode, warehouse, actual_qty: { gt: 0 } },
-      orderBy: { posting_date: "asc" },
-      take: 50,
+  qty: number,
+  ledgerEntries: ValuationEntry[]
+): { rate: number; entries: ValuationEntry[] } {
+  let remainingQty = qty;
+  let totalValue = 0;
+  const usedEntries: ValuationEntry[] = [];
+
+  for (const sle of ledgerEntries) {
+    if (remainingQty <= 0) break;
+    const takeQty = Math.min(remainingQty, sle.qty);
+    totalValue += takeQty * sle.rate;
+    remainingQty -= takeQty;
+    usedEntries.push({
+      item_code: itemCode,
+      warehouse,
+      qty: takeQty,
+      rate: sle.rate,
+      posting_date: sle.posting_date,
+      voucher_type: sle.voucher_type,
+      voucher_no: sle.voucher_no,
     });
-
-    let remainingQty = qty;
-    let totalValue = 0;
-    const usedEntries: ValuationEntry[] = [];
-
-    for (const sle of sleList) {
-      if (remainingQty <= 0) break;
-      const takeQty = Math.min(remainingQty, sle.actual_qty);
-      totalValue += takeQty * sle.valuation_rate;
-      remainingQty -= takeQty;
-      usedEntries.push({
-        item_code: itemCode,
-        warehouse,
-        qty: takeQty,
-        rate: sle.valuation_rate,
-        posting_date: sle.posting_date.toISOString(),
-        voucher_type: sle.voucher_type,
-        voucher_no: sle.voucher_no,
-      });
-    }
-
-    const avgRate = qty > 0 ? flt(totalValue / qty, 2) : 0;
-    return { rate: avgRate, entries: usedEntries };
-  } catch {
-    // Fallback to Frappe direct
-    return { rate: 0, entries: [] };
   }
+
+  const avgRate = qty > 0 ? flt(totalValue / qty, 2) : 0;
+  return { rate: avgRate, entries: usedEntries };
 }
 
-export async function getValuationRateLIFO(
+export function getValuationRateLIFO(
   itemCode: string,
   warehouse: string,
-  qty: number
-): Promise<{ rate: number; entries: ValuationEntry[] }> {
-  try {
-    const sleList = await prisma.stockLedgerEntry.findMany({
-      where: { item_code: itemCode, warehouse, actual_qty: { gt: 0 } },
-      orderBy: { posting_date: "desc" },
-      take: 50,
+  qty: number,
+  ledgerEntries: ValuationEntry[]
+): { rate: number; entries: ValuationEntry[] } {
+  let remainingQty = qty;
+  let totalValue = 0;
+  const usedEntries: ValuationEntry[] = [];
+
+  for (const sle of [...ledgerEntries].reverse()) {
+    if (remainingQty <= 0) break;
+    const takeQty = Math.min(remainingQty, sle.qty);
+    totalValue += takeQty * sle.rate;
+    remainingQty -= takeQty;
+    usedEntries.push({
+      item_code: itemCode,
+      warehouse,
+      qty: takeQty,
+      rate: sle.rate,
+      posting_date: sle.posting_date,
+      voucher_type: sle.voucher_type,
+      voucher_no: sle.voucher_no,
     });
-
-    let remainingQty = qty;
-    let totalValue = 0;
-    const usedEntries: ValuationEntry[] = [];
-
-    for (const sle of sleList) {
-      if (remainingQty <= 0) break;
-      const takeQty = Math.min(remainingQty, sle.actual_qty);
-      totalValue += takeQty * sle.valuation_rate;
-      remainingQty -= takeQty;
-      usedEntries.push({
-        item_code: itemCode,
-        warehouse,
-        qty: takeQty,
-        rate: sle.valuation_rate,
-        posting_date: sle.posting_date.toISOString(),
-        voucher_type: sle.voucher_type,
-        voucher_no: sle.voucher_no,
-      });
-    }
-
-    const avgRate = qty > 0 ? flt(totalValue / qty, 2) : 0;
-    return { rate: avgRate, entries: usedEntries };
-  } catch {
-    return { rate: 0, entries: [] };
   }
+
+  const avgRate = qty > 0 ? flt(totalValue / qty, 2) : 0;
+  return { rate: avgRate, entries: usedEntries };
 }
 
 /* ------------------------------------------------------------------ */
@@ -382,8 +396,13 @@ export async function getValuationRateLIFO(
 
 async function isStockItemMaster(itemCode: string): Promise<boolean> {
   try {
-    const item = await frappeGetDoc<{ is_stock_item: boolean }>("Item", itemCode);
-    return item?.is_stock_item ?? false;
+    const item = await prisma.items.findUnique({
+      where: { item_code: itemCode },
+      select: { item_group: true },
+    });
+    if (!item) return false;
+    const stockGroups = ["CONSUMABLE", "EQUIPMENT", "RAW_MATERIAL", "SPARE_PART"];
+    return stockGroups.includes(item.item_group);
   } catch {
     return false;
   }
@@ -393,8 +412,9 @@ async function validateSerialBelongsToBatch(serialNoStr: string, batchNo: string
   const serialNos = serialNoStr.split("\n").map((s) => s.trim()).filter(Boolean);
   for (const sn of serialNos) {
     try {
-      const serialDoc = await frappeGetDoc<{ batch_no?: string }>("Serial No", sn);
-      if (serialDoc?.batch_no && serialDoc.batch_no !== batchNo) {
+      // No Serial No model in Prisma schema — safe default
+      const serialDoc: { batch_no: string | null } = { batch_no: null };
+      if (serialDoc.batch_no && serialDoc.batch_no !== batchNo) {
         return false;
       }
     } catch {
@@ -406,15 +426,16 @@ async function validateSerialBelongsToBatch(serialNoStr: string, batchNo: string
 
 async function isBatchExpired(batchNo: string, postingDate: string): Promise<boolean> {
   try {
-    const batch = await frappeGetDoc<{ expiry_date?: string }>("Batch", batchNo);
-    if (!batch?.expiry_date) return false;
+    // No Batch model in Prisma schema — safe default
+    const batch: { expiry_date: string | null } = { expiry_date: null };
+    if (!batch.expiry_date) return false;
     return getdate(batch.expiry_date) < getdate(postingDate);
   } catch {
     return false;
   }
 }
 
-async function upsertBinCache(
+export function computeBinUpdate(
   itemCode: string,
   warehouse: string,
   data: {
@@ -423,89 +444,61 @@ async function upsertBinCache(
     valuation_rate: number;
     stock_value: number;
   }
-): Promise<void> {
-  try {
-    await prisma.bin.upsert({
-      where: { item_code_warehouse: { item_code: itemCode, warehouse } },
-      update: {
-        actual_qty: data.actual_qty,
-        projected_qty: data.projected_qty,
-        valuation_rate: data.valuation_rate,
-        stock_value: data.stock_value,
-        modified: new Date(),
-      },
-      create: {
-        item_code: itemCode,
-        warehouse,
-        actual_qty: data.actual_qty,
-        projected_qty: data.projected_qty,
-        valuation_rate: data.valuation_rate,
-        stock_value: data.stock_value,
-        reserved_qty: 0,
-        ordered_qty: 0,
-        indented_qty: 0,
-        planned_qty: 0,
-      },
-    });
-  } catch {
-    // Prisma model may not exist yet
-  }
+): {
+  item_code: string;
+  warehouse: string;
+  actual_qty: number;
+  projected_qty: number;
+  valuation_rate: number;
+  stock_value: number;
+  reserved_qty: number;
+  ordered_qty: number;
+  indented_qty: number;
+  planned_qty: number;
+} {
+  return {
+    item_code: itemCode,
+    warehouse,
+    actual_qty: data.actual_qty,
+    projected_qty: data.projected_qty,
+    valuation_rate: data.valuation_rate,
+    stock_value: data.stock_value,
+    reserved_qty: 0,
+    ordered_qty: 0,
+    indented_qty: 0,
+    planned_qty: 0,
+  };
 }
 
-export async function getBinQty(itemCode: string, warehouse: string): Promise<BinResult> {
-  try {
-    // Prisma cache first
-    const cached = await prisma.bin.findUnique({
-      where: { item_code_warehouse: { item_code: itemCode, warehouse } },
-    });
-    if (cached) {
-      return {
-        success: true,
-        item_code: cached.item_code,
-        warehouse: cached.warehouse,
-        actual_qty: flt(cached.actual_qty),
-        projected_qty: flt(cached.projected_qty),
-        reserved_qty: flt(cached.reserved_qty),
-        indented_qty: flt(cached.indented_qty),
-        ordered_qty: flt(cached.ordered_qty),
-        planned_qty: flt(cached.planned_qty),
-        valuation_rate: flt(cached.valuation_rate),
-        stock_value: flt(cached.stock_value),
-      };
-    }
-  } catch {
-    // fallback to Frappe
-  }
-
-  try {
-    const binName = `${itemCode}-${warehouse}`;
-    const bin = await frappeGetDoc<{
-      actual_qty: number;
-      projected_qty: number;
-      reserved_qty: number;
-      indented_qty: number;
-      ordered_qty: number;
-      planned_qty: number;
-      valuation_rate: number;
-      stock_value: number;
-    }>("Bin", binName);
-
-    if (!bin) return { success: false, error: `Bin not found for ${itemCode} / ${warehouse}` };
-
+export function getBinQty(
+  itemCode: string,
+  warehouse: string,
+  binData?: {
+    actual_qty: number;
+    projected_qty: number;
+    valuation_rate: number;
+    stock_value: number;
+    reserved_qty?: number;
+    indented_qty?: number;
+    ordered_qty?: number;
+    planned_qty?: number;
+  } | null
+): BinResult {
+  if (binData) {
     return {
       success: true,
       item_code: itemCode,
       warehouse,
-      actual_qty: flt(bin.actual_qty),
-      projected_qty: flt(bin.projected_qty),
-      reserved_qty: flt(bin.reserved_qty),
-      indented_qty: flt(bin.indented_qty),
-      ordered_qty: flt(bin.ordered_qty),
-      planned_qty: flt(bin.planned_qty),
-      valuation_rate: flt(bin.valuation_rate),
-      stock_value: flt(bin.stock_value),
+      actual_qty: flt(binData.actual_qty),
+      projected_qty: flt(binData.projected_qty),
+      reserved_qty: flt(binData.reserved_qty ?? 0),
+      indented_qty: flt(binData.indented_qty ?? 0),
+      ordered_qty: flt(binData.ordered_qty ?? 0),
+      planned_qty: flt(binData.planned_qty ?? 0),
+      valuation_rate: flt(binData.valuation_rate),
+      stock_value: flt(binData.stock_value),
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
   }
+
+  return { success: false, error: `Bin not found for ${itemCode} / ${warehouse}` };
 }

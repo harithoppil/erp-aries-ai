@@ -1,14 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import {
-  frappeGetList,
-  frappeGetDoc,
-  frappeInsertDoc,
-  frappeUpdateDoc,
-  frappeCallMethod,
-  frappeSubmitDoc,
-} from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -42,50 +35,6 @@ export interface SalesOrderValidateInput {
   grand_total?: number;
 }
 
-export interface FrappeSalesOrder {
-  name: string;
-  customer: string;
-  project?: string;
-  delivery_date?: string;
-  status?: string;
-  docstatus: number;
-  base_net_total?: number;
-  total_taxes_and_charges?: number;
-  base_grand_total?: number;
-  currency?: string;
-  terms?: string;
-  creation?: string;
-  per_delivered?: number;
-  per_billed?: number;
-  delivery_status?: string;
-  billing_status?: string;
-}
-
-export interface FrappeSalesOrderItem {
-  item_code: string;
-  description?: string;
-  qty: number;
-  rate: number;
-  amount?: number;
-  delivered_qty?: number;
-}
-
-export interface FrappeCustomer {
-  name: string;
-  customer_name: string;
-  credit_limit?: number;
-}
-
-export interface FrappeDeliveryNote {
-  name: string;
-}
-
-export interface FrappeSalesInvoice {
-  name: string;
-  outstanding_amount?: number;
-  customer?: string;
-}
-
 // ── Existing CRUD functions ─────────────────────────────────────────────────
 
 export async function listSalesOrders(params?: {
@@ -97,33 +46,49 @@ export async function listSalesOrders(params?: {
   { success: true; orders: ClientSafeSalesOrder[] } | { success: false; error: string }
 > {
   try {
-    const filters: Record<string, unknown> = {};
-    if (params?.status) {
-      filters.status = params.status;
-    }
-    const orders = await frappeGetList<FrappeSalesOrder>('Sales Order', {
-      fields: ['name', 'customer', 'project', 'delivery_date', 'status', 'docstatus', 'base_net_total', 'total_taxes_and_charges', 'base_grand_total', 'currency', 'terms', 'creation'],
-      filters,
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const orders = await prisma.sales_orders.findMany({
+      where: {
+        ...(params?.status
+          ? { status: params.status as 'DRAFT' | 'TO_DELIVER' | 'TO_BILL' | 'COMPLETED' | 'CANCELLED' }
+          : {}),
+        ...(params?.from_date || params?.to_date
+          ? {
+              delivery_date: {
+                ...(params.from_date ? { gte: new Date(params.from_date) } : {}),
+                ...(params.to_date ? { lte: new Date(params.to_date) } : {}),
+              },
+            }
+          : {}),
+        ...(params?.search
+          ? {
+              OR: [
+                { customer_name: { contains: params.search, mode: 'insensitive' } },
+                { order_number: { contains: params.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      include: { sales_order_items: true },
+      orderBy: { created_at: 'desc' },
+      take: 200,
     });
 
     return {
       success: true,
       orders: orders.map((o) => ({
-        id: o.name,
-        order_number: o.name,
-        customer_name: o.customer || 'Unknown',
-        project_type: o.project || null,
-        delivery_date: o.delivery_date ? new Date(o.delivery_date) : null,
-        status: o.docstatus === 1 ? 'SUBMITTED' : o.docstatus === 2 ? 'CANCELLED' : 'DRAFT',
-        subtotal: o.base_net_total || 0,
-        tax_rate: 5,
-        tax_amount: o.total_taxes_and_charges || 0,
-        total: o.base_grand_total || 0,
+        id: o.id,
+        order_number: o.order_number,
+        customer_name: o.customer_name || 'Unknown',
+        project_type: o.project_type || null,
+        delivery_date: o.delivery_date || null,
+        status: o.status,
+        subtotal: o.subtotal || 0,
+        tax_rate: o.tax_rate || 0,
+        tax_amount: o.tax_amount || 0,
+        total: o.total || 0,
         currency: o.currency || 'AED',
-        notes: o.terms || null,
-        created_at: o.creation ? new Date(o.creation) : new Date(),
+        notes: o.notes || null,
+        created_at: o.created_at || new Date(),
       })),
     };
   } catch (error: any) {
@@ -144,43 +109,52 @@ export async function createSalesOrder(data: {
 }) {
   try {
     const items = data.items.map((item) => ({
+      id: crypto.randomUUID(),
       item_code: item.item_code || 'Services',
       description: item.description,
-      qty: item.quantity,
+      quantity: item.quantity,
       rate: item.rate,
       amount: item.quantity * item.rate,
+      delivered_qty: 0,
     }));
     const subtotal = items.reduce((s, i) => s + i.amount, 0);
     const taxRate = data.tax_rate || 5;
     const taxAmount = subtotal * taxRate / 100;
     const total = subtotal + taxAmount;
 
-    const order = await frappeInsertDoc<FrappeSalesOrder>('Sales Order', {
-      customer: data.customer_name,
-      project: data.project_type || undefined,
-      delivery_date: data.delivery_date ? data.delivery_date.toISOString().slice(0, 10) : undefined,
-      items,
-      taxes: [{
-        charge_type: 'On Net Total',
-        account_head: 'VAT 5% - AM',
-        description: 'VAT 5%',
-        rate: taxRate,
+    const order = await prisma.sales_orders.create({
+      data: {
+        id: crypto.randomUUID(),
+        order_number: `SO-${Date.now()}`,
+        customer_name: data.customer_name,
+        customer_id: data.customer_id || null,
+        quotation_id: data.quotation_id || null,
+        project_type: data.project_type || null,
+        delivery_date: data.delivery_date || null,
+        status: 'DRAFT',
+        subtotal,
+        tax_rate: taxRate,
         tax_amount: taxAmount,
         total,
-      }],
-      terms: data.notes || undefined,
+        currency: 'AED',
+        notes: data.notes || null,
+        sales_order_items: {
+          create: items,
+        },
+      },
+      include: { sales_order_items: true },
     });
 
     revalidatePath('/erp/sales-orders');
     return {
       success: true as const,
       order: {
-        id: order.name,
-        order_number: order.name,
-        customer_name: data.customer_name,
-        project_type: data.project_type || null,
-        delivery_date: data.delivery_date || null,
-        status: 'DRAFT',
+        id: order.id,
+        order_number: order.order_number,
+        customer_name: order.customer_name,
+        project_type: order.project_type || null,
+        delivery_date: order.delivery_date || null,
+        status: order.status,
         subtotal,
         tax_rate: taxRate,
         tax_amount: taxAmount,
@@ -199,9 +173,17 @@ export async function createSalesOrder(data: {
 export async function updateSalesOrderStatus(id: string, status: string) {
   try {
     if (status === 'CANCELLED') {
-      await frappeCallMethod('frappe.client.cancel', { doctype: 'Sales Order', name: id });
+      await prisma.sales_orders.update({
+        where: { id },
+        data: { status: 'CANCELLED' },
+      });
     } else {
-      await frappeUpdateDoc('Sales Order', id, { status });
+      await prisma.sales_orders.update({
+        where: { id },
+        data: {
+          status: status as 'DRAFT' | 'TO_DELIVER' | 'TO_BILL' | 'COMPLETED' | 'CANCELLED',
+        },
+      });
     }
     revalidatePath('/erp/sales-orders');
     return { success: true };
@@ -216,12 +198,16 @@ export async function updateSalesOrder(
   data: Partial<{ customer_name: string; project_type: string; delivery_date: Date; tax_rate: number; notes: string }>
 ) {
   try {
-    const updateData: Record<string, unknown> = {};
-    if (data.customer_name !== undefined) updateData.customer = data.customer_name;
-    if (data.project_type !== undefined) updateData.project = data.project_type;
-    if (data.delivery_date !== undefined) updateData.delivery_date = data.delivery_date.toISOString().slice(0, 10);
-    if (data.notes !== undefined) updateData.terms = data.notes;
-    await frappeUpdateDoc('Sales Order', id, updateData);
+    await prisma.sales_orders.update({
+      where: { id },
+      data: {
+        ...(data.customer_name !== undefined ? { customer_name: data.customer_name } : {}),
+        ...(data.project_type !== undefined ? { project_type: data.project_type } : {}),
+        ...(data.delivery_date !== undefined ? { delivery_date: data.delivery_date } : {}),
+        ...(data.tax_rate !== undefined ? { tax_rate: data.tax_rate } : {}),
+        ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      },
+    });
     revalidatePath('/erp/sales-orders');
     return { success: true };
   } catch (error: any) {
@@ -232,7 +218,10 @@ export async function updateSalesOrder(
 
 export async function deleteSalesOrder(id: string) {
   try {
-    await frappeCallMethod('frappe.client.cancel', { doctype: 'Sales Order', name: id });
+    await prisma.sales_orders.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+    });
     revalidatePath('/erp/sales-orders');
     return { success: true };
   } catch (error: any) {
@@ -256,10 +245,9 @@ export async function validateSalesOrder(
     if (!data.customer || data.customer.trim().length === 0) {
       return { success: false, error: 'Customer is required' };
     }
-    const customers = await frappeGetList<FrappeCustomer>('Customer', {
-      filters: { customer_name: data.customer },
-      fields: ['name', 'customer_name', 'credit_limit'],
-      limit_page_length: 1,
+    const customers = await prisma.customers.findMany({
+      where: { customer_name: data.customer },
+      take: 1,
     });
     if (customers.length === 0) {
       return { success: false, error: `Customer "${data.customer}" not found` };
@@ -296,11 +284,18 @@ export async function validateSalesOrder(
     const customer = customers[0];
     const creditLimit = customer.credit_limit || 0;
     if (creditLimit > 0 && data.grand_total !== undefined) {
-      const outstandingInvoices = await frappeGetList<FrappeSalesInvoice>('Sales Invoice', {
-        filters: { customer: data.customer, outstanding_amount: ['>', 0], docstatus: 1 },
-        fields: ['outstanding_amount'],
+      const outstandingInvoices = await prisma.sales_invoices.findMany({
+        where: {
+          customer_name: data.customer,
+          outstanding_amount: { gt: 0 },
+          status: 'SUBMITTED',
+        },
+        select: { outstanding_amount: true },
       });
-      const totalOutstanding = outstandingInvoices.reduce((sum, inv) => sum + (inv.outstanding_amount || 0), 0);
+      const totalOutstanding = outstandingInvoices.reduce(
+        (sum, inv) => sum + (inv.outstanding_amount || 0),
+        0
+      );
       const projectedOutstanding = totalOutstanding + data.grand_total;
       if (projectedOutstanding > creditLimit) {
         return {
@@ -319,44 +314,20 @@ export async function validateSalesOrder(
 
 /**
  * Create a Delivery Note from a submitted Sales Order.
+ * Not supported in the Prisma schema (no delivery_notes model).
  */
 export async function makeDeliveryNote(
-  salesOrderId: string
-): Promise<{ success: true; deliveryNote: FrappeDeliveryNote } | { success: false; error: string }> {
-  try {
-    const so = await frappeGetDoc<FrappeSalesOrder & { items?: FrappeSalesOrderItem[] }>('Sales Order', salesOrderId);
-    if (so.docstatus !== 1) {
-      return { success: false, error: 'Sales Order must be submitted before creating a Delivery Note' };
-    }
-
-    const items = (so.items || []).map((item) => ({
-      item_code: item.item_code,
-      description: item.description || '',
-      qty: item.qty - (item.delivered_qty || 0),
-      rate: item.rate,
-      against_sales_order: salesOrderId,
-      so_detail: item.item_code,
-    })).filter((item) => item.qty > 0);
-
-    if (items.length === 0) {
-      return { success: false, error: 'All items have already been delivered' };
-    }
-
-    const dn = await frappeInsertDoc<FrappeDeliveryNote>('Delivery Note', {
-      customer: so.customer,
-      items,
-    });
-
-    revalidatePath('/erp/sales-orders');
-    return { success: true, deliveryNote: dn };
-  } catch (error: any) {
-    console.error('[sales-orders] makeDeliveryNote failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create Delivery Note' };
-  }
+  _salesOrderId: string
+): Promise<{ success: true; deliveryNote: { name: string } } | { success: false; error: string }> {
+  return {
+    success: false,
+    error: 'Delivery Notes are not supported in the Prisma schema',
+  };
 }
 
 /**
- * Compute the effective status of a Sales Order from delivered/billed percentages.
+ * Compute the effective status of a Sales Order.
+ * Prisma schema does not track delivered/billed percentages.
  */
 export async function getSalesOrderStatus(
   soId: string
@@ -365,36 +336,20 @@ export async function getSalesOrderStatus(
   | { success: false; error: string }
 > {
   try {
-    const so = await frappeGetDoc<FrappeSalesOrder>('Sales Order', soId);
-    const perDelivered = so.per_delivered || 0;
-    const perBilled = so.per_billed || 0;
-    const deliveryStatus = so.delivery_status || 'Not Delivered';
-    const billingStatus = so.billing_status || 'Not Billed';
-
-    let computedStatus = so.status || 'Draft';
-    if (so.docstatus === 1) {
-      if (deliveryStatus === 'Closed' || so.status === 'Closed') {
-        computedStatus = 'Closed';
-      } else if (perDelivered >= 100 && perBilled >= 100) {
-        computedStatus = 'Completed';
-      } else if (perDelivered < 100 && perBilled < 100) {
-        computedStatus = 'To Deliver and Bill';
-      } else if (perDelivered < 100 && perBilled >= 100) {
-        computedStatus = 'To Deliver';
-      } else if (perDelivered >= 100 && perBilled < 100) {
-        computedStatus = 'To Bill';
-      }
-    } else if (so.docstatus === 2) {
-      computedStatus = 'Cancelled';
+    const so = await prisma.sales_orders.findUnique({
+      where: { id: soId },
+    });
+    if (!so) {
+      return { success: false, error: 'Sales Order not found' };
     }
 
     return {
       success: true,
-      status: computedStatus,
-      deliveryStatus,
-      billingStatus,
-      perDelivered,
-      perBilled,
+      status: so.status,
+      deliveryStatus: 'Not Delivered',
+      billingStatus: 'Not Billed',
+      perDelivered: 0,
+      perBilled: 0,
     };
   } catch (error: any) {
     console.error('[sales-orders] getSalesOrderStatus failed:', error?.message);

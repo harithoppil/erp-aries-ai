@@ -1,13 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import {
-  frappeGetList,
-  frappeGetDoc,
-  frappeInsertDoc,
-  frappeUpdateDoc,
-  frappeCallMethod,
-} from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -42,31 +36,6 @@ export interface QuotationValidateInput {
   items: QuotationItemInput[];
 }
 
-export interface FrappeQuotation {
-  name: string;
-  party_name?: string;
-  status?: string;
-  docstatus: number;
-  base_net_total?: number;
-  total_taxes_and_charges?: number;
-  base_grand_total?: number;
-  currency?: string;
-  valid_till?: string;
-  creation?: string;
-  transaction_date?: string;
-  items?: FrappeQuotationItem[];
-}
-
-export interface FrappeQuotationItem {
-  name?: string;
-  item_code: string;
-  description?: string;
-  qty: number;
-  rate: number;
-  amount?: number;
-  ordered_qty?: number;
-}
-
 export interface FrappeSalesOrder {
   name: string;
 }
@@ -77,25 +46,27 @@ export async function listQuotations(): Promise<
   { success: true; quotations: ClientSafeQuotation[] } | { success: false; error: string }
 > {
   try {
-    const quotations = await frappeGetList<FrappeQuotation>('Quotation', {
-      fields: ['name', 'party_name', 'status', 'docstatus', 'base_net_total', 'total_taxes_and_charges', 'base_grand_total', 'currency', 'valid_till', 'creation'],
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const rows = await prisma.quotations.findMany({
+      include: { quotation_items: true },
+      orderBy: { created_at: 'desc' },
+      take: 200,
     });
 
     return {
       success: true,
-      quotations: quotations.map((q) => ({
-        id: q.name,
-        quotation_number: q.name,
-        customer_name: q.party_name || 'Unknown',
-        status: q.docstatus === 1 ? 'SUBMITTED' : q.docstatus === 2 ? 'CANCELLED' : 'DRAFT',
-        subtotal: q.base_net_total || 0,
-        tax_amount: q.total_taxes_and_charges || 0,
-        total: q.base_grand_total || 0,
+      quotations: rows.map((q) => ({
+        id: q.id,
+        quotation_number: q.quotation_number,
+        customer_name: q.customer_name || 'Unknown',
+        status: q.status || 'DRAFT',
+        subtotal: q.subtotal || 0,
+        tax_amount: q.tax_amount || 0,
+        total: q.total || 0,
         currency: q.currency || 'AED',
-        valid_till: q.valid_till ? new Date(q.valid_till) : null,
-        created_at: q.creation ? new Date(q.creation) : new Date(),
+        valid_till: q.valid_until,
+        created_at: q.created_at,
+        project_type: q.project_type || null,
+        notes: q.notes || null,
       })),
     };
   } catch (error: any) {
@@ -115,22 +86,58 @@ export async function createQuotation(data: {
 }) {
   try {
     const customer = data.customer_name || data.customer_id || '';
-    const doc = await frappeInsertDoc<FrappeQuotation>('Quotation', {
-      quotation_to: 'Customer',
-      party_name: customer,
-      items: data.items.map((i) => {
-        const qty = i.qty ?? i.quantity ?? 1;
-        return {
-          item_code: i.item_code || '',
-          description: i.description || '',
-          qty,
-          rate: i.rate,
-          amount: qty * i.rate,
-        };
-      }),
+    const subtotal = data.items.reduce((s, i) => s + (i.qty ?? i.quantity ?? 1) * i.rate, 0);
+    const tax_amount = subtotal * (data.tax_rate || 0) / 100;
+    const total = subtotal + tax_amount;
+
+    const record = await prisma.quotations.create({
+      data: {
+        id: crypto.randomUUID(),
+        quotation_number: `QTN-${Date.now()}`,
+        customer_id: data.customer_id || null,
+        customer_name: customer,
+        project_type: data.project_type || null,
+        valid_until: data.valid_until || null,
+        subtotal,
+        tax_rate: data.tax_rate || 0,
+        tax_amount,
+        total,
+        currency: 'AED',
+        notes: data.notes || null,
+        status: 'DRAFT',
+        quotation_items: {
+          create: data.items.map((i) => ({
+            id: crypto.randomUUID(),
+            item_code: i.item_code || '',
+            description: i.description || '',
+            quantity: i.qty ?? i.quantity ?? 1,
+            rate: i.rate,
+            amount: (i.qty ?? i.quantity ?? 1) * i.rate,
+          })),
+        },
+      },
+      include: { quotation_items: true },
     });
+
     revalidatePath('/erp/quotations');
-    return { success: true as const, quotation: { id: doc.name, quotation_number: doc.name, customer_name: customer, status: 'DRAFT', subtotal: 0, tax_amount: 0, total: 0, currency: 'AED', valid_till: data.valid_until || null, valid_until: data.valid_until || null, created_at: new Date(), project_type: data.project_type || null, notes: data.notes || null } as ClientSafeQuotation };
+    return {
+      success: true as const,
+      quotation: {
+        id: record.id,
+        quotation_number: record.quotation_number,
+        customer_name: customer,
+        status: 'DRAFT',
+        subtotal,
+        tax_amount,
+        total,
+        currency: 'AED',
+        valid_till: data.valid_until || null,
+        valid_until: data.valid_until || null,
+        created_at: record.created_at,
+        project_type: data.project_type || null,
+        notes: data.notes || null,
+      } as ClientSafeQuotation,
+    };
   } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create quotation' };
   }
@@ -138,20 +145,14 @@ export async function createQuotation(data: {
 
 // ── NEW: Validation & Business Logic ────────────────────────────────────────
 
-/**
- * Validate a Quotation before submission.
- * Checks: party_name exists, items present, valid_till after transaction_date.
- */
 export async function validateQuotation(
   data: QuotationValidateInput
 ): Promise<{ success: true; valid: true } | { success: false; error: string }> {
   try {
-    // 1. Party name is required
     if (!data.party_name || data.party_name.trim().length === 0) {
       return { success: false, error: 'Party Name is required' };
     }
 
-    // 2. Items must not be empty
     if (!data.items || data.items.length === 0) {
       return { success: false, error: 'At least one item is required' };
     }
@@ -165,7 +166,6 @@ export async function validateQuotation(
       }
     }
 
-    // 3. Valid till date must not be before transaction date
     if (data.valid_till && data.transaction_date) {
       const validTill = new Date(data.valid_till);
       const transactionDate = new Date(data.transaction_date);
@@ -174,7 +174,6 @@ export async function validateQuotation(
       }
     }
 
-    // 4. Valid till must not be in the past
     if (data.valid_till) {
       const validTill = new Date(data.valid_till);
       const today = new Date();
@@ -191,21 +190,23 @@ export async function validateQuotation(
   }
 }
 
-/**
- * Create a Sales Order from a submitted Quotation.
- */
 export async function makeSalesOrder(
   quotationId: string
 ): Promise<{ success: true; salesOrder: FrappeSalesOrder } | { success: false; error: string }> {
   try {
-    const qtn = await frappeGetDoc<FrappeQuotation>('Quotation', quotationId);
-    if (qtn.docstatus !== 1) {
+    const qtn = await prisma.quotations.findUnique({
+      where: { id: quotationId },
+      include: { quotation_items: true },
+    });
+    if (!qtn) {
+      return { success: false, error: 'Quotation not found' };
+    }
+    if (qtn.status !== 'SENT' && qtn.status !== 'ACCEPTED') {
       return { success: false, error: 'Quotation must be submitted before creating a Sales Order' };
     }
 
-    // Re-check expiry
-    if (qtn.valid_till) {
-      const validTill = new Date(qtn.valid_till);
+    if (qtn.valid_until) {
+      const validTill = new Date(qtn.valid_until);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (validTill < today) {
@@ -213,34 +214,42 @@ export async function makeSalesOrder(
       }
     }
 
-    const soItems = (qtn.items || []).map((item) => ({
-      item_code: item.item_code,
-      description: item.description || '',
-      qty: item.qty,
-      rate: item.rate,
-      amount: (item.qty * item.rate),
-      prevdoc_docname: quotationId,
-    }));
-
-    const so = await frappeInsertDoc<FrappeSalesOrder>('Sales Order', {
-      customer: qtn.party_name,
-      items: soItems,
-      order_type: 'Sales',
+    const so = await prisma.sales_orders.create({
+      data: {
+        id: crypto.randomUUID(),
+        order_number: `SO-${Date.now()}`,
+        quotation_id: quotationId,
+        customer_id: qtn.customer_id,
+        customer_name: qtn.customer_name,
+        subtotal: qtn.subtotal || 0,
+        tax_rate: qtn.tax_rate || 0,
+        tax_amount: qtn.tax_amount || 0,
+        total: qtn.total || 0,
+        currency: qtn.currency || 'AED',
+        status: 'DRAFT',
+        sales_order_items: {
+          create: (qtn.quotation_items || []).map((item) => ({
+            id: crypto.randomUUID(),
+            item_code: item.item_code || '',
+            description: item.description || '',
+            quantity: item.quantity || 1,
+            rate: item.rate || 0,
+            amount: item.amount || 0,
+            delivered_qty: 0,
+          })),
+        },
+      },
     });
 
     revalidatePath('/erp/sales-orders');
     revalidatePath('/erp/quotations');
-    return { success: true, salesOrder: so };
+    return { success: true, salesOrder: { name: so.order_number } };
   } catch (error: any) {
     console.error('[quotations] makeSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create Sales Order from Quotation' };
   }
 }
 
-/**
- * Calculate the profit margin of a Quotation.
- * Margin = total - sum(item_rate * qty) … using valuation_rate from Item as cost proxy.
- */
 export async function getQuotationMargin(
   quotationId: string
 ): Promise<
@@ -248,31 +257,36 @@ export async function getQuotationMargin(
   | { success: false; error: string }
 > {
   try {
-    const qtn = await frappeGetDoc<FrappeQuotation>('Quotation', quotationId);
-    const total = qtn.base_grand_total || 0;
-    const items = qtn.items || [];
+    const qtn = await prisma.quotations.findUnique({
+      where: { id: quotationId },
+      include: { quotation_items: true },
+    });
+    if (!qtn) {
+      return { success: false, error: 'Quotation not found' };
+    }
+
+    const total = qtn.total || 0;
+    const items = qtn.quotation_items || [];
 
     if (items.length === 0) {
       return { success: true, total, cost: 0, margin: 0, marginPercent: 0 };
     }
 
-    // Fetch valuation_rate for each item_code as a cost proxy
     const itemCodes = Array.from(new Set(items.map((i) => i.item_code).filter((code): code is string => typeof code === 'string' && code.length > 0)));
-    const itemDocs = await frappeGetList<{ name: string; valuation_rate?: number; standard_rate?: number }>('Item', {
-      filters: { name: ['in', itemCodes] },
-      fields: ['name', 'valuation_rate', 'standard_rate'],
-      limit_page_length: itemCodes.length,
+    const itemDocs = await prisma.items.findMany({
+      where: { item_code: { in: itemCodes } },
+      select: { item_code: true, standard_rate: true },
     });
 
     const costMap: Record<string, number> = {};
     for (const it of itemDocs) {
-      costMap[it.name] = it.valuation_rate || it.standard_rate || 0;
+      costMap[it.item_code] = it.standard_rate || 0;
     }
 
     let cost = 0;
     for (const item of items) {
-      const unitCost = costMap[item.item_code] || 0;
-      cost += unitCost * item.qty;
+      const unitCost = costMap[item.item_code || ''] || 0;
+      cost += unitCost * (item.quantity || 1);
     }
 
     const margin = total - cost;

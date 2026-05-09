@@ -1,9 +1,6 @@
 'use server';
 
-import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeDeleteDoc } from '@/lib/frappe-client';
-
-// Channel connectors — map to a custom DocType or use ERPNext Notification
-// For now, return a static list compatible with the UI
+import { prisma } from '@/lib/prisma';
 
 export type ClientSafeConnector = {
   id: string;
@@ -22,23 +19,22 @@ export async function listChannels(): Promise<
   { success: true; channels: ClientSafeChannel[] } | { success: false; error: string }
 > {
   try {
-    const channels = await frappeGetList<any>('Channel Connector', {
-      fields: ['name', 'channel_type', 'name', 'enabled', 'config', 'webhook_url', 'default_persona_id', 'creation'],
-      order_by: 'creation desc',
-      limit_page_length: 50,
+    const rows = await prisma.channel_connectors.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 50,
     });
 
     return {
       success: true,
-      channels: channels.map((c: any) => ({
-        id: c.name,
+      channels: rows.map((c) => ({
+        id: c.id,
         channel_type: c.channel_type || 'telegram',
         name: c.name,
-        enabled: !!c.enabled,
+        enabled: c.enabled,
         config: c.config || null,
         webhook_url: c.webhook_url || null,
         default_persona_id: c.default_persona_id || null,
-        created_at: c.creation ? new Date(c.creation) : new Date(),
+        created_at: c.created_at,
       })),
     };
   } catch {
@@ -57,17 +53,77 @@ export async function listConnectors(): Promise<
 export async function createConnector(data: Partial<ClientSafeConnector>): Promise<
   { success: true; connector: ClientSafeConnector } | { success: false; error: string }
 > {
-  return { success: true, connector: { id: 'new', channel_type: data.channel_type || 'telegram', name: data.name || 'New Connector', enabled: data.enabled ?? true, config: data.config || null, webhook_url: data.webhook_url || null, default_persona_id: data.default_persona_id || null, created_at: new Date() } };
+  try {
+    const record = await prisma.channel_connectors.create({
+      data: {
+        id: crypto.randomUUID(),
+        channel_type: data.channel_type || 'telegram',
+        name: data.name || 'New Connector',
+        enabled: data.enabled ?? true,
+        config: data.config || null,
+        webhook_url: data.webhook_url || null,
+        default_persona_id: data.default_persona_id || null,
+      },
+    });
+    return {
+      success: true,
+      connector: {
+        id: record.id,
+        channel_type: record.channel_type,
+        name: record.name,
+        enabled: record.enabled,
+        config: record.config,
+        webhook_url: record.webhook_url,
+        default_persona_id: record.default_persona_id,
+        created_at: record.created_at,
+      },
+    };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Failed to create connector' };
+  }
 }
 
-export async function updateConnector(_id: string, data: Partial<ClientSafeConnector>): Promise<
-  { success: true; connector: ClientSafeConnector } | { success: false; error: string }
-> {
-  return { success: true, connector: { id: _id, channel_type: data.channel_type || 'telegram', name: data.name || 'Updated', enabled: data.enabled ?? true, config: data.config || null, webhook_url: data.webhook_url || null, default_persona_id: data.default_persona_id || null, created_at: new Date() } };
+export async function updateConnector(
+  id: string,
+  data: Partial<ClientSafeConnector>
+): Promise<{ success: true; connector: ClientSafeConnector } | { success: false; error: string }> {
+  try {
+    const record = await prisma.channel_connectors.update({
+      where: { id },
+      data: {
+        channel_type: data.channel_type || undefined,
+        name: data.name || undefined,
+        enabled: data.enabled !== undefined ? data.enabled : undefined,
+        config: data.config !== undefined ? data.config : undefined,
+        webhook_url: data.webhook_url !== undefined ? data.webhook_url : undefined,
+        default_persona_id: data.default_persona_id !== undefined ? data.default_persona_id : undefined,
+      },
+    });
+    return {
+      success: true,
+      connector: {
+        id: record.id,
+        channel_type: record.channel_type,
+        name: record.name,
+        enabled: record.enabled,
+        config: record.config,
+        webhook_url: record.webhook_url,
+        default_persona_id: record.default_persona_id,
+        created_at: record.created_at,
+      },
+    };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Failed to update connector' };
+  }
 }
 
-export async function deleteConnector(_id: string): Promise<
+export async function deleteConnector(id: string): Promise<
   { success: true } | { success: false; error: string }
 > {
-  return { success: true };
+  try {
+    await prisma.channel_connectors.delete({ where: { id } });
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Failed to delete connector' };
+  }
 }

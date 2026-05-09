@@ -1,12 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import {
-  frappeGetList,
-  frappeGetDoc,
-  frappeInsertDoc,
-  frappeUpdateDoc,
-} from '@/lib/frappe-client';
+import { randomUUID } from 'crypto';
+import { prisma } from '@/lib/prisma';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,64 +27,32 @@ export interface CustomerValidateInput {
   customer_group?: string;
 }
 
-export interface FrappeCustomer {
-  name: string;
-  customer_name: string;
-  customer_primary_contact?: string;
-  email_id?: string;
-  mobile_no?: string;
-  primary_address?: string;
-  industry?: string;
-  tax_id?: string;
-  credit_limit?: number;
-  disabled?: number;
-  creation?: string;
-  territory?: string;
-  customer_group?: string;
-}
-
-export interface FrappeSalesInvoice {
-  name: string;
-  outstanding_amount?: number;
-  customer?: string;
-  base_grand_total?: number;
-}
-
-export interface FrappeSalesOrder {
-  name: string;
-  customer?: string;
-  base_grand_total?: number;
-  per_billed?: number;
-  docstatus?: number;
-}
-
 // ── Existing CRUD functions ─────────────────────────────────────────────────
 
 export async function listCustomers(): Promise<
   { success: true; customers: ClientSafeCustomer[] } | { success: false; error: string }
 > {
   try {
-    const customers = await frappeGetList<FrappeCustomer>('Customer', {
-      fields: ['name', 'customer_name', 'customer_primary_contact', 'email_id', 'mobile_no', 'primary_address', 'industry', 'tax_id', 'credit_limit', 'disabled', 'creation'],
-      order_by: 'creation desc',
-      limit_page_length: 500,
+    const customers = await prisma.customers.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 500,
     });
 
     return {
       success: true,
       customers: customers.map((c) => ({
-        id: c.name,
-        customer_name: c.customer_name || c.name,
-        customer_code: c.name,
-        contact_person: c.customer_primary_contact || null,
-        email: c.email_id || null,
-        phone: c.mobile_no || null,
-        address: c.primary_address || null,
+        id: c.id,
+        customer_name: c.customer_name,
+        customer_code: c.customer_code,
+        contact_person: c.contact_person || null,
+        email: c.email || null,
+        phone: c.phone || null,
+        address: c.address || null,
         industry: c.industry || null,
         tax_id: c.tax_id || null,
         credit_limit: c.credit_limit || null,
-        status: c.disabled ? 'Inactive' : 'Active',
-        created_at: c.creation ? new Date(c.creation) : new Date(),
+        status: c.status,
+        created_at: c.created_at,
       })),
     };
   } catch (error: any) {
@@ -109,25 +73,12 @@ export async function createCustomer(data: {
   credit_limit?: number;
 }) {
   try {
-    const customer = await frappeInsertDoc<FrappeCustomer>('Customer', {
-      customer_name: data.customer_name,
-      customer_type: 'Company',
-      customer_group: 'Commercial',
-      territory: 'All Territories',
-      email_id: data.email || undefined,
-      mobile_no: data.phone || undefined,
-      primary_address: data.address || undefined,
-      industry: data.industry || undefined,
-      tax_id: data.tax_id || undefined,
-      credit_limit: data.credit_limit || 0,
-    });
-    revalidatePath('/erp/customers');
-    return {
-      success: true as const,
-      customer: {
-        id: customer.name,
-        customer_name: customer.customer_name,
-        customer_code: customer.name,
+    const id = randomUUID();
+    const customer = await prisma.customers.create({
+      data: {
+        id,
+        customer_name: data.customer_name,
+        customer_code: data.customer_code || `CUST-${id.slice(0, 8).toUpperCase()}`,
         contact_person: data.contact_person || null,
         email: data.email || null,
         phone: data.phone || null,
@@ -136,7 +87,24 @@ export async function createCustomer(data: {
         tax_id: data.tax_id || null,
         credit_limit: data.credit_limit || null,
         status: 'Active',
-        created_at: new Date(),
+      },
+    });
+    revalidatePath('/erp/customers');
+    return {
+      success: true as const,
+      customer: {
+        id: customer.id,
+        customer_name: customer.customer_name,
+        customer_code: customer.customer_code,
+        contact_person: customer.contact_person,
+        email: customer.email,
+        phone: customer.phone,
+        address: customer.address,
+        industry: customer.industry,
+        tax_id: customer.tax_id,
+        credit_limit: customer.credit_limit,
+        status: customer.status,
+        created_at: customer.created_at,
       } as ClientSafeCustomer,
     };
   } catch (error: any) {
@@ -149,27 +117,28 @@ export async function searchCustomers(query: string): Promise<
   { success: true; customers: ClientSafeCustomer[] } | { success: false; error: string }
 > {
   try {
-    const customers = await frappeGetList<FrappeCustomer>('Customer', {
-      fields: ['name', 'customer_name', 'email_id', 'mobile_no', 'creation'],
-      filters: { customer_name: ['like', `%${query}%`] },
-      order_by: 'creation desc',
-      limit_page_length: 50,
+    const customers = await prisma.customers.findMany({
+      where: {
+        customer_name: { contains: query, mode: 'insensitive' },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 50,
     });
     return {
       success: true,
       customers: customers.map((c) => ({
-        id: c.name,
+        id: c.id,
         customer_name: c.customer_name,
-        customer_code: c.name,
-        contact_person: null,
-        email: c.email_id || null,
-        phone: c.mobile_no || null,
-        address: null,
-        industry: null,
-        tax_id: null,
-        credit_limit: null,
-        status: 'Active',
-        created_at: c.creation ? new Date(c.creation) : new Date(),
+        customer_code: c.customer_code,
+        contact_person: c.contact_person || null,
+        email: c.email || null,
+        phone: c.phone || null,
+        address: c.address || null,
+        industry: c.industry || null,
+        tax_id: c.tax_id || null,
+        credit_limit: c.credit_limit || null,
+        status: c.status,
+        created_at: c.created_at,
       })),
     };
   } catch (error: any) {
@@ -181,7 +150,7 @@ export async function searchCustomers(query: string): Promise<
 
 /**
  * Validate customer data before creation/update.
- * Checks: unique customer_name (within scope), valid territory.
+ * Checks: unique customer_name (within scope).
  */
 export async function validateCustomer(
   data: CustomerValidateInput
@@ -193,39 +162,14 @@ export async function validateCustomer(
     }
 
     // 2. Check uniqueness of customer_name
-    const existing = await frappeGetList<FrappeCustomer>('Customer', {
-      filters: { customer_name: data.customer_name.trim() },
-      fields: ['name'],
-      limit_page_length: 1,
+    const existing = await prisma.customers.findFirst({
+      where: { customer_name: data.customer_name.trim() },
     });
-    if (existing.length > 0) {
+    if (existing) {
       return { success: false, error: `Customer "${data.customer_name}" already exists` };
     }
 
-    // 3. Validate territory if provided
-    if (data.territory && data.territory.trim().length > 0) {
-      const territories = await frappeGetList<{ name: string }>('Territory', {
-        filters: { name: data.territory },
-        fields: ['name'],
-        limit_page_length: 1,
-      });
-      if (territories.length === 0) {
-        return { success: false, error: `Territory "${data.territory}" is not valid` };
-      }
-    }
-
-    // 4. Validate customer_group if provided
-    if (data.customer_group && data.customer_group.trim().length > 0) {
-      const groups = await frappeGetList<{ name: string }>('Customer Group', {
-        filters: { name: data.customer_group },
-        fields: ['name'],
-        limit_page_length: 1,
-      });
-      if (groups.length === 0) {
-        return { success: false, error: `Customer Group "${data.customer_group}" is not valid` };
-      }
-    }
-
+    // Territory and customer_group validations removed — no corresponding Prisma models
     return { success: true, valid: true };
   } catch (error: any) {
     console.error('[customers] validateCustomer failed:', error?.message);
@@ -234,7 +178,7 @@ export async function validateCustomer(
 }
 
 /**
- * Get total outstanding amount for a customer from GL-based Sales Invoices
+ * Get total outstanding amount for a customer from Sales Invoices
  * plus unbilled Sales Orders.
  */
 export async function getCustomerOutstanding(
@@ -245,22 +189,26 @@ export async function getCustomerOutstanding(
       return { success: false, error: 'Customer name is required' };
     }
 
-    // Outstanding from Sales Invoices (GL proxy)
-    const invoices = await frappeGetList<FrappeSalesInvoice>('Sales Invoice', {
-      filters: { customer: customerName, outstanding_amount: ['>', 0], docstatus: 1 },
-      fields: ['outstanding_amount'],
+    // Outstanding from Sales Invoices
+    const invoices = await prisma.sales_invoices.findMany({
+      where: {
+        customer_name: customerName,
+        outstanding_amount: { gt: 0 },
+        status: { notIn: ['DRAFT', 'CANCELLED'] },
+      },
+      select: { outstanding_amount: true },
     });
     const invoiceOutstanding = invoices.reduce((sum, inv) => sum + (inv.outstanding_amount || 0), 0);
 
-    // Outstanding from submitted but not fully billed Sales Orders
-    const orders = await frappeGetList<FrappeSalesOrder>('Sales Order', {
-      filters: { customer: customerName, docstatus: 1, per_billed: ['<', 100] },
-      fields: ['base_grand_total', 'per_billed'],
+    // Outstanding from Sales Orders that are not completed/cancelled/draft
+    const orders = await prisma.sales_orders.findMany({
+      where: {
+        customer_name: customerName,
+        status: { notIn: ['DRAFT', 'CANCELLED', 'COMPLETED'] },
+      },
+      select: { total: true },
     });
-    const orderOutstanding = orders.reduce((sum, so) => {
-      const unbilled = (so.base_grand_total || 0) * (100 - (so.per_billed || 0)) / 100;
-      return sum + unbilled;
-    }, 0);
+    const orderOutstanding = orders.reduce((sum, so) => sum + (so.total || 0), 0);
 
     const totalOutstanding = invoiceOutstanding + orderOutstanding;
 
@@ -287,16 +235,15 @@ export async function checkCreditLimit(
       return { success: false, error: 'Customer name is required' };
     }
 
-    const customers = await frappeGetList<FrappeCustomer>('Customer', {
-      filters: { customer_name: customerName },
-      fields: ['name', 'credit_limit'],
-      limit_page_length: 1,
+    const customer = await prisma.customers.findFirst({
+      where: { customer_name: customerName },
+      select: { credit_limit: true },
     });
-    if (customers.length === 0) {
+    if (!customer) {
       return { success: false, error: `Customer "${customerName}" not found` };
     }
 
-    const creditLimit = customers[0].credit_limit || 0;
+    const creditLimit = customer.credit_limit || 0;
     if (creditLimit <= 0) {
       return { success: true, withinLimit: true, creditLimit: 0, projectedOutstanding: 0 };
     }

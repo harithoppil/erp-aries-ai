@@ -1,6 +1,6 @@
 'use server';
 
-import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc, frappeDeleteDoc } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type WikiPageRead = {
   path: string;
@@ -16,24 +16,21 @@ export type WikiSearchResult = {
   score: number;
 };
 
-const WIKI_DOCTYPE = 'Note';
-
 export async function listWikiPages(): Promise<
   { success: true; pages: WikiPageRead[] } | { success: false; error: string }
 > {
   try {
-    const notes = await frappeGetList<Record<string, unknown>>(WIKI_DOCTYPE, {
-      fields: ['name', 'title', 'content', 'modified'],
-      order_by: 'title asc',
-      limit_page_length: 500,
+    const rows = await prisma.notebooks.findMany({
+      orderBy: { title: 'asc' },
+      take: 500,
     });
     return {
       success: true,
-      pages: notes.map((n) => ({
-        path: String(n.title || n.name),
-        title: String(n.title || n.name),
-        content: String(n.content || ''),
-        last_modified: n.modified ? String(n.modified) : null,
+      pages: rows.map((n) => ({
+        path: n.title || n.id,
+        title: n.title || n.id,
+        content: n.content || '',
+        last_modified: n.updated_at.toISOString(),
       })),
     };
   } catch (error: any) {
@@ -45,32 +42,35 @@ export async function getWikiPage(path: string): Promise<
   { success: true; page: WikiPageRead } | { success: false; error: string }
 > {
   try {
-    const notes = await frappeGetList<Record<string, unknown>>(WIKI_DOCTYPE, {
-      fields: ['name', 'title', 'content', 'modified'],
-      filters: { title: path },
-      limit_page_length: 1,
+    const rows = await prisma.notebooks.findMany({
+      where: { title: path },
+      take: 1,
     });
 
-    if (notes.length > 0) {
+    if (rows.length > 0) {
       return {
         success: true,
         page: {
-          path: String(notes[0].title || notes[0].name),
-          title: String(notes[0].title || notes[0].name),
-          content: String(notes[0].content || ''),
-          last_modified: notes[0].modified ? String(notes[0].modified) : null,
+          path: rows[0].title || rows[0].id,
+          title: rows[0].title || rows[0].id,
+          content: rows[0].content || '',
+          last_modified: rows[0].updated_at.toISOString(),
         },
       };
     }
 
-    const note = await frappeGetDoc<Record<string, unknown>>(WIKI_DOCTYPE, path);
+    // Fallback: search by id
+    const note = await prisma.notebooks.findUnique({ where: { id: path } });
+    if (!note) {
+      return { success: false, error: 'Wiki page not found' };
+    }
     return {
       success: true,
       page: {
-        path: String(note.title || note.name),
-        title: String(note.title || note.name),
-        content: String(note.content || ''),
-        last_modified: note.modified ? String(note.modified) : null,
+        path: note.title || note.id,
+        title: note.title || note.id,
+        content: note.content || '',
+        last_modified: note.updated_at.toISOString(),
       },
     };
   } catch (error: any) {
@@ -78,22 +78,26 @@ export async function getWikiPage(path: string): Promise<
   }
 }
 
-export async function createWikiPage(path: string, content: string, _msg?: string): Promise<
-  { success: true; page: WikiPageRead } | { success: false; error: string }
-> {
+export async function createWikiPage(
+  path: string,
+  content: string,
+  _msg?: string
+): Promise<{ success: true; page: WikiPageRead } | { success: false; error: string }> {
   try {
-    const note = await frappeInsertDoc<Record<string, unknown>>(WIKI_DOCTYPE, {
-      title: path,
-      content,
-      public: 1,
+    const note = await prisma.notebooks.create({
+      data: {
+        id: crypto.randomUUID(),
+        title: path,
+        content,
+      },
     });
     return {
       success: true,
       page: {
-        path: String(note.title || note.name),
-        title: String(note.title || note.name),
-        content: String(note.content || ''),
-        last_modified: note.modified ? String(note.modified) : null,
+        path: note.title || note.id,
+        title: note.title || note.id,
+        content: note.content || '',
+        last_modified: note.updated_at.toISOString(),
       },
     };
   } catch (error: any) {
@@ -101,18 +105,24 @@ export async function createWikiPage(path: string, content: string, _msg?: strin
   }
 }
 
-export async function updateWikiPage(path: string, content: string): Promise<
-  { success: true; page: WikiPageRead } | { success: false; error: string }
-> {
+export async function updateWikiPage(
+  path: string,
+  content: string
+): Promise<{ success: true; page: WikiPageRead } | { success: false; error: string }> {
   try {
-    const note = await frappeUpdateDoc<Record<string, unknown>>(WIKI_DOCTYPE, path, { content });
+    // Try update by title first, then by id
+    const existing = await prisma.notebooks.findFirst({ where: { title: path } });
+    const note = await prisma.notebooks.update({
+      where: { id: existing?.id || path },
+      data: { content },
+    });
     return {
       success: true,
       page: {
-        path: String(note.title || note.name),
-        title: String(note.title || note.name),
-        content: String(note.content || ''),
-        last_modified: note.modified ? String(note.modified) : null,
+        path: note.title || note.id,
+        title: note.title || note.id,
+        content: note.content || '',
+        last_modified: note.updated_at.toISOString(),
       },
     };
   } catch (error: any) {
@@ -122,7 +132,8 @@ export async function updateWikiPage(path: string, content: string): Promise<
 
 export async function deleteWikiPage(path: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await frappeDeleteDoc(WIKI_DOCTYPE, path);
+    const existing = await prisma.notebooks.findFirst({ where: { title: path } });
+    await prisma.notebooks.delete({ where: { id: existing?.id || path } });
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.message || 'Failed to delete wiki page' };
@@ -133,17 +144,16 @@ export async function searchWiki(q: string): Promise<
   { success: true; results: WikiSearchResult[] } | { success: false; error: string }
 > {
   try {
-    const notes = await frappeGetList<Record<string, unknown>>(WIKI_DOCTYPE, {
-      fields: ['name', 'title', 'content'],
-      filters: { title: ['like', `%${q}%`] },
-      limit_page_length: 50,
+    const rows = await prisma.notebooks.findMany({
+      where: { title: { contains: q, mode: 'insensitive' } },
+      take: 50,
     });
     return {
       success: true,
-      results: notes.map((n) => ({
-        path: String(n.name),
-        title: String(n.title || n.name),
-        snippet: String(n.content || '').slice(0, 200),
+      results: rows.map((n) => ({
+        path: n.id,
+        title: n.title || n.id,
+        snippet: (n.content || '').slice(0, 200),
         score: 1,
       })),
     };

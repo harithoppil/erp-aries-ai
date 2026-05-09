@@ -805,11 +805,11 @@ export function updateStockQty(doc: BOMDoc): void {
   for (const m of [...doc.items, ...doc.secondary_items]) {
     if (!m.conversion_factor) m.conversion_factor = 1;
     if (m.uom && (m.qty || m.qty === 0)) {
-      m.stock_qty = flt(m.conversion_factor) * flt(m.qty);
+      m.stock_qty = flt((m.conversion_factor ?? 1) * (m.qty ?? 0));
     }
     if (!m.uom && m.stock_uom) {
       m.uom = m.stock_uom;
-      m.qty = m.stock_qty;
+      m.qty = m.stock_qty ?? 0;
     }
   }
 }

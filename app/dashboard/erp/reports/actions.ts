@@ -1,6 +1,6 @@
 'use server';
 
-import { frappeRunReport, frappeCallMethod } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type ReportFilters = {
   from_date?: string;
@@ -57,23 +57,31 @@ export async function getGeneralLedger(filters?: ReportFilters): Promise<
   { success: true; entries: GLEntry[]; total: { debit: number; credit: number } } | { success: false; error: string }
 > {
   try {
-    const data = await frappeRunReport<any>('General Ledger', {
-      company: filters?.company || 'Aries Marine',
-      from_date: filters?.from_date || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
-      to_date: filters?.to_date || new Date().toISOString().slice(0, 10),
-      ...filters,
+    const fromDate = filters?.from_date ? new Date(filters.from_date) : new Date(new Date().getFullYear(), 0, 1);
+    const toDate = filters?.to_date ? new Date(filters.to_date) : new Date();
+
+    const rows = await prisma.gl_entries.findMany({
+      where: {
+        posting_date: { gte: fromDate, lte: toDate },
+      },
+      orderBy: { posting_date: 'asc' },
+      take: 1000,
     });
 
-    const entries: GLEntry[] = (data || []).map((row: any) => ({
-      id: row.name || row.voucher_no || String(Math.random()),
-      posting_date: row.posting_date || row.date,
-      voucher_type: row.voucher_type || 'Journal Entry',
-      voucher_no: row.voucher_no || row.name,
-      party_name: row.party,
-      debit: Number(row.debit || 0),
-      credit: Number(row.credit || 0),
-      balance: Number(row.balance || 0),
-    }));
+    let runningBalance = 0;
+    const entries: GLEntry[] = rows.map((row) => {
+      runningBalance += (row.debit || 0) - (row.credit || 0);
+      return {
+        id: row.id,
+        posting_date: row.posting_date ? row.posting_date.toISOString().slice(0, 10) : '',
+        voucher_type: row.voucher_type || 'Journal Entry',
+        voucher_no: row.voucher_no || row.id,
+        party_name: row.party_name || undefined,
+        debit: Number(row.debit || 0),
+        credit: Number(row.credit || 0),
+        balance: Number(runningBalance),
+      };
+    });
 
     const totalDebit = entries.reduce((s, e) => s + e.debit, 0);
     const totalCredit = entries.reduce((s, e) => s + e.credit, 0);
@@ -103,19 +111,45 @@ export async function getProfitAndLoss(filters?: ReportFilters): Promise<
   { success: true; data: PLData } | { success: false; error: string }
 > {
   try {
-    const raw = await frappeRunReport<any>('Profit and Loss Statement', {
-      company: filters?.company || 'Aries Marine',
-      from_fiscal_year: filters?.fiscal_year || '2025-2026',
-      to_fiscal_year: filters?.fiscal_year || '2025-2026',
-      period: filters?.periodicity || 'Monthly',
-      ...filters,
+    const fromDate = filters?.from_date ? new Date(filters.from_date) : new Date(new Date().getFullYear(), 0, 1);
+    const toDate = filters?.to_date ? new Date(filters.to_date) : new Date();
+
+    // Fetch GL entries for Income and Expense accounts
+    const rows = await prisma.gl_entries.findMany({
+      where: {
+        posting_date: { gte: fromDate, lte: toDate },
+      },
+      include: { accounts: true },
+      take: 5000,
     });
 
+    const incomeMap = new Map<string, number>();
+    const expenseMap = new Map<string, number>();
+
+    for (const row of rows) {
+      const account = row.accounts;
+      if (!account) continue;
+      const amount = (row.debit || 0) - (row.credit || 0);
+      const map = account.root_type === 'Income' ? incomeMap : account.root_type === 'Expense' ? expenseMap : null;
+      if (!map) continue;
+      map.set(account.name, (map.get(account.name) || 0) + amount);
+    }
+
+    const incomeTotal = Array.from(incomeMap.values()).reduce((s, v) => s + v, 0);
+    const expenseTotal = Array.from(expenseMap.values()).reduce((s, v) => s + v, 0);
+    const netProfit = incomeTotal - expenseTotal;
+
     const data: PLData = {
-      income: { accounts: [], total: 0 },
-      expenses: { accounts: [], total: 0 },
-      net_profit: 0,
-      is_profit: true,
+      income: {
+        accounts: Array.from(incomeMap.entries()).map(([name, amount]) => ({ name, account: name, amount })),
+        total: incomeTotal,
+      },
+      expenses: {
+        accounts: Array.from(expenseMap.entries()).map(([name, amount]) => ({ name, account: name, amount })),
+        total: expenseTotal,
+      },
+      net_profit: netProfit,
+      is_profit: netProfit >= 0,
     };
 
     return { success: true, data };
@@ -147,12 +181,30 @@ export async function getReportsSummary(): Promise<
   { success: true; data: ReportsSummary } | { success: false; error: string }
 > {
   try {
+    const [invoices, payments, projects, timesheets, certs, assets, personnel, items] = await Promise.all([
+      prisma.sales_invoices.findMany({ orderBy: { created_at: 'desc' }, take: 10, select: { id: true, total: true, status: true, created_at: true } }),
+      prisma.payment_entries.findMany({ orderBy: { posting_date: 'desc' }, take: 10, select: { id: true, amount: true, posting_date: true } }),
+      prisma.projects.findMany({ orderBy: { created_at: 'desc' }, take: 10, select: { id: true, project_name: true, status: true, estimated_cost: true } }),
+      prisma.timesheets.findMany({ orderBy: { date: 'desc' }, take: 10, select: { id: true, hours: true, billable: true } }),
+      prisma.certifications.findMany({ orderBy: { expiry_date: 'asc' }, take: 10, select: { id: true, status: true, expiry_date: true } }),
+      prisma.assets.findMany({ orderBy: { created_at: 'desc' }, take: 10, select: { id: true, asset_name: true, status: true } }),
+      prisma.personnel.findMany({ orderBy: { created_at: 'desc' }, take: 10, select: { id: true, first_name: true, last_name: true, department: true } }),
+      prisma.items.findMany({ orderBy: { created_at: 'desc' }, take: 10, select: { id: true, item_name: true } }),
+    ]);
+
     const empty: ReportsSummary = {
-      invoices: [], payments: [], projects: [], timesheets: [],
-      certifications: [], assets: [], personnel: [], items: [],
+      invoices: invoices.map((i) => ({ id: i.id, name: i.id, total: i.total || 0, outstanding_amount: 0, status: String(i.status), posting_date: i.created_at.toISOString().slice(0, 10) })),
+      payments: payments.map((p) => ({ id: p.id, amount: p.amount || 0, posting_date: p.posting_date.toISOString().slice(0, 10) })),
+      projects: projects.map((p) => ({ id: p.id, name: p.project_name || p.id, status: String(p.status), estimated_cost: p.estimated_cost || undefined })),
+      timesheets: timesheets.map((t) => ({ id: t.id, hours: t.hours || 0, billable: t.billable })),
+      certifications: certs.map((c) => ({ id: c.id, status: String(c.status), expiry_date: c.expiry_date ? c.expiry_date.toISOString().slice(0, 10) : undefined })),
+      assets: assets.map((a) => ({ id: a.id, name: a.asset_name || a.id, status: String(a.status) })),
+      personnel: personnel.map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name || ''}`.trim(), department: p.department || undefined })),
+      items: items.map((i) => ({ id: i.id, item_name: i.item_name || i.id, stock_qty: 0 })),
     };
     return { success: true, data: empty };
   } catch (error: any) {
+    console.error('[reports] Summary failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to load reports summary' };
   }
 }
@@ -163,13 +215,22 @@ export async function runBalanceSheet(filters?: ReportFilters): Promise<
   { success: true; data: any } | { success: false; error: string }
 > {
   try {
-    const data = await frappeRunReport<any>('Balance Sheet', {
-      company: filters?.company || 'Aries Marine',
-      from_fiscal_year: filters?.fiscal_year || '2025-2026',
-      to_fiscal_year: filters?.fiscal_year || '2025-2026',
-      period: filters?.periodicity || 'Monthly',
-      ...filters,
+    const accounts = await prisma.accounts.findMany({
+      where: { root_type: { in: ['Asset', 'Liability', 'Equity'] } },
+      orderBy: { lft: 'asc' },
     });
+
+    const assets = accounts.filter((a) => a.root_type === 'Asset');
+    const liabilities = accounts.filter((a) => a.root_type === 'Liability');
+    const equity = accounts.filter((a) => a.root_type === 'Equity');
+
+    const data: BSData = {
+      assets: { accounts: assets.map((a) => ({ id: a.id, name: a.name, account: a.name, balance: a.balance })), total: assets.reduce((s, a) => s + a.balance, 0) },
+      liabilities: { accounts: liabilities.map((a) => ({ id: a.id, name: a.name, account: a.name, balance: a.balance })), total: liabilities.reduce((s, a) => s + a.balance, 0) },
+      equity: { accounts: equity.map((a) => ({ id: a.id, name: a.name, account: a.name, balance: a.balance })), total: equity.reduce((s, a) => s + a.balance, 0) },
+      total_liabilities_and_equity: liabilities.reduce((s, a) => s + a.balance, 0) + equity.reduce((s, a) => s + a.balance, 0),
+    };
+
     return { success: true, data };
   } catch (error: any) {
     console.error('[reports] Balance Sheet failed:', error?.message);
@@ -181,14 +242,35 @@ export async function runTrialBalance(filters?: ReportFilters): Promise<
   { success: true; data: any } | { success: false; error: string }
 > {
   try {
-    const data = await frappeRunReport<any>('Trial Balance', {
-      company: filters?.company || 'Aries Marine',
-      from_fiscal_year: filters?.fiscal_year || '2025-2026',
-      to_fiscal_year: filters?.fiscal_year || '2025-2026',
-      period: filters?.periodicity || 'Monthly',
-      ...filters,
+    const fromDate = filters?.from_date ? new Date(filters.from_date) : new Date(new Date().getFullYear(), 0, 1);
+    const toDate = filters?.to_date ? new Date(filters.to_date) : new Date();
+
+    const rows = await prisma.gl_entries.findMany({
+      where: { posting_date: { gte: fromDate, lte: toDate } },
+      include: { accounts: true },
+      take: 5000,
     });
-    return { success: true, data };
+
+    const accountMap = new Map<string, TBAccount>();
+    for (const row of rows) {
+      const acc = row.accounts;
+      if (!acc) continue;
+      const existing = accountMap.get(acc.id);
+      if (existing) {
+        existing.debit += row.debit || 0;
+        existing.credit += row.credit || 0;
+      } else {
+        accountMap.set(acc.id, {
+          id: acc.id,
+          name: acc.name,
+          account: acc.name,
+          debit: row.debit || 0,
+          credit: row.credit || 0,
+        });
+      }
+    }
+
+    return { success: true, data: Array.from(accountMap.values()) };
   } catch (error: any) {
     console.error('[reports] Trial Balance failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run Trial Balance' };
@@ -198,30 +280,28 @@ export async function runTrialBalance(filters?: ReportFilters): Promise<
 export async function runGeneralLedger(filters?: ReportFilters): Promise<
   { success: true; data: any } | { success: false; error: string }
 > {
-  try {
-    const data = await frappeRunReport<any>('General Ledger', {
-      company: filters?.company || 'Aries Marine',
-      from_date: filters?.from_date || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
-      to_date: filters?.to_date || new Date().toISOString().slice(0, 10),
-      ...filters,
-    });
-    return { success: true, data };
-  } catch (error: any) {
-    console.error('[reports] General Ledger failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to run General Ledger' };
-  }
+  const res = await getGeneralLedger(filters);
+  if (res.success) return { success: true, data: res.entries };
+  return res;
 }
 
 export async function runStockBalance(filters?: ReportFilters): Promise<
   { success: true; data: any } | { success: false; error: string }
 > {
   try {
-    const data = await frappeRunReport<any>('Stock Balance', {
-      company: filters?.company || 'Aries Marine',
-      to_date: filters?.to_date || new Date().toISOString().slice(0, 10),
-      ...filters,
+    const rows = await prisma.bins.findMany({
+      include: { items: true, warehouses: true },
+      take: 1000,
     });
-    return { success: true, data };
+    return {
+      success: true,
+      data: rows.map((b) => ({
+        item_code: (b.items as any)?.item_code || b.item_id,
+        warehouse: (b.warehouses as any)?.name || b.warehouse_id,
+        actual_qty: b.quantity,
+        projected_qty: b.quantity,
+      })),
+    };
   } catch (error: any) {
     console.error('[reports] Stock Balance failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run Stock Balance' };
@@ -232,13 +312,25 @@ export async function runSalesAnalytics(filters?: ReportFilters): Promise<
   { success: true; data: any } | { success: false; error: string }
 > {
   try {
-    const data = await frappeRunReport<any>('Sales Analytics', {
-      company: filters?.company || 'Aries Marine',
-      from_date: filters?.from_date,
-      to_date: filters?.to_date,
-      ...filters,
+    const fromDate = filters?.from_date ? new Date(filters.from_date) : new Date(new Date().getFullYear(), 0, 1);
+    const toDate = filters?.to_date ? new Date(filters.to_date) : new Date();
+
+    const rows = await prisma.sales_orders.findMany({
+      where: { created_at: { gte: fromDate, lte: toDate } },
+      orderBy: { created_at: 'asc' },
+      take: 2000,
     });
-    return { success: true, data };
+
+    const monthly = new Map<string, number>();
+    for (const row of rows) {
+      const key = row.created_at.toISOString().slice(0, 7); // YYYY-MM
+      monthly.set(key, (monthly.get(key) || 0) + (row.total || 0));
+    }
+
+    return {
+      success: true,
+      data: Array.from(monthly.entries()).map(([month, total]) => ({ month, total })),
+    };
   } catch (error: any) {
     console.error('[reports] Sales Analytics failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run Sales Analytics' };
@@ -266,32 +358,9 @@ export type TBAccount = {
 export async function getTrialBalance(filters?: ReportFilters): Promise<
   { success: true; accounts: TBAccount[] } | { success: false; error: string }
 > {
-  try {
-    const data = await frappeRunReport<any>('Trial Balance', {
-      company: filters?.company || 'Aries Marine',
-      from_fiscal_year: filters?.fiscal_year || '2025-2026',
-      to_fiscal_year: filters?.fiscal_year || '2025-2026',
-      period: filters?.periodicity || 'Monthly',
-      ...filters,
-    });
-    const accounts: TBAccount[] = (data || []).map((row: any) => ({
-      id: row.name || row.account || String(Math.random()),
-      name: row.account_name || row.name,
-      account: row.account,
-      account_number: row.account_number,
-      root_type: row.root_type || row.account_type,
-      opening_debit: Number(row.opening_debit || row.opening_dr || 0),
-      opening_credit: Number(row.opening_credit || row.opening_cr || 0),
-      debit: Number(row.debit || 0),
-      credit: Number(row.credit || 0),
-      closing_debit: Number(row.closing_debit || row.closing_dr || 0),
-      closing_credit: Number(row.closing_credit || row.closing_cr || 0),
-    }));
-    return { success: true, accounts };
-  } catch (error: any) {
-    console.error('[reports] Trial Balance failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to run Trial Balance' };
-  }
+  const res = await runTrialBalance(filters);
+  if (res.success) return { success: true, accounts: res.data as TBAccount[] };
+  return res;
 }
 
 export const getBalanceSheet = runBalanceSheet;

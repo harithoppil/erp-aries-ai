@@ -307,13 +307,14 @@ function determineExclusiveRate(doc: TransactionDoc): void {
     let cumulatedTaxFraction = 0;
     let totalInclusiveTaxPerQty = 0;
 
-    for (let i = 0; i < (doc.taxes ?? []).length; i++) {
-      const tax = doc.taxes[i];
-      const { fraction, perQty } = getCurrentTaxFraction(tax, itemTaxMap, doc.taxes);
+    const taxList = doc.taxes ?? [];
+    for (let i = 0; i < taxList.length; i++) {
+      const tax = taxList[i]!;
+      const { fraction, perQty } = getCurrentTaxFraction(tax, itemTaxMap, taxList);
 
       tax.tax_fraction_for_current_item = fraction;
       tax.grand_total_fraction_for_current_item =
-        i === 0 ? 1 + fraction : doc.taxes[i - 1]!.grand_total_fraction_for_current_item + fraction;
+        i === 0 ? 1 + fraction : ((taxList[i - 1] as TaxRow).grand_total_fraction_for_current_item as number) + fraction;
 
       cumulatedTaxFraction += fraction;
       totalInclusiveTaxPerQty += perQty * flt(item.qty);
@@ -370,13 +371,14 @@ function calculateTaxes(doc: TransactionDoc): void {
     const item = doc.items[n];
     const itemTaxMap = loadItemTaxRate(item.item_tax_rate);
 
-    for (let i = 0; i < doc.taxes.length; i++) {
-      const tax = doc.taxes[i];
+    const taxList = doc.taxes ?? [];
+    for (let i = 0; i < taxList.length; i++) {
+      const tax = taxList[i]!;
       const { currentTaxAmount, currentNetAmount } = getCurrentTaxAndNetAmount(
         item,
         tax,
         itemTaxMap,
-        doc.taxes,
+        taxList,
         doc.net_total ?? 0
       );
 
@@ -406,7 +408,7 @@ function calculateTaxes(doc: TransactionDoc): void {
         tax.grand_total_for_current_item = flt(item.net_amount + adjustedTax, 2);
       } else {
         tax.grand_total_for_current_item = flt(
-          doc.taxes[i - 1]!.grand_total_for_current_item + adjustedTax,
+          ((taxList[i - 1] as TaxRow).grand_total_for_current_item as number) + adjustedTax,
           2
         );
       }
@@ -414,8 +416,9 @@ function calculateTaxes(doc: TransactionDoc): void {
   }
 
   // Set cumulative totals
-  for (let i = 0; i < doc.taxes.length; i++) {
-    setCumulativeTotal(i, doc.taxes[i], doc.net_total ?? 0, doc.taxes);
+  const taxList = doc.taxes ?? [];
+  for (let i = 0; i < taxList.length; i++) {
+    setCumulativeTotal(i, taxList[i]!, doc.net_total ?? 0, taxList);
   }
 }
 
@@ -466,7 +469,8 @@ function setCumulativeTotal(rowIdx: number, tax: TaxRow, netTotal: number, taxes
 function adjustGrandTotalForInclusiveTax(doc: TransactionDoc): void {
   if (!doc.taxes?.some((t) => t.included_in_print_rate)) return;
 
-  const lastTax = doc.taxes[doc.taxes.length - 1];
+  const taxList = doc.taxes ?? [];
+  const lastTax = taxList[taxList.length - 1]!;
   const nonInclusiveTaxAmount = doc.taxes
     .filter((d) => !d.included_in_print_rate)
     .reduce((sum, d) => sum + (d.tax_amount_after_discount_amount ?? 0), 0);
@@ -482,10 +486,11 @@ function adjustGrandTotalForInclusiveTax(doc: TransactionDoc): void {
 }
 
 function calculateTotals(doc: TransactionDoc): void {
-  const grandTotalDiff = doc.grand_total ? flt(doc.grand_total - (doc.taxes?.[doc.taxes.length - 1]?.total ?? 0), 2) : 0;
+  const taxList = doc.taxes ?? [];
+  const grandTotalDiff = doc.grand_total ? flt(doc.grand_total - (taxList[taxList.length - 1]?.total ?? 0), 2) : 0;
 
-  if (doc.taxes && doc.taxes.length > 0) {
-    doc.grand_total = flt(doc.taxes[doc.taxes.length - 1]!.total + grandTotalDiff, 2);
+  if (taxList.length > 0) {
+    doc.grand_total = flt(((taxList[taxList.length - 1] as TaxRow).total as number) + grandTotalDiff, 2);
   } else {
     doc.grand_total = flt(doc.net_total, 2);
   }

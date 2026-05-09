@@ -1,6 +1,6 @@
 'use server';
 
-import { frappeGetList, frappeGetDoc, frappeInsertDoc, frappeUpdateDoc } from '@/lib/frappe-client';
+import { prisma } from '@/lib/prisma';
 
 export type PipelineStage = {
   id: string;
@@ -68,24 +68,21 @@ export async function listPipelineDeals(stage?: string): Promise<
   { success: true; deals: any[] } | { success: false; error: string }
 > {
   try {
-    const filters: Record<string, unknown> = {};
-    if (stage) filters.status = stage;
-
-    const opportunities = await frappeGetList<any>('Opportunity', {
-      fields: ['name', 'party_name', 'opportunity_amount', 'status', 'creation'],
-      filters,
-      order_by: 'creation desc',
-      limit_page_length: 200,
+    const where = stage ? { status: stage as any } : {};
+    const rows = await prisma.enquiries.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: 200,
     });
 
     return {
       success: true,
-      deals: opportunities.map((o: any) => ({
-        id: o.name,
-        title: o.party_name || o.name,
-        amount: o.opportunity_amount || 0,
+      deals: rows.map((o) => ({
+        id: o.id,
+        title: o.client_name || o.id,
+        amount: o.estimated_value || 0,
         stage: o.status || 'draft',
-        created_at: o.creation,
+        created_at: o.created_at.toISOString(),
       })),
     };
   } catch (error: any) {
