@@ -44,7 +44,7 @@ export async function listTimesheets(): Promise<
         billable: ts.billable ?? true,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[timesheets] list failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to load timesheets' };
   }
@@ -93,7 +93,7 @@ export async function createTimesheet(data: {
         billable: record.billable,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[timesheets] create failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create timesheet' };
   }

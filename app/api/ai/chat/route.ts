@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
               break;
           }
         }
-      } catch (error: any) {
+      } catch (error:any) {
         sendEvent("error", { error: error.message || "AgentLoop failed" });
       }
 

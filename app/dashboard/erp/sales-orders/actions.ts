@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
@@ -91,8 +92,8 @@ export async function listSalesOrders(params?: {
         notes: o.notes || null,
         created_at: o.created_at || new Date(),
       })),
-    };
-  } catch (error: any) {
+    };error:any
+  } catch (errorany) {
     console.error('Error fetching sales orders:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch sales orders' };
   }
@@ -164,8 +165,8 @@ export async function createSalesOrder(data: {
         notes: data.notes || null,
         created_at: new Date(),
       } as ClientSafeSalesOrder,
-    };
-  } catch (error: any) {
+    };error:any
+  } catch (errorany) {
     console.error('Error creating sales order:', error?.message);
     return { success: false as const, error: error?.message || 'Failed to create sales order' };
   }
@@ -187,8 +188,8 @@ export async function updateSalesOrderStatus(id: string, status: string) {
       });
     }
     revalidatePath('/erp/sales-orders');
-    return { success: true };
-  } catch (error: any) {
+    return error:anys: true };
+  } catch (errorany) {
     console.error('[sales-orders] updateSalesOrderStatus failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update sales order status' };
   }
@@ -210,8 +211,8 @@ export async function updateSalesOrder(
       },
     });
     revalidatePath('/erp/sales-orders');
-    return { success: true };
-  } catch (error: any) {
+    return error:anys: true };
+  } catch (errorany) {
     console.error('[sales-orders] updateSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update sales order' };
   }
@@ -224,8 +225,8 @@ export async function deleteSalesOrder(id: string) {
       data: { status: 'CANCELLED' },
     });
     revalidatePath('/erp/sales-orders');
-    return { success: true };
-  } catch (error: any) {
+    return error:anys: true };
+  } catch (errorany) {
     console.error('[sales-orders] deleteSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete sales order' };
   }
@@ -235,14 +236,16 @@ export async function deleteSalesOrder(id: string) {
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitSalesOrder(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Sales Order", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Sales Order", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/sales-orders');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelSalesOrder(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Sales Order", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Sales Order", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/sales-orders');
   return result;
 }
@@ -322,8 +325,8 @@ export async function validateSalesOrder(
       }
     }
 
-    return { success: true, valid: true };
-  } catch (error: any) {
+    return error:anys: true, valid: true };
+  } catch (errorany) {
     console.error('[sales-orders] validateSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Validation failed' };
   }
@@ -367,8 +370,8 @@ export async function getSalesOrderStatus(
       billingStatus: 'Not Billed',
       perDelivered: 0,
       perBilled: 0,
-    };
-  } catch (error: any) {
+    };error:any
+  } catch (errorany) {
     console.error('[sales-orders] getSalesOrderStatus failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to get sales order status' };
   }

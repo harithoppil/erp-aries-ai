@@ -308,15 +308,32 @@ function buildPermissionTable(): PermissionRule[] {
  * Check if the current user has permission for a document action.
  * Loads the user session from the database and checks against the permission table.
  *
+ * If a `token` is provided, it resolves the specific session tied to that token.
+ * If no token is provided, it falls back to `getCurrentSession()` (most recent
+ * active session globally) and logs a warning — this is insecure for multi-user setups.
+ *
  * @param doctype - The DocType being accessed
  * @param action  - The action being performed
+ * @param token   - Optional session token from request cookies; ties the check
+ *                  to the specific user who made the request
  * @returns Object with `allowed` flag and optional `reason` when denied
  */
 export async function checkPermission(
   doctype: string,
   action: DocAction,
+  token?: string,
 ): Promise<{ allowed: boolean; reason?: string }> {
-  const session = await getCurrentSession();
+  let session: UserSession | null = null;
+
+  if (token) {
+    session = await getSessionByToken(token);
+  } else {
+    console.warn(
+      "[rbac] checkPermission called without token — falling back to global session. " +
+      "Pass the request token for correct multi-user RBAC."
+    );
+    session = await getCurrentSession();
+  }
 
   if (!session) {
     return { allowed: false, reason: "No active session — please log in" };

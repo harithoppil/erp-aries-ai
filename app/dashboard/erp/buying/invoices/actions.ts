@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { PurchaseInvoiceItemRow } from '@/lib/erpnext/types';
@@ -112,7 +113,7 @@ export async function listPurchaseInvoices(
         bill_no: i.bill_no,
         creation: i.creation,
       })),
-    };
+    };error:any
   } catch (error: any) {
     console.error('[purchase-invoices] listPurchaseInvoices failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase invoices' };
@@ -171,7 +172,7 @@ export async function getPurchaseInvoice(
         remarks: invoice.remarks,
         tax_id: invoice.tax_id,
       },
-    };
+    };error:any
   } catch (error: any) {
     console.error('[purchase-invoices] getPurchaseInvoice failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase invoice' };
@@ -271,7 +272,7 @@ export async function createPurchaseInvoice(
         bill_no: invoice.bill_no,
         creation: invoice.creation,
       },
-    };
+    };error:any
   } catch (error: any) {
     console.error('[purchase-invoices] createPurchaseInvoice failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create purchase invoice' };
@@ -281,13 +282,15 @@ export async function createPurchaseInvoice(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitPurchaseInvoice(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Purchase Invoice", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Purchase Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/buying/invoices');
   return result;
 }
 
 export async function cancelPurchaseInvoice(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Purchase Invoice", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Purchase Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/buying/invoices');
   return result;
 }

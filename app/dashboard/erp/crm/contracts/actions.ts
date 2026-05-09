@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
@@ -87,7 +88,7 @@ export async function listContracts(
         docstatus: c.docstatus || 0,
         creation: c.creation,
       })),
-    };
+    };error:any
   } catch (error: any) {
     console.error('[contracts] listContracts failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch contracts' };
@@ -128,7 +129,7 @@ export async function getContract(
         party_full_name: c.party_full_name,
         signed_by_company: c.signed_by_company,
       },
-    };
+    };error:any
   } catch (error: any) {
     console.error('[contracts] getContract failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch contract' };
@@ -174,7 +175,7 @@ export async function createContract(
         docstatus: c.docstatus || 0,
         creation: c.creation,
       },
-    };
+    };error:any
   } catch (error: any) {
     console.error('[contracts] createContract failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create contract' };
@@ -184,13 +185,15 @@ export async function createContract(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitContract(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Contract", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Contract", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/crm/contracts');
   return result;
 }
 
 export async function cancelContract(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Contract", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Contract", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/crm/contracts');
   return result;
 }
@@ -205,7 +208,7 @@ export async function deleteContract(
     if (!existing) return { success: false, error: 'Contract not found' };
     if (existing.docstatus !== 0) return { success: false, error: 'Only draft contracts can be deleted' };
 
-    await prisma.contract.delete({ where: { name: id } });
+    await perror:anyract.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/crm/contracts');
     return { success: true };
   } catch (error: any) {

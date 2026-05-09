@@ -21,7 +21,11 @@ export async function POST(
 ) {
   try {
     const { doctype, name } = await params;
-    const result = await cancelDocument(doctype, name);
+
+    // Extract session token from cookies for user-scoped RBAC
+    const token = req.cookies.get("token")?.value;
+
+    const result = await cancelDocument(doctype, name, { token });
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
@@ -31,10 +35,10 @@ export async function POST(
       data: result.data,
       message: `${doctype} "${name}" cancelled successfully`,
     });
-  } catch (err: any) {
-    console.error("[erpnext/cancel] Error:", err?.message);
+  } catch (error:any) {
+    console.error("[erpnext/cancel] Error:", error?.message);
     return NextResponse.json(
-      { error: err?.message || "Internal server error" },
+      { error: error?.message || "Internal server error" },
       { status: 500 },
     );
   }

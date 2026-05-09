@@ -15,8 +15,8 @@ export default async function PipelinePage() {
     } else {
       initialError = result.error;
     }
-  } catch (e: any) {
-    initialError = e.message || "Failed to load workflows";
+  } catch (error:any) {
+    initialError = error.message || "Failed to load workflows";
   }
 
   return <WorkflowsClient initialWorkflows={initialWorkflows} initialError={initialError} />;

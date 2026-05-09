@@ -49,7 +49,7 @@ export async function listPersonnel(): Promise<
         created_at: e.created_at,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error fetching personnel:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch personnel' };
   }
@@ -95,7 +95,7 @@ export async function createPersonnel(data: {
         created_at: record.created_at,
       } as ClientSafePersonnel,
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false as const, error: error?.message || 'Failed to create personnel' };
   }
 }
@@ -129,7 +129,7 @@ export async function listComplianceAlerts(): Promise<
         status: c.status || 'Valid',
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error fetching compliance alerts:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch compliance alerts' };
   }
@@ -172,7 +172,7 @@ export async function createEmployee(data: {
         created_at: record.created_at,
       } as ClientSafePersonnel,
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error creating employee:', error?.message);
     return { success: false as const, error: error?.message || 'Failed to create employee' };
   }

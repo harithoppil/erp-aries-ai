@@ -61,7 +61,7 @@ export async function listPipelineStages(): Promise<
       { id: 'closed', name: 'Closed', stage: 'closed', color: 'bg-destructive/10', order: 5 },
     ];
     return { success: true, stages: statuses };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message };
   }
 }
@@ -87,7 +87,7 @@ export async function listPipelineDeals(stage?: string): Promise<
         created_at: o.created_at.toISOString(),
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to load pipeline deals' };
   }
 }
@@ -97,7 +97,7 @@ export async function listWorkflows(): Promise<
 > {
   try {
     return { success: true, workflows: [] };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to load workflows' };
   }
 }
@@ -107,7 +107,7 @@ export async function listExecutions(_workflowId?: string): Promise<
 > {
   try {
     return { success: true, executions: [] };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to load executions' };
   }
 }
@@ -129,7 +129,7 @@ export async function createWorkflow(_data: {
       updated_at: new Date().toISOString(),
     };
     return { success: true, workflow };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to create workflow' };
   }
 }
@@ -146,7 +146,7 @@ export async function executeWorkflow(_workflowId: string, _input?: Record<strin
       completed_at: new Date().toISOString(),
     };
     return { success: true, execution };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to execute workflow' };
   }
 }

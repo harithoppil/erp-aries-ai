@@ -17,7 +17,7 @@ function formatDate(d: string | null | undefined) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-interface PaymentRecord {
+export interface PaymentRecord {
   id: string;
   invoice_id: string | null;
   payment_type: string;

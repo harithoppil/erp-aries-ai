@@ -68,7 +68,7 @@ export async function listFiscalYears(
         creation: fy.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[fiscal-years] listFiscalYears failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch fiscal years' };
   }
@@ -97,7 +97,7 @@ export async function getFiscalYear(
         is_short_year: fy.is_short_year || false,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[fiscal-years] getFiscalYear failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch fiscal year' };
   }
@@ -138,7 +138,7 @@ export async function createFiscalYear(
         creation: fy.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[fiscal-years] createFiscalYear failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create fiscal year' };
   }
@@ -157,7 +157,7 @@ export async function deleteFiscalYear(
     await prisma.fiscalYear.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/setup/fiscal-years');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[fiscal-years] deleteFiscalYear failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete fiscal year' };
   }

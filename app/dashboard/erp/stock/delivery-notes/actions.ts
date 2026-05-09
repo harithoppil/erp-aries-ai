@@ -98,7 +98,7 @@ export async function listDeliveryNotes(
         creation: n.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[delivery-notes] listDeliveryNotes failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch delivery notes' };
   }
@@ -151,7 +151,7 @@ export async function getDeliveryNote(
         })),
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[delivery-notes] getDeliveryNote failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch delivery note' };
   }
@@ -237,7 +237,7 @@ export async function createDeliveryNote(
         creation: note.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[delivery-notes] createDeliveryNote failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create delivery note' };
   }

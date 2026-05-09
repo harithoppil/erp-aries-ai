@@ -96,7 +96,7 @@ Decide which UI actions (if any) to execute immediately. Only call functions dir
     }));
 
     return NextResponse.json({ function_calls: functionCalls });
-  } catch (error: any) {
+  } catch (error:any) {
     console.error("[api/ai/ui-plan] Failed:", error?.message);
     return NextResponse.json({ function_calls: [] });
   }

@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -78,7 +79,7 @@ export async function POST(
         modified: new Date(),
         owner: "Administrator",
         modified_by: "Administrator",
-      } as any,
+      } as unknown as Prisma.OpportunityCreateInput,
     });
 
     return opp;

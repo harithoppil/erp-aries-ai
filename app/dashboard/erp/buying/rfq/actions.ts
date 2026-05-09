@@ -91,7 +91,7 @@ export async function listRFQs(
         creation: r.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[rfq] listRFQs failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch RFQs' };
   }
@@ -141,7 +141,7 @@ export async function getRFQ(
         })),
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[rfq] getRFQ failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch RFQ' };
   }
@@ -213,7 +213,7 @@ export async function createRFQ(
         creation: rfq.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[rfq] createRFQ failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create RFQ' };
   }
@@ -229,7 +229,7 @@ export async function submitRFQ(id: string): Promise<{ success: true } | { succe
     await prisma.requestForQuotation.update({ where: { name: id }, data: { docstatus: 1 } });
     revalidatePath('/dashboard/erp/buying/rfq');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to submit' };
   }
 }
@@ -242,7 +242,7 @@ export async function cancelRFQ(id: string): Promise<{ success: true } | { succe
     await prisma.requestForQuotation.update({ where: { name: id }, data: { docstatus: 2 } });
     revalidatePath('/dashboard/erp/buying/rfq');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to cancel' };
   }
 }

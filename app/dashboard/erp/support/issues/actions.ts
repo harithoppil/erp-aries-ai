@@ -98,7 +98,7 @@ export async function listIssues(
         creation: i.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[issues] listIssues failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch issues' };
   }
@@ -146,7 +146,7 @@ export async function getIssue(
         agreement_status: issue.agreement_status,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[issues] getIssue failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch issue' };
   }
@@ -198,7 +198,7 @@ export async function createIssue(
         creation: issue.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[issues] createIssue failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create issue' };
   }
@@ -225,7 +225,7 @@ export async function updateIssueStatus(
     });
     revalidatePath('/dashboard/erp/support/issues');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to update issue status' };
   }
 }

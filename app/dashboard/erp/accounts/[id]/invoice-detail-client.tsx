@@ -31,7 +31,7 @@ interface PaymentEntry {
   posting_date: string;
 }
 
-interface InvoiceRecord {
+export interface InvoiceRecord {
   id: string;
   invoice_number: string;
   enquiry_id: string | null;

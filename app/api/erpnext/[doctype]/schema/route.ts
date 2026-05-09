@@ -11,12 +11,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/prisma/client";
+import { getDelegate } from "@/lib/erpnext/prisma-delegate";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function toAccessor(doctype: string): string {
-  return doctype.charAt(0).toLowerCase() + doctype.slice(1);
-}
 
 /** Map Prisma scalar types to ERPNext-style field types. */
 function prismaTypeToFieldType(prismaType: string): string {
@@ -42,8 +39,10 @@ function prismaTypeToFieldType(prismaType: string): string {
 }
 
 /** Determine the ERPNext-style "fieldtype" for a field, including link types. */
+type DmmfField = Prisma.DMMF.Field;
+
 function inferFieldMeta(
-  field: any,
+  field: DmmfField,
   modelName: string,
 ): {
   fieldname: string;
@@ -55,7 +54,7 @@ function inferFieldMeta(
   isList: boolean;
   isUpdatedAt: boolean;
   hasDefault: boolean;
-  default_value: any;
+  default_value: unknown;
   db_type: string | null;
   relation?: {
     model: string;
@@ -152,9 +151,9 @@ export async function GET(
 
     // ── Verify the Prisma client has this model ───────────────────────────
     const { prisma } = await import("@/lib/prisma");
-    const accessor = toAccessor(doctype);
-    const delegate = (prisma as any)[accessor];
-    if (!delegate || typeof delegate.findMany !== "function") {
+    const delegate = getDelegate(prisma, doctype);
+    const accessor = doctype.charAt(0).toLowerCase() + doctype.slice(1);
+    if (!delegate) {
       return NextResponse.json(
         { error: `No Prisma delegate for ${doctype}` },
         { status: 404 },
@@ -162,7 +161,7 @@ export async function GET(
     }
 
     // ── Build field metadata ──────────────────────────────────────────────
-    const fields = dmmfModel.fields.map((f: any) => inferFieldMeta(f, doctype));
+    const fields = dmmfModel.fields.map((f: DmmfField) => inferFieldMeta(f, doctype));
 
     // ── Separate into categories ───────────────────────────────────────────
     const scalarFields = fields.filter(
@@ -197,13 +196,13 @@ export async function GET(
     const primaryKey = dmmfModel.primaryKey
       ? dmmfModel.primaryKey.fields
       : dmmfModel.fields
-          .filter((f: any) => f.isId)
-          .map((f: any) => f.name);
+          .filter((f: DmmfField) => f.isId)
+          .map((f: DmmfField) => f.name);
 
     // ── Identify unique constraints ────────────────────────────────────────
     const uniqueFields = dmmfModel.uniqueFields || [];
     const uniqueIndexes = (dmmfModel.uniqueIndexes || []).map(
-      (idx: any) => idx.fields,
+      (idx: { fields: string[] }) => idx.fields,
     );
 
     return NextResponse.json({
@@ -225,10 +224,10 @@ export async function GET(
         fields.some((f) => f.fieldname === "parenttype"),
       field_count: fields.length,
     });
-  } catch (err: any) {
-    console.error("[erpnext/schema] Error:", err?.message);
+  } catch (error:any) {
+    console.error("[erpnext/schema] Error:", error?.message);
     return NextResponse.json(
-      { error: err?.message || "Internal server error" },
+      { error: error?.message || "Internal server error" },
       { status: 500 },
     );
   }

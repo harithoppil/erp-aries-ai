@@ -33,7 +33,7 @@ export async function listWikiPages(): Promise<
         last_modified: n.updated_at.toISOString(),
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to load wiki pages' };
   }
 }
@@ -73,7 +73,7 @@ export async function getWikiPage(path: string): Promise<
         last_modified: note.updated_at.toISOString(),
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to load wiki page' };
   }
 }
@@ -100,7 +100,7 @@ export async function createWikiPage(
         last_modified: note.updated_at.toISOString(),
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to create wiki page' };
   }
 }
@@ -125,7 +125,7 @@ export async function updateWikiPage(
         last_modified: note.updated_at.toISOString(),
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to update wiki page' };
   }
 }
@@ -135,7 +135,7 @@ export async function deleteWikiPage(path: string): Promise<{ success: true } | 
     const existing = await prisma.notebooks.findFirst({ where: { title: path } });
     await prisma.notebooks.delete({ where: { id: existing?.id || path } });
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to delete wiki page' };
   }
 }
@@ -157,7 +157,7 @@ export async function searchWiki(q: string): Promise<
         score: 1,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to search wiki' };
   }
 }

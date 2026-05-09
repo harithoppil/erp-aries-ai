@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -76,7 +77,7 @@ export async function POST(
         owner: "Administrator",
         modified_by: "Administrator",
         status: "Draft",
-      } as any,
+      } as unknown as Prisma.QuotationCreateInput,
     });
 
     // ── Create Quotation items from Opportunity items ─────────────────
@@ -105,7 +106,7 @@ export async function POST(
     }));
 
     if (qtnItemRows.length > 0) {
-      await tx.quotationItem.createMany({ data: qtnItemRows as any });
+      await tx.quotationItem.createMany({ data: qtnItemRows as unknown as Prisma.QuotationItemCreateManyInput[] });
     }
 
     return qtn;

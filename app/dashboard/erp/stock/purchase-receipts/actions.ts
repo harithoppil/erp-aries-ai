@@ -93,7 +93,7 @@ export async function listPurchaseReceipts(
         creation: r.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[purchase-receipts] listPurchaseReceipts failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase receipts' };
   }
@@ -143,7 +143,7 @@ export async function getPurchaseReceipt(
         })),
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[purchase-receipts] getPurchaseReceipt failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase receipt' };
   }
@@ -224,7 +224,7 @@ export async function createPurchaseReceipt(
         creation: receipt.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[purchase-receipts] createPurchaseReceipt failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create purchase receipt' };
   }

@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -36,7 +37,6 @@ export async function POST(
   const seName = generateShortCode("STE");
 
   // ── Create Stock Entry atomically ──────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await prisma.$transaction(async (tx) => {
     const se = await tx.stockEntry.create({
       data: {
@@ -57,7 +57,7 @@ export async function POST(
         modified: new Date(),
         owner: "Administrator",
         modified_by: "Administrator",
-      } as any,
+      } as unknown as Prisma.StockEntryCreateInput,
     });
 
     return se;

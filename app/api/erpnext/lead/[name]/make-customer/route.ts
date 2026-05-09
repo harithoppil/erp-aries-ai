@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -29,7 +30,6 @@ export async function POST(
   const custName = generateShortCode("CUST");
 
   // ── Create Customer atomically ─────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await prisma.$transaction(async (tx) => {
     const cust = await tx.customer.create({
       data: {
@@ -52,7 +52,7 @@ export async function POST(
         modified: new Date(),
         owner: "Administrator",
         modified_by: "Administrator",
-      } as any,
+      } as unknown as Prisma.CustomerCreateInput,
     });
 
     return cust;

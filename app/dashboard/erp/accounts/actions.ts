@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import { Prisma, salesinvoicestatus } from '@/prisma/client';
@@ -286,7 +287,7 @@ export async function listAccounts(): Promise<AccountListResponse> {
     }));
 
     return { success: true, accounts: clientSafe };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error fetching accounts:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch accounts' };
   }
@@ -346,7 +347,7 @@ export async function getAccountTree(): Promise<
     }
 
     return { success: true, accounts: result };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[accounts] getAccountTree failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch account tree' };
   }
@@ -380,7 +381,7 @@ export async function listInvoices(): Promise<InvoiceListResponse> {
     }));
 
     return { success: true, invoices: clientSafe };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error fetching invoices:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch invoices' };
   }
@@ -465,7 +466,7 @@ export async function createInvoice(data: {
         created_at: invoice.created_at,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error creating invoice:', error?.message);
     return { success: false, error: error?.message || 'Failed to create invoice' };
   }
@@ -493,7 +494,7 @@ export async function updateInvoiceStatus(
     await prisma.sales_invoices.update({ where: { id }, data: updateData });
     revalidatePath('/erp/accounts');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[accounts] updateInvoiceStatus failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update invoice status' };
   }
@@ -537,7 +538,7 @@ export async function updateInvoice(
     await prisma.sales_invoices.update({ where: { id }, data: updateData });
     revalidatePath('/erp/accounts');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[accounts] updateInvoice failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to update invoice' };
   }
@@ -551,7 +552,7 @@ export async function deleteInvoice(id: string): Promise<{ success: true } | { s
     });
     revalidatePath('/erp/accounts');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[accounts] deleteInvoice failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete invoice' };
   }
@@ -561,14 +562,16 @@ export async function deleteInvoice(id: string): Promise<{ success: true } | { s
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitInvoice(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Sales Invoice", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Sales Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/accounts');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelInvoice(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Sales Invoice", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Sales Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/accounts');
   return result;
 }
@@ -901,7 +904,7 @@ export async function getOutstandingBalance(customer: string): Promise<Outstandi
       customer,
       outstanding_balance: parseFloat(outstandingBalance.toFixed(2)),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[accounts] getOutstandingBalance failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch outstanding balance' };
   }
@@ -989,7 +992,7 @@ export async function createGLEntry(data: GLEntryData): Promise<
         created_at: entry.created_at,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[accounts] createGLEntry failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create GL Entry' };
   }
@@ -1022,7 +1025,7 @@ export async function reconcilePayment(
       success: false,
       error: 'Payment reconciliation is not supported with the current Prisma schema (Payment Entry references model unavailable)',
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[accounts] reconcilePayment failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to reconcile payment' };
   }

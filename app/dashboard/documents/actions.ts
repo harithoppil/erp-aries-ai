@@ -39,7 +39,7 @@ export async function listDocuments(enquiryId?: string): Promise<
         created_at: f.created_at,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[documents] listDocuments failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch documents' };
   }
@@ -79,7 +79,7 @@ export async function uploadDocument(
         created_at: record.created_at,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[documents] uploadDocument failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to upload document' };
   }
@@ -91,7 +91,7 @@ export async function deleteDocument(id: string): Promise<
   try {
     await prisma.documents.delete({ where: { id } });
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false, error: error?.message || 'Failed to delete document' };
   }
 }

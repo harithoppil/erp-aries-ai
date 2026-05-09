@@ -62,8 +62,8 @@ export default function WikiPage() {
         if (result.success) setRagResults(result.results);
         setSearchResults([]);
       }
-    } catch (e: any) {
-      toast.error(e.message || "Search failed");
+    } catch (error:any) {
+      toast.error(error.message || "Search failed");
     } finally {
       setSearching(false);
     }
@@ -82,8 +82,8 @@ export default function WikiPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (e: any) {
-      toast.error(e.message || "Network error");
+    } catch (error:any) {
+      toast.error(error.message || "Network error");
     } finally { setSaving(false); }
   };
 
@@ -110,8 +110,8 @@ export default function WikiPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update page");
+    } catch (error:any) {
+      toast.error(error.message || "Failed to update page");
     } finally {
       setEditSaving(false);
     }
@@ -131,8 +131,8 @@ export default function WikiPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to delete page");
+    } catch (error:any) {
+      toast.error(error.message || "Failed to delete page");
     }
   };
 

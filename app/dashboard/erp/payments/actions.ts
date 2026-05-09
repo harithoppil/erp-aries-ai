@@ -46,7 +46,7 @@ export async function listPayments(): Promise<
         created_at: p.posting_date,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error fetching payments:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch payments' };
   }
@@ -98,7 +98,7 @@ export async function createPayment(data: {
         created_at: new Date(),
       } as ClientSafePayment,
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false as const, error: error?.message || 'Failed to create payment' };
   }
 }

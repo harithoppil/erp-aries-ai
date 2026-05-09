@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { StockEntryDetailRow } from '@/lib/erpnext/types';
@@ -100,7 +101,7 @@ export async function listStockEntries(
         creation: e.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[stock-entries] listStockEntries failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch stock entries' };
   }
@@ -151,7 +152,7 @@ export async function getStockEntry(
         })),
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[stock-entries] getStockEntry failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch stock entry' };
   }
@@ -227,7 +228,7 @@ export async function createStockEntry(
         creation: entry.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[stock-entries] createStockEntry failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create stock entry' };
   }

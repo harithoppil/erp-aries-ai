@@ -222,10 +222,10 @@ export async function GET(
       limit,
       offset,
     });
-  } catch (err: any) {
-    console.error("[erpnext/list] Error:", err?.message);
+  } catch (error:any) {
+    console.error("[erpnext/list] Error:", error?.message);
     return NextResponse.json(
-      { error: err?.message || "Internal server error" },
+      { error: error?.message || "Internal server error" },
       { status: 500 },
     );
   }
@@ -351,11 +351,11 @@ export async function POST(
     });
 
     return NextResponse.json({ data: result }, { status: 201 });
-  } catch (err: any) {
-    console.error("[erpnext/create] Error:", err?.message);
+  } catch (error:any) {
+    console.error("[erpnext/create] Error:", error?.message);
 
     // Prisma unique constraint violation
-    if (err?.code === "P2002") {
+    if (error?.code === "P2002") {
       return NextResponse.json(
         { error: `A ${await params.then(p => p.doctype)} with this name already exists` },
         { status: 409 },
@@ -363,15 +363,15 @@ export async function POST(
     }
 
     // Prisma required-field violation
-    if (err?.code === "P2000" || err?.code === "P2012") {
+    if (error?.code === "P2000" || error?.code === "P2012") {
       return NextResponse.json(
-        { error: `Missing required field: ${err?.meta?.field_name || "unknown"}` },
+        { error: `Missing required field: ${error?.meta?.field_name || "unknown"}` },
         { status: 400 },
       );
     }
 
     return NextResponse.json(
-      { error: err?.message || "Internal server error" },
+      { error: error?.message || "Internal server error" },
       { status: 500 },
     );
   }

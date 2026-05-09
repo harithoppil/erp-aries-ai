@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -46,7 +47,6 @@ export async function POST(
   }
 
   // ── Create one Work Order per PP item atomically ───────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const results = await prisma.$transaction(async (tx) => {
     const woNames = ppItems.map(() => generateShortCode("WO"));
 
@@ -76,7 +76,7 @@ export async function POST(
             modified: new Date(),
             owner: "Administrator",
             modified_by: "Administrator",
-          } as any,
+          } as unknown as Prisma.WorkOrderCreateInput,
         }),
       ),
     );

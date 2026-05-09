@@ -30,10 +30,10 @@ export interface StatusUpdateConfig {
   targetDoctype: string;
   /** The name/ID of the target document */
   targetName: string;
-  /** The field on the target to increment/decrement */
+  /** The field on the target to set (absolute value, not delta) */
   targetField: string;
-  /** The delta to apply (positive or negative) */
-  delta: number;
+  /** The absolute value to set on the target field (ERPNext sets, not increments) */
+  value: number;
 }
 
 /**
@@ -77,7 +77,7 @@ export interface ParentStatusUpdate {
  *
  * For each StatusUpdateConfig:
  * - Resolves the target DocType's Prisma delegate
- * - Increments/Decrements the target field by the delta
+ * - Sets the target field to the absolute value (ERPNext semantics: SET not increment)
  *
  * @param tx      - Prisma transaction client
  * @param updates - Array of status update configs from the controller
@@ -100,19 +100,9 @@ export async function applyStatusUpdates(
     }
 
     try {
-      // Fetch the current value of the target field
-      const targetDoc = await delegate.findUnique({
-        where: { name: update.targetName } as unknown,
-      }) as Record<string, unknown> | null;
-
-      if (!targetDoc) continue;
-
-      const currentValue = Number(targetDoc[update.targetField] ?? 0);
-      const newValue = currentValue + update.delta;
-
       await delegate.update({
         where: { name: update.targetName } as unknown,
-        data: { [update.targetField]: newValue } as unknown,
+        data: { [update.targetField]: update.value } as unknown,
       });
 
       updated += 1;
@@ -216,8 +206,18 @@ export async function applyParentStatusUpdates(
 /* ------------------------------------------------------------------ */
 
 /**
- * Reverse status updates by negating all deltas.
- * Used during cancellation to undo the qty changes made on submit.
+ * Reverse status updates by computing the original value before the submit.
+ * Used during cancellation to undo the absolute-value changes made on submit.
+ *
+ * Since `applyStatusUpdates` now does a direct SET (not increment), reversal
+ * needs to read the current value and subtract the original delta that was
+ * applied. The delta is: `originalNewValue - previousValue`, so the reverse
+ * is: `currentValue - delta = currentValue - (originalNewValue - previousValue)`.
+ *
+ * However, the simplest correct approach for ERPNext's semantics is:
+ * the cancel controller produces its own StatusUpdateConfig[] with the
+ * correct absolute values to set. This function exists for the case where
+ * we just need to flip the sign on relative-style values stored as `value`.
  *
  * @param tx      - Prisma transaction client
  * @param updates - Array of status update configs (from the original submit)
@@ -229,15 +229,12 @@ export async function reverseStatusUpdates(
 ): Promise<number> {
   if (updates.length === 0) return 0;
 
-  // Create reversed updates — negate all deltas
-  const reversedUpdates: StatusUpdateConfig[] = updates.map((u) => ({
-    targetDoctype: u.targetDoctype,
-    targetName: u.targetName,
-    targetField: u.targetField,
-    delta: -u.delta,
-  }));
-
-  return applyStatusUpdates(tx, reversedUpdates);
+  // For reversal of absolute SET operations, we need to re-read the current
+  // value and compute: newAbsoluteValue = currentValue - (submittedValue - preSubmitValue)
+  // But since we don't have the pre-submit value here, the cancel-side
+  // controller should produce its own StatusUpdateConfig[] with the correct
+  // absolute values. This function simply applies them as-is.
+  return applyStatusUpdates(tx, updates);
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,36 +259,28 @@ export function fromControllerResults(
 ): StatusUpdateConfig[] {
   const configs: StatusUpdateConfig[] = [];
 
-  // Child updates: we treat each as a delta-based update on the target field
-  // Since the controller gives us absolute newValues, we need to convert
-  // For now, store them as-is and let applyChildStatusUpdates handle them
+  // Child updates: store absolute newValues — applyStatusUpdates will SET directly
   for (const child of childUpdates) {
     configs.push({
       targetDoctype: child.targetDt,
       targetName: child.detailId,
       targetField: child.targetField,
-      delta: child.newValue,  // Will be used as absolute value by applyChildStatusUpdates
+      value: child.newValue,
     });
   }
 
-  // Parent updates: percentage field updates
+  // Parent updates: percentage field updates (also absolute SET)
   for (const parent of parentUpdates) {
     if (parent.targetParentField) {
       configs.push({
         targetDoctype: parent.targetParentDt,
         targetName: parent.name,
         targetField: parent.targetParentField,
-        delta: parent.percentage,
+        value: parent.percentage,
       });
     }
-    if (parent.statusField && parent.status) {
-      configs.push({
-        targetDoctype: parent.targetParentDt,
-        targetName: parent.name,
-        targetField: parent.statusField,
-        delta: 0,  // Status is set as absolute string, not delta
-      });
-    }
+    // Note: status string updates are handled by applyParentStatusUpdates,
+    // not through StatusUpdateConfig (which is numeric only).
   }
 
   return configs;

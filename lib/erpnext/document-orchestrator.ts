@@ -235,7 +235,7 @@ function siOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitS
         targetDoctype: childUpdate.targetDt,
         targetName: childUpdate.detailId,
         targetField: childUpdate.targetField,
-        delta: childUpdate.newValue,
+        value: childUpdate.newValue,  // Absolute value — persister will SET directly
       });
     }
   }
@@ -266,7 +266,7 @@ function siOnCancel(doc: unknown, _children: Record<string, unknown[]>): CancelS
         targetDoctype: childUpdate.targetDt,
         targetName: childUpdate.detailId,
         targetField: childUpdate.targetField,
-        delta: -childUpdate.newValue,  // Negate on cancel
+        value: childUpdate.newValue,  // Cancel controller returns correct absolute value to set
       });
     }
   }
@@ -367,7 +367,7 @@ function piOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitS
         targetDoctype: childUpdate.targetDt,
         targetName: childUpdate.detailId,
         targetField: childUpdate.targetField,
-        delta: childUpdate.newValue,
+        value: childUpdate.newValue,  // Absolute value — persister will SET directly
       });
     }
   }
@@ -398,7 +398,7 @@ function piOnCancel(doc: unknown, _children: Record<string, unknown[]>): CancelS
         targetDoctype: childUpdate.targetDt,
         targetName: childUpdate.detailId,
         targetField: childUpdate.targetField,
-        delta: -childUpdate.newValue,
+        value: childUpdate.newValue,  // Cancel controller returns correct absolute value to set
       });
     }
   }
@@ -694,15 +694,17 @@ export function getDocTypeRegistry(): Map<string, DocTypeConfig> {
  *
  * @param doctype - The DocType name (e.g. "Sales Invoice")
  * @param name    - The document name/ID
+ * @param options - Optional: token to tie RBAC to the requesting user's session
  * @returns Submit result with counts of created entries
  */
 export async function submitDocument(
   doctype: string,
   name: string,
+  options?: { token?: string },
 ): Promise<SubmitResult> {
   try {
     // ── 1. RBAC ──────────────────────────────────────────────────────────
-    const permCheck = await checkPermission(doctype, "submit");
+    const permCheck = await checkPermission(doctype, "submit", options?.token);
     if (!permCheck.allowed) {
       return { success: false, error: permCheck.reason ?? "Permission denied" };
     }
@@ -882,15 +884,17 @@ export async function submitDocument(
  *
  * @param doctype - The DocType name (e.g. "Sales Invoice")
  * @param name    - The document name/ID
+ * @param options - Optional: token to tie RBAC to the requesting user's session
  * @returns Cancel result with counts of reversed entries
  */
 export async function cancelDocument(
   doctype: string,
   name: string,
+  options?: { token?: string },
 ): Promise<CancelResult> {
   try {
     // ── 1. RBAC ──────────────────────────────────────────────────────────
-    const permCheck = await checkPermission(doctype, "cancel");
+    const permCheck = await checkPermission(doctype, "cancel", options?.token);
     if (!permCheck.allowed) {
       return { success: false, error: permCheck.reason ?? "Permission denied" };
     }

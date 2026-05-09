@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import type { journalentrytype } from '@/prisma/client';
 
 export type ClientSafeJournalEntry = {
@@ -45,7 +46,7 @@ export async function listJournalEntries(): Promise<
         remarks: e.notes || e.reference || null,
         created_at: e.created_at,
       })),
-    };
+    };error:any
   } catch (error: any) {
     console.error('Error fetching journal entries:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch journal entries' };
@@ -111,7 +112,7 @@ export async function createJournalEntry(data: {
         remarks: data.remarks || data.notes || data.reference || null,
         created_at: record.created_at,
       } as ClientSafeJournalEntry,
-    };
+    };error:any
   } catch (error: any) {
     return { success: false as const, error: error?.message || 'Failed to create journal entry' };
   }
@@ -121,14 +122,16 @@ export async function createJournalEntry(data: {
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitJournalEntry(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Journal Entry", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Journal Entry", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/journal-entries');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelJournalEntry(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Journal Entry", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Journal Entry", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/journal-entries');
   return result;
 }

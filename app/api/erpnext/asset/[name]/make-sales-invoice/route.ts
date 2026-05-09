@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -36,7 +37,6 @@ export async function POST(
   const siName = generateShortCode("SINV");
 
   // ── Create Sales Invoice header + single item atomically ───────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await prisma.$transaction(async (tx) => {
     const si = await tx.salesInvoice.create({
       data: {
@@ -53,7 +53,7 @@ export async function POST(
         owner: "Administrator",
         modified_by: "Administrator",
         status: "Draft",
-      } as any,
+      } as unknown as Prisma.SalesInvoiceCreateInput,
     });
 
     // ── Create single item row for the asset ────────────────────────────
@@ -76,7 +76,7 @@ export async function POST(
         warehouse: asset.location,
         income_account: "",
         cost_center: asset.cost_center ?? "",
-      } as any,
+      } as unknown as Prisma.SalesInvoiceItemCreateInput,
     });
 
     return si;

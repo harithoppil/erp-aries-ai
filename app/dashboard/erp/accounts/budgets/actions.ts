@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
@@ -92,7 +93,7 @@ export async function listBudgets(
         creation: b.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[budgets] listBudgets failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch budgets' };
   }
@@ -133,7 +134,7 @@ export async function getBudget(
         budget_end_date: b.budget_end_date,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[budgets] getBudget failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch budget' };
   }
@@ -185,7 +186,7 @@ export async function createBudget(
         creation: b.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[budgets] createBudget failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create budget' };
   }
@@ -194,13 +195,15 @@ export async function createBudget(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitBudget(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Budget", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Budget", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/accounts/budgets');
   return result;
 }
 
 export async function cancelBudget(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Budget", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Budget", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/accounts/budgets');
   return result;
 }
@@ -218,7 +221,7 @@ export async function deleteBudget(
     await prisma.budget.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/accounts/budgets');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[budgets] deleteBudget failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete budget' };
   }

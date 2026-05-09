@@ -93,10 +93,11 @@ function getSLEDelegate(tx: Record<string, unknown>): PrismaDelegate | null {
 
 /**
  * Resolve the bin delegate from the transaction client.
- * The `bins` model is in the `public` schema.
+ * The canonical `Bin` model is in the `erpnext_port` schema with
+ * string-based keys (warehouse + item_code), not the `public.bins` UUID model.
  */
 function getBinDelegate(tx: Record<string, unknown>): PrismaDelegate | null {
-  return getDelegateByAccessor(tx, "bins");
+  return getDelegateByAccessor(tx, "bin");
 }
 
 /* ------------------------------------------------------------------ */
@@ -290,12 +291,11 @@ export async function reverseStockLedgerEntries(
  * Update bin quantities for each item+warehouse combination.
  *
  * For each unique item+warehouse pair in the entries:
- * - If a bin row exists, adjust `quantity` by the sum of `actualQty`
- * - If no bin row exists, create one
+ * - If a bin row exists (matched by item_code + warehouse), adjust `actual_qty`
+ * - If no bin row exists, create one with the starting quantity
  *
- * The `bins` model is in the `public` schema with UUID PKs.
- * Since we don't have the item/warehouse UUIDs here, we do a
- * lookup by the `items` and `warehouses` records.
+ * The canonical `Bin` model is in the `erpnext_port` schema with string-based
+ * keys (`warehouse` + `item_code`), not the `public.bins` UUID model.
  *
  * @param tx      - Prisma transaction client
  * @param entries - Array of stock ledger entry inputs
@@ -314,7 +314,7 @@ export async function updateBins(
     return 0;
   }
 
-  // Aggregate qty by item+warehouse
+  // Aggregate qty delta by item+warehouse
   const deltaMap = new Map<string, number>();
   for (const entry of entries) {
     const key = `${entry.itemCode}::${entry.warehouse}`;
@@ -327,69 +327,50 @@ export async function updateBins(
   for (const [key, delta] of deltaMap) {
     if (delta === 0) continue;
 
-    const [itemCode, warehouseName] = key.split("::");
+    const [itemCode, warehouse] = key.split("::");
 
-    // Look up item UUID and warehouse UUID from their respective tables
-    const itemDelegate = getDelegateByAccessor(tx, "item");
-    const warehouseDelegate = getDelegateByAccessor(tx, "warehouse");
-
-    if (!itemDelegate || !warehouseDelegate) continue;
-
-    // Find item by item_code (name field in erpnext_port)
-    const item = await itemDelegate.findFirst({
-      where: { name: itemCode } as unknown,
-    }) as Record<string, unknown> | null;
-
-    // Find warehouse by name
-    const warehouse = await warehouseDelegate.findFirst({
-      where: { name: warehouseName } as unknown,
-    }) as Record<string, unknown> | null;
-
-    if (!item || !warehouse) continue;
-
-    const itemId = item.id ?? item.name;
-    const warehouseId = warehouse.id ?? warehouse.name;
-
-    // Try to find existing bin
+    // Find existing Bin by item_code + warehouse (erpnext_port.Bin composite key)
     const existingBin = await binDelegate.findFirst({
       where: {
-        item_id: itemId,
-        warehouse_id: warehouseId,
+        item_code: itemCode,
+        warehouse: warehouse,
       } as unknown,
     }) as Record<string, unknown> | null;
 
     if (existingBin) {
-      const currentQty = Number(existingBin.quantity ?? 0);
+      // Adjust actual_qty by the delta from the stock ledger entries
+      const currentQty = Number(existingBin.actual_qty ?? 0);
       const currentRate = Number(existingBin.valuation_rate ?? 0);
       const newQty = currentQty + delta;
       const newStockValue = newQty * currentRate;
 
       await binDelegate.update({
-        where: { id: existingBin.id } as unknown,
+        where: { name: existingBin.name } as unknown,
         data: {
-          quantity: newQty,
+          actual_qty: newQty,
           stock_value: newStockValue,
-          updated_at: new Date(),
         } as unknown,
       });
     } else {
-      // Create new bin row
-      // We need a UUID — generate one
-      const binId = crypto.randomUUID();
+      // Create new Bin row with erpnext_port string-based PK
+      // Generate a unique name for the Bin record
+      const binName = `${warehouse}-${itemCode}-${Date.now()}`;
       const valuationRate = entries.find(
-        (e) => e.itemCode === itemCode && e.warehouse === warehouseName,
+        (e) => e.itemCode === itemCode && e.warehouse === warehouse,
       )?.valuationRate ?? 0;
       const stockValue = delta * valuationRate;
 
       await binDelegate.create({
         data: {
-          id: binId,
-          item_id: itemId,
-          warehouse_id: warehouseId,
-          quantity: delta,
+          name: binName,
+          item_code: itemCode,
+          warehouse: warehouse,
+          actual_qty: delta,
+          ordered_qty: 0,
+          reserved_qty: 0,
+          indented_qty: 0,
           valuation_rate: valuationRate,
           stock_value: stockValue,
-          updated_at: new Date(),
         } as unknown,
       });
     }

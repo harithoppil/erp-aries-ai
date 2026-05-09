@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -103,7 +104,7 @@ export async function POST(
         owner: "Administrator",
         modified_by: "Administrator",
         status: "Draft",
-      } as any,
+      } as unknown as Prisma.PurchaseReceiptCreateInput,
     });
 
     // ── Create PR items from PO items ─────────────────────────────────
@@ -159,7 +160,7 @@ export async function POST(
     }));
 
     if (prItemRows.length > 0) {
-      await tx.purchaseReceiptItem.createMany({ data: prItemRows as any });
+      await tx.purchaseReceiptItem.createMany({ data: prItemRows as unknown as Prisma.PurchaseReceiptItemCreateManyInput[] });
     }
 
     // ── Copy taxes ────────────────────────────────────────────────────
@@ -194,7 +195,7 @@ export async function POST(
     }));
 
     if (prTaxRows.length > 0) {
-      await tx.purchaseTaxesAndCharges.createMany({ data: prTaxRows as any });
+      await tx.purchaseTaxesAndCharges.createMany({ data: prTaxRows as unknown as Prisma.PurchaseTaxesAndChargesCreateManyInput[] });
     }
 
     return pr;

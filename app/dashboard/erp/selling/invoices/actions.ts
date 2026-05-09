@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 import type { SalesInvoiceItemRow } from '@/lib/erpnext/types';
@@ -112,7 +113,7 @@ export async function listSalesInvoices(
         creation: i.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[sales-invoices] listSalesInvoices failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch sales invoices' };
   }
@@ -173,7 +174,7 @@ export async function getSalesInvoice(
         shipping_address: invoice.shipping_address,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[sales-invoices] getSalesInvoice failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch sales invoice' };
   }
@@ -271,7 +272,7 @@ export async function createSalesInvoice(
         creation: invoice.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[sales-invoices] createSalesInvoice failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create sales invoice' };
   }
@@ -280,13 +281,15 @@ export async function createSalesInvoice(
 // ── Submit / Cancel ────────────────────────────────────────────────────────────
 
 export async function submitSalesInvoice(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Sales Invoice", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Sales Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/selling/invoices');
   return result;
 }
 
 export async function cancelSalesInvoice(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Sales Invoice", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Sales Invoice", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/selling/invoices');
   return result;
 }

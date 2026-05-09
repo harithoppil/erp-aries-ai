@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
@@ -70,7 +71,7 @@ export async function listQuotations(): Promise<
         notes: q.notes || null,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error fetching quotations:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch quotations' };
   }
@@ -139,7 +140,7 @@ export async function createQuotation(data: {
         notes: data.notes || null,
       } as ClientSafeQuotation,
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false as const, error: error?.message || 'Failed to create quotation' };
   }
 }
@@ -148,14 +149,16 @@ export async function createQuotation(data: {
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitQuotation(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Quotation", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Quotation", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/quotations');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelQuotation(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Quotation", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Quotation", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/quotations');
   return result;
 }
@@ -199,9 +202,9 @@ export async function validateQuotation(
         return { success: false, error: 'Validity period of this quotation has ended' };
       }
     }
-
+error:any
     return { success: true, valid: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[quotations] validateQuotation failed:', error?.message);
     return { success: false, error: error?.message || 'Quotation validation failed' };
   }
@@ -259,9 +262,9 @@ export async function makeSalesOrder(
     });
 
     revalidatePath('/erp/sales-orders');
-    revalidatePath('/erp/quotations');
+    revaliderrorany/erp/quotations');
     return { success: true, salesOrder: { name: so.order_number } };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[quotations] makeSalesOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create Sales Order from Quotation' };
   }
@@ -314,9 +317,9 @@ export async function getQuotationMargin(
       total: Math.round(total * 100) / 100,
       cost: Math.round(cost * 100) / 100,
       margin: Math.round(margin * 100) / 100,
-      marginPercent,
+      margierrorany
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[quotations] getQuotationMargin failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to calculate quotation margin' };
   }

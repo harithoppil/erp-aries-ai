@@ -17,14 +17,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { submitDocument } from "@/lib/erpnext/document-orchestrator";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ doctype: string; name: string }> },
 ) {
   try {
     const { doctype, name } = await params;
 
+    // Extract session token from cookies for user-scoped RBAC
+    const token = req.cookies.get("token")?.value;
+
     // Use the orchestrator which handles validation, GL, stock, etc.
-    const result = await submitDocument(doctype, name);
+    const result = await submitDocument(doctype, name, { token });
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
@@ -36,10 +39,10 @@ export async function POST(
       stock_entries_count: result.stock_entries_count,
       message: `${doctype} "${name}" submitted successfully`,
     });
-  } catch (err: any) {
-    console.error("[erpnext/submit] Error:", err?.message);
+  } catch (error:any) {
+    console.error("[erpnext/submit] Error:", error?.message);
     return NextResponse.json(
-      { error: err?.message || "Internal server error" },
+      { error: error?.message || "Internal server error" },
       { status: 500 },
     );
   }

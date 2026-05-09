@@ -74,7 +74,7 @@ export async function listCostCenters(
         creation: cc.creation,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[cost-centers] listCostCenters failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch cost centers' };
   }
@@ -106,7 +106,7 @@ export async function getCostCenter(
         old_parent: cc.old_parent,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[cost-centers] getCostCenter failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch cost center' };
   }
@@ -149,7 +149,7 @@ export async function createCostCenter(
         creation: cc.creation,
       },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[cost-centers] createCostCenter failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create cost center' };
   }
@@ -167,7 +167,7 @@ export async function deleteCostCenter(
     await prisma.costCenter.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/accounts/cost-centers');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[cost-centers] deleteCostCenter failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to delete cost center' };
   }

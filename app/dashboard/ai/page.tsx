@@ -63,9 +63,9 @@ export default function AIChatPage() {
         } else {
           toast.error(result.error);
         }
-      } catch (e: any) {
-        console.error("Failed to load personas:", e);
-        toast.error(e.message || "Failed to load AI personas");
+      } catch (error:any) {
+        console.error("Failed to load personas:", error);
+        toast.error(error.message || "Failed to load AI personas");
       } finally {
         setLoading(false);
       }
@@ -144,13 +144,13 @@ export default function AIChatPage() {
             : msg
         )
       );
-    } catch (e) {
+    } catch (error) {
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantId
             ? {
                 ...msg,
-                content: `⚠️ Error: ${(e as Error).message}`,
+                content: `⚠️ Error: ${(error as Error).message}`,
                 role: "system",
                 streaming: false,
               }

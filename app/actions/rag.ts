@@ -214,7 +214,7 @@ export async function ragSearch(
     // Sort by score descending
     const sorted = [...seen.values()].sort((a, b) => b.score - a.score);
     return { success: true, results: sorted.slice(0, limit) };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[rag] search failed:', error?.message);
     return { success: false, error: error?.message || 'RAG search failed' };
   }
@@ -265,9 +265,9 @@ export async function indexWikiAll(route: string = 'v2'): Promise<RAGIndexRespon
         await insertChunks(rows);
         totalChunks += chunks.length;
         indexedPages++;
-      } catch (e: any) {
-        errors.push(`${pagePath}: ${e?.message}`);
-        console.error(`[rag] Failed to index wiki page ${pagePath}:`, e?.message);
+      } catch (error:any) {
+        errors.push(`${pagePath}: ${error?.message}`);
+        console.error(`[rag] Failed to index wiki page ${pagePath}:`, error?.message);
       }
     }
 
@@ -276,7 +276,7 @@ export async function indexWikiAll(route: string = 'v2'): Promise<RAGIndexRespon
       success: true,
       info: { indexed_pages: indexedPages, total_chunks: totalChunks, errors },
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[rag] indexWikiAll failed:', error?.message);
     return { success: false, error: error?.message || 'Wiki indexing failed' };
   }
@@ -322,7 +322,7 @@ export async function indexWikiPage(path: string, route: string = 'v2'): Promise
 
     revalidatePath('/wiki');
     return { success: true, info: { path, chunks_indexed: count, route } };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[rag] indexWikiPage failed:', error?.message);
     return { success: false, error: error?.message || 'Page indexing failed' };
   }
@@ -345,7 +345,7 @@ export async function getRagStats(): Promise<RAGStatsResponse> {
     };
 
     return { success: true, stats: ragStats };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[rag] getRagStats failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to get RAG stats' };
   }

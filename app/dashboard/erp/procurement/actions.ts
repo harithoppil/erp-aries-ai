@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { submitDocument, cancelDocument, type SubmitResult, type CancelResult } from '@/lib/erpnext/document-orchestrator';
 
@@ -67,7 +68,7 @@ export async function listSuppliers(): Promise<
         created_at: s.created_at,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error fetching suppliers:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch suppliers' };
   }
@@ -95,7 +96,7 @@ export async function listPurchaseOrders(): Promise<
         created_at: o.created_at,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error fetching purchase orders:', error?.message);
     return { success: false, error: error?.message || 'Failed to fetch purchase orders' };
   }
@@ -166,7 +167,7 @@ export async function createPurchaseOrder(data: {
         created_at: order.created_at,
       } as ClientSafePurchaseOrder,
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false as const, error: error?.message || 'Failed to create purchase order' };
   }
 }
@@ -208,7 +209,7 @@ export async function createSupplier(data: {
         created_at: supplier.created_at,
       } as ClientSafeSupplier,
     };
-  } catch (error: any) {
+  } catch (error:any) {
     return { success: false as const, error: error?.message || 'Failed to create supplier' };
   }
 }
@@ -217,14 +218,16 @@ export async function createSupplier(data: {
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function submitPurchaseOrder(id: string): Promise<SubmitResult> {
-  const result = await submitDocument("Purchase Order", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await submitDocument("Purchase Order", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/procurement');
   return result;
 }
 
 // TODO: Dual-schema — this action creates in public schema but orchestrator queries erpnext_port
 export async function cancelPurchaseOrder(id: string): Promise<CancelResult> {
-  const result = await cancelDocument("Purchase Order", id);
+  const token = (await cookies()).get("token")?.value;
+  const result = await cancelDocument("Purchase Order", id, { token });
   if (result.success) revalidatePath('/dashboard/erp/procurement');
   return result;
 }
@@ -298,7 +301,7 @@ export async function validatePurchaseOrder(
     }
 
     return { success: true, valid: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[procurement] validatePurchaseOrder failed:', error?.message);
     return { success: false, error: error?.message || 'Purchase Order validation failed' };
   }
@@ -342,7 +345,7 @@ export async function makePurchaseReceipt(
     }
 
     return { success: false, error: 'Purchase Receipt creation is not supported with Prisma backend' };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[procurement] makePurchaseReceipt failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to create Purchase Receipt' };
   }
@@ -390,7 +393,7 @@ export async function getSupplierTotalPurchases(
       totalPurchases: Math.round(totalPurchases * 100) / 100,
       orderCount: orders.length,
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[procurement] getSupplierTotalPurchases failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to get supplier total purchases' };
   }

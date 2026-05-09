@@ -88,7 +88,7 @@ export async function getGeneralLedger(filters?: ReportFilters): Promise<
     const totalCredit = entries.reduce((s, e) => s + e.credit, 0);
 
     return { success: true, entries, total: { debit: totalDebit, credit: totalCredit } };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[reports] General Ledger failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run General Ledger' };
   }
@@ -154,7 +154,7 @@ export async function getProfitAndLoss(filters?: ReportFilters): Promise<
     };
 
     return { success: true, data };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[reports] P&L failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run Profit and Loss' };
   }
@@ -204,7 +204,7 @@ export async function getReportsSummary(): Promise<
       items: items.map((i) => ({ id: i.id, item_name: i.item_name || i.id, stock_qty: 0 })),
     };
     return { success: true, data: empty };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[reports] Summary failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to load reports summary' };
   }
@@ -233,7 +233,7 @@ export async function runBalanceSheet(filters?: ReportFilters): Promise<
     };
 
     return { success: true, data };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[reports] Balance Sheet failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run Balance Sheet' };
   }
@@ -272,7 +272,7 @@ export async function runTrialBalance(filters?: ReportFilters): Promise<
     }
 
     return { success: true, data: Array.from(accountMap.values()) };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[reports] Trial Balance failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run Trial Balance' };
   }
@@ -303,7 +303,7 @@ export async function runStockBalance(filters?: ReportFilters): Promise<
         projected_qty: b.quantity,
       })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[reports] Stock Balance failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run Stock Balance' };
   }
@@ -332,7 +332,7 @@ export async function runSalesAnalytics(filters?: ReportFilters): Promise<
       success: true,
       data: Array.from(monthly.entries()).map(([month, total]) => ({ month, total })),
     };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('[reports] Sales Analytics failed:', error?.message);
     return { success: false, error: error?.message || 'Failed to run Sales Analytics' };
   }

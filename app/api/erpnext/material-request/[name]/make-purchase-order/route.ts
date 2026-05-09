@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateShortCode } from "@/lib/uuid";
+import type { Prisma } from "@/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -71,7 +72,7 @@ export async function POST(
         owner: "Administrator",
         modified_by: "Administrator",
         status: "Draft",
-      } as any,
+      } as unknown as Prisma.PurchaseOrderCreateInput,
     });
 
     // ── Create PO items from MR items ─────────────────────────────────
@@ -113,7 +114,7 @@ export async function POST(
     }));
 
     if (poItemRows.length > 0) {
-      await tx.purchaseOrderItem.createMany({ data: poItemRows as any });
+      await tx.purchaseOrderItem.createMany({ data: poItemRows as unknown as Prisma.PurchaseOrderItemCreateManyInput[] });
     }
 
     return po;

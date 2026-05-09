@@ -109,10 +109,10 @@ export async function GET(
     return NextResponse.json({
       data: { ...record, ...children },
     });
-  } catch (err: any) {
-    console.error("[erpnext/read] Error:", err?.message);
+  } catch (error:any) {
+    console.error("[erpnext/read] Error:", error?.message);
     return NextResponse.json(
-      { error: err?.message || "Internal server error" },
+      { error: error?.message || "Internal server error" },
       { status: 500 },
     );
   }
@@ -257,15 +257,15 @@ export async function PUT(
     });
 
     return NextResponse.json({ data: result });
-  } catch (err: any) {
-    console.error("[erpnext/update] Error:", err?.message);
+  } catch (error:any) {
+    console.error("[erpnext/update] Error:", error?.message);
 
-    if (err?.code === "P2025") {
+    if (error?.code === "P2025") {
       return NextResponse.json({ error: "Record not found" }, { status: 404 });
     }
 
     return NextResponse.json(
-      { error: err?.message || "Internal server error" },
+      { error: error?.message || "Internal server error" },
       { status: 500 },
     );
   }
@@ -365,23 +365,23 @@ export async function DELETE(
       message: `${doctype} "${name}" deleted successfully`,
       deleted_children: childCount,
     });
-  } catch (err: any) {
-    console.error("[erpnext/delete] Error:", err?.message);
+  } catch (error:any) {
+    console.error("[erpnext/delete] Error:", error?.message);
 
     // Foreign-key constraint violation
-    if (err?.code === "P2003") {
+    if (error?.code === "P2003") {
       return NextResponse.json(
         { error: "Cannot delete: other documents reference this record" },
         { status: 409 },
       );
     }
 
-    if (err?.code === "P2025") {
+    if (error?.code === "P2025") {
       return NextResponse.json({ error: "Record not found" }, { status: 404 });
     }
 
     return NextResponse.json(
-      { error: err?.message || "Internal server error" },
+      { error: error?.message || "Internal server error" },
       { status: 500 },
     );
   }
