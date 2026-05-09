@@ -91,3 +91,6 @@ convo_*.txt
 # Seed data output (generated JSON, raw request/response logs, cost reports)
 **/seed-output/
 **/seed-output-*/
+
+# Prisma generated client
+prisma/client/
