@@ -176,7 +176,7 @@ const NAV_GROUPS: NavGroup[] = [
           // Main Documents
           { label: "Supplier", href: erpHref("Supplier"), icon: Truck, group: "Main Documents" },
           { label: "Supplier Group", href: erpHref("SupplierGroup"), icon: Users, group: "Main Documents" },
-          { label: "Request for Quotation", href: erpHref("RequestforQuotation"), icon: Receipt, group: "Main Documents" },
+          { label: "Request for Quotation", href: erpHref("RequestForQuotation"), icon: Receipt, group: "Main Documents" },
           { label: "Supplier Quotation", href: erpHref("SupplierQuotation"), icon: FileText, group: "Main Documents" },
           { label: "Purchase Order", href: erpHref("PurchaseOrder"), icon: ClipboardList, group: "Main Documents" },
           { label: "Purchase Order Item", href: erpHref("PurchaseOrderItem"), icon: FileText, group: "Main Documents" },
@@ -186,7 +186,7 @@ const NAV_GROUPS: NavGroup[] = [
           { label: "Material Request", href: erpHref("MaterialRequest"), icon: ClipboardList, group: "Main Documents" },
           { label: "Material Request Item", href: erpHref("MaterialRequestItem"), icon: FileText, group: "Main Documents" },
           // Tax
-          { label: "Purchase Taxes and Charges Template", href: erpHref("PurchaseTaxesandChargesTemplate"), icon: Percent, group: "Tax" },
+          { label: "Purchase Taxes and Charges Template", href: erpHref("PurchaseTaxesAndChargesTemplate"), icon: Percent, group: "Tax" },
           // Other
           { label: "Incoterm", href: erpHref("Incoterm"), icon: Globe, group: "Other" },
         ],
@@ -225,7 +225,7 @@ const NAV_GROUPS: NavGroup[] = [
           // Serial / Batch
           { label: "Serial No", href: erpHref("SerialNo"), icon: ScanBarcode, group: "Serial / Batch" },
           { label: "Batch", href: erpHref("Batch"), icon: Package, group: "Serial / Batch" },
-          { label: "Serial and Batch Bundle", href: erpHref("SerialandBatchBundle"), icon: Layers, group: "Serial / Batch" },
+          { label: "Serial and Batch Bundle", href: erpHref("SerialAndBatchBundle"), icon: Layers, group: "Serial / Batch" },
           // Tools
           { label: "Stock Reconciliation", href: erpHref("StockReconciliation"), icon: CheckCircle, group: "Tools" },
           { label: "Landed Cost Voucher", href: erpHref("LandedCostVoucher"), icon: Receipt, group: "Tools" },
@@ -306,7 +306,6 @@ const NAV_GROUPS: NavGroup[] = [
           { label: "Accounting Dimension", href: erpHref("AccountingDimension"), icon: Layers, group: "Masters" },
           { label: "Finance Book", href: erpHref("FinanceBook"), icon: BookOpen, group: "Masters" },
           { label: "Fiscal Year", href: erpHref("FiscalYear"), icon: Calendar, group: "Masters" },
-          { label: "Currency", href: erpHref("Currency"), icon: DollarSign, group: "Masters" },
           { label: "Currency Exchange", href: erpHref("CurrencyExchange"), icon: ArrowLeftRight, group: "Masters" },
           // Budget
           { label: "Budget", href: erpHref("Budget"), icon: PieChart, group: "Budget" },
@@ -316,8 +315,8 @@ const NAV_GROUPS: NavGroup[] = [
           { label: "Bank Account", href: erpHref("BankAccount"), icon: CreditCard, group: "Banking" },
           { label: "Bank Transaction", href: erpHref("BankTransaction"), icon: ArrowLeftRight, group: "Banking" },
           // Tax
-          { label: "Sales Taxes and Charges Template", href: erpHref("SalesTaxesandChargesTemplate"), icon: Percent, group: "Tax" },
-          { label: "Purchase Taxes and Charges Template", href: erpHref("PurchaseTaxesandChargesTemplate"), icon: Percent, group: "Tax" },
+          { label: "Sales Taxes and Charges Template", href: erpHref("SalesTaxesAndChargesTemplate"), icon: Percent, group: "Tax" },
+          { label: "Purchase Taxes and Charges Template", href: erpHref("PurchaseTaxesAndChargesTemplate"), icon: Percent, group: "Tax" },
           { label: "Item Tax Template", href: erpHref("ItemTaxTemplate"), icon: Percent, group: "Tax" },
           { label: "Tax Category", href: erpHref("TaxCategory"), icon: Tag, group: "Tax" },
           { label: "Tax Rule", href: erpHref("TaxRule"), icon: FileText, group: "Tax" },
@@ -390,7 +389,6 @@ const NAV_GROUPS: NavGroup[] = [
         icon: Users,
         children: [
           { label: "Lead", href: erpHref("Lead"), icon: UserPlus },
-          { label: "Lead Source", href: erpHref("LeadSource"), icon: Tag },
           { label: "Opportunity", href: erpHref("Opportunity"), icon: Target },
           { label: "Opportunity Item", href: erpHref("OpportunityItem"), icon: FileText },
           { label: "Opportunity Lost Reason", href: erpHref("OpportunityLostReason"), icon: AlertTriangle },
@@ -418,6 +416,9 @@ const NAV_GROUPS: NavGroup[] = [
       },
 
       // ── 12. HR ─────────────────────────────────────────────────────────────
+      // NOTE: most of HR (leave, payroll, salary, attendance, training, appraisals,
+      // recruitment, shifts) is not yet ported in the Prisma schema, so those
+      // sidebar items are hidden until their models are added.
       {
         label: "HR",
         icon: UserCog,
@@ -427,47 +428,10 @@ const NAV_GROUPS: NavGroup[] = [
           { label: "Employee Education", href: erpHref("EmployeeEducation"), icon: GraduationCap, group: "Employee" },
           { label: "Employee Group", href: erpHref("EmployeeGroup"), icon: Users, group: "Employee" },
           { label: "Designation", href: erpHref("Designation"), icon: Tag, group: "Employee" },
-          // Leave
-          { label: "Leave Type", href: erpHref("LeaveType"), icon: PlaneTakeoff, group: "Leave" },
-          { label: "Leave Allocation", href: erpHref("LeaveAllocation"), icon: Calendar, group: "Leave" },
-          { label: "Leave Application", href: erpHref("LeaveApplication"), icon: FileText, group: "Leave" },
-          { label: "Leave Ledger Entry", href: erpHref("LeaveLedgerEntry"), icon: BookOpen, group: "Leave" },
-          { label: "Leave Period", href: erpHref("LeavePeriod"), icon: Calendar, group: "Leave" },
-          { label: "Leave Policy", href: erpHref("LeavePolicy"), icon: FileText, group: "Leave" },
+          // Leave (only Holiday List has a Prisma model right now)
           { label: "Holiday List", href: erpHref("HolidayList"), icon: Calendar, group: "Leave" },
-          // Attendance
-          { label: "Attendance", href: erpHref("Attendance"), icon: Clock, group: "Attendance" },
-          { label: "Attendance Request", href: erpHref("AttendanceRequest"), icon: FileText, group: "Attendance" },
-          // Payroll
-          { label: "Salary Structure", href: erpHref("SalaryStructure"), icon: DollarSign, group: "Payroll" },
-          { label: "Salary Structure Assignment", href: erpHref("SalaryStructureAssignment"), icon: FileText, group: "Payroll" },
-          { label: "Salary Slip", href: erpHref("SalarySlip"), icon: Receipt, group: "Payroll" },
-          { label: "Salary Component", href: erpHref("SalaryComponent"), icon: Layers, group: "Payroll" },
-          { label: "Payroll Entry", href: erpHref("PayrollEntry"), icon: ClipboardList, group: "Payroll" },
-          { label: "Payroll Period", href: erpHref("PayrollPeriod"), icon: Calendar, group: "Payroll" },
-          // Expense
-          { label: "Expense Claim", href: erpHref("ExpenseClaim"), icon: Wallet, group: "Expense" },
-          { label: "Expense Claim Detail", href: erpHref("ExpenseClaimDetail"), icon: FileText, group: "Expense" },
-          // Training
-          { label: "Training Program", href: erpHref("TrainingProgram"), icon: BookOpenCheck, group: "Training" },
-          { label: "Training Event", href: erpHref("TrainingEvent"), icon: Calendar, group: "Training" },
-          { label: "Training Result", href: erpHref("TrainingResult"), icon: CheckCircle, group: "Training" },
-          { label: "Training Feedback", href: erpHref("TrainingFeedback"), icon: MessageSquare, group: "Training" },
-          // Performance
-          { label: "Appraisal", href: erpHref("Appraisal"), icon: Star, group: "Performance" },
-          { label: "Appraisal Template", href: erpHref("AppraisalTemplate"), icon: FileText, group: "Performance" },
-          { label: "Appraisal Goal", href: erpHref("AppraisalGoal"), icon: Target, group: "Performance" },
-          // Recruitment
-          { label: "Job Opening", href: erpHref("JobOpening"), icon: ClipboardList, group: "Recruitment" },
-          { label: "Job Applicant", href: erpHref("JobApplicant"), icon: UserPlus, group: "Recruitment" },
-          { label: "Job Offer", href: erpHref("JobOffer"), icon: FileText, group: "Recruitment" },
-          // Shifts
-          { label: "Shift Type", href: erpHref("ShiftType"), icon: Clock, group: "Shifts" },
-          { label: "Shift Assignment", href: erpHref("ShiftAssignment"), icon: CalendarClock, group: "Shifts" },
-          { label: "Shift Request", href: erpHref("ShiftRequest"), icon: FileText, group: "Shifts" },
           // Fleet
           { label: "Vehicle", href: erpHref("Vehicle"), icon: Car, group: "Fleet" },
-          { label: "Vehicle Log", href: erpHref("VehicleLog"), icon: FileText, group: "Fleet" },
         ],
       },
 
@@ -479,11 +443,7 @@ const NAV_GROUPS: NavGroup[] = [
           { label: "Company", href: erpHref("Company"), icon: Building },
           { label: "Department", href: erpHref("Department"), icon: Layers },
           { label: "Branch", href: erpHref("Branch"), icon: Globe },
-          { label: "Email Account", href: erpHref("EmailAccount"), icon: Mail },
-          { label: "Email Domain", href: erpHref("EmailDomain"), icon: Server },
-          { label: "Email Template", href: erpHref("EmailTemplate"), icon: FileText },
-          { label: "Letter Head", href: erpHref("LetterHead"), icon: Printer },
-          { label: "Terms and Conditions", href: erpHref("TermsandConditions"), icon: FileCheck },
+          { label: "Terms and Conditions", href: erpHref("TermsAndConditions"), icon: FileCheck },
         ],
       },
 
@@ -501,7 +461,6 @@ const NAV_GROUPS: NavGroup[] = [
           { label: "CRM Settings", href: erpHref("CRMSettings"), icon: Users },
           { label: "Support Settings", href: erpHref("SupportSettings"), icon: Headphones },
           { label: "Global Defaults", href: erpHref("GlobalDefaults"), icon: Settings },
-          { label: "System Settings", href: erpHref("SystemSettings"), icon: Settings },
         ],
       },
     ],
