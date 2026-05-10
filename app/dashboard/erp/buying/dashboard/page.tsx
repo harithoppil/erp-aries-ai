@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { getDelegateByAccessor } from '@/lib/erpnext/prisma-delegate';
 import DashboardClient from './DashboardClient';
 
 export const dynamic = 'force-dynamic';
@@ -54,9 +55,10 @@ async function getMonthlyData(
       59,
     );
     try {
-      const count = await (prisma as any)[accessor].count({
-        where: { creation: { gte: start, lte: end } },
-      });
+      const delegate = getDelegateByAccessor(prisma, accessor);
+      const count = delegate
+        ? await delegate.count({ where: { creation: { gte: start, lte: end } } })
+        : 0;
       months.push({
         month: start.toLocaleDateString('en', {
           month: 'short',
