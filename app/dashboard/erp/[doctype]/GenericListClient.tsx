@@ -347,128 +347,126 @@ export default function GenericListClient({
 
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
-      <div className="flex-1 min-h-0 overflow-auto pr-2">
-        <div className="space-y-4 pb-4">
-          {/* Breadcrumb */}
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/dashboard/erp/selling">ERP</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>{doctypeLabel}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      {/* Sticky header: breadcrumb + title + new button + search */}
+      <div className="flex-shrink-0 space-y-4 pb-4 bg-background">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/dashboard/erp/selling">ERP</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{doctypeLabel}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
 
-          {/* Header */}
-          {uiActionActive && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 text-sm animate-pulse">
-              <Sparkles size={14} className="animate-spin" />
-              <span>AI is controlling the interface...</span>
-            </div>
-          )}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-[#0f172a]">{doctypeLabel}</h2>
-              <p className="text-sm text-[#64748b] mt-1">
-                {currentMeta.total} record{currentMeta.total !== 1 ? 's' : ''} total
-              </p>
-            </div>
-            <Link
-              href={`/dashboard/erp/${doctype}/new`}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45] px-4 py-2 text-sm font-medium text-white transition-colors"
-            >
-              <Plus size={16} /> New {doctypeLabel}
-            </Link>
+        {uiActionActive && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 text-sm animate-pulse">
+            <Sparkles size={14} className="animate-spin" />
+            <span>AI is controlling the interface...</span>
           </div>
+        )}
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
-            <Input
-              placeholder={`Search ${doctypeLabel} by name...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 bg-white border-gray-200"
-            />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-[#0f172a]">{doctypeLabel}</h2>
+            <p className="text-sm text-[#64748b] mt-1">
+              {currentMeta.total} record{currentMeta.total !== 1 ? 's' : ''} total
+            </p>
           </div>
-
-          {/* Loading overlay for refetch */}
-          {isLoading && records.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-[#64748b]">
-              <Loader2 size={14} className="animate-spin" />
-              Loading...
-            </div>
-          )}
-
-          {/* Content */}
-          {records.length === 0 && !isLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
-              <FileText size={48} className="mb-4 opacity-40" />
-              <p className="text-lg font-medium">No records found</p>
-              <p className="text-sm">
-                {debouncedSearch
-                  ? 'Try a different search term'
-                  : `Create your first ${doctypeLabel} to get started`}
-              </p>
-            </div>
-          ) : isMobile ? (
-            <MobileList
-              records={records}
-              columns={columns}
-              doctype={doctype}
-              deleting={deleting}
-              onDelete={handleDelete}
-            />
-          ) : (
-            <DesktopTable
-              records={records}
-              columns={columns}
-              doctype={doctype}
-              sortField={sortField}
-              sortOrder={sortOrder}
-              deleting={deleting}
-              onSort={handleSort}
-              onDelete={handleDelete}
-            />
-          )}
-
-          {/* Pagination */}
-          {currentMeta.total > 0 && (
-            <div className="flex items-center justify-between pt-2">
-              <p className="text-sm text-[#64748b]">
-                Page {page} of {totalPages} ({currentMeta.total} records)
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1 || isLoading}
-                  onClick={handlePrevPage}
-                  className="gap-1"
-                >
-                  <ChevronLeft size={14} /> Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages || isLoading}
-                  onClick={handleNextPage}
-                  className="gap-1"
-                >
-                  Next <ChevronRight size={14} />
-                </Button>
-              </div>
-            </div>
-          )}
+          <Link
+            href={`/dashboard/erp/${doctype}/new`}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45] px-4 py-2 text-sm font-medium text-white transition-colors"
+          >
+            <Plus size={16} /> New {doctypeLabel}
+          </Link>
         </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
+          <Input
+            placeholder={`Search ${doctypeLabel} by name...`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 bg-white border-gray-200"
+          />
+        </div>
+
+        {isLoading && records.length > 0 && (
+          <div className="flex items-center gap-2 text-sm text-[#64748b]">
+            <Loader2 size={14} className="animate-spin" />
+            Loading...
+          </div>
+        )}
       </div>
+
+      {/* Scrollable content area: only table rows scroll */}
+      <div className="flex-1 min-h-0 overflow-auto pr-2">
+        {records.length === 0 && !isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
+            <FileText size={48} className="mb-4 opacity-40" />
+            <p className="text-lg font-medium">No records found</p>
+            <p className="text-sm">
+              {debouncedSearch
+                ? 'Try a different search term'
+                : `Create your first ${doctypeLabel} to get started`}
+            </p>
+          </div>
+        ) : isMobile ? (
+          <MobileList
+            records={records}
+            columns={columns}
+            doctype={doctype}
+            deleting={deleting}
+            onDelete={handleDelete}
+          />
+        ) : (
+          <DesktopTable
+            records={records}
+            columns={columns}
+            doctype={doctype}
+            sortField={sortField}
+            sortOrder={sortOrder}
+            deleting={deleting}
+            onSort={handleSort}
+            onDelete={handleDelete}
+          />
+        )}
+      </div>
+
+      {/* Sticky footer: pagination */}
+      {currentMeta.total > 0 && (
+        <div className="flex-shrink-0 flex items-center justify-between pt-3 border-t border-gray-100 bg-background">
+          <p className="text-sm text-[#64748b]">
+            Page {page} of {totalPages} ({currentMeta.total} records)
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || isLoading}
+              onClick={handlePrevPage}
+              className="gap-1"
+            >
+              <ChevronLeft size={14} /> Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages || isLoading}
+              onClick={handleNextPage}
+              className="gap-1"
+            >
+              Next <ChevronRight size={14} />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
