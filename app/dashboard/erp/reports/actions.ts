@@ -192,18 +192,60 @@ export async function runBalanceSheet(filters?: ReportFilters): Promise<
 > {
   try {
     await requirePermission("Report", "read");
-    const accounts = await prisma.account.findMany({
-      where: { root_type: { in: ['Asset', 'Liability', 'Equity'] } },
-      orderBy: { lft: 'asc' },
-    });
-    const assets = accounts.filter((a) => a.root_type === 'Asset');
-    const liabilities = accounts.filter((a) => a.root_type === 'Liability');
-    const equity = accounts.filter((a) => a.root_type === 'Equity');
+    const asOfDate = filters?.as_of_date
+      ? new Date(filters.as_of_date)
+      : new Date();
+
+    // Pull every Balance Sheet account (Asset, Liability, Equity) and every
+    // posted GL entry up to the as-of date. Aggregate per account.
+    const [accounts, rows] = await Promise.all([
+      prisma.account.findMany({
+        where: { root_type: { in: ['Asset', 'Liability', 'Equity'] } },
+        orderBy: { lft: 'asc' },
+      }),
+      prisma.glEntry.findMany({
+        where: { posting_date: { lte: asOfDate }, is_cancelled: false },
+        select: { account: true, debit: true, credit: true },
+      }),
+    ]);
+
+    // Net debit-credit per account name
+    const balanceMap = new Map<string, number>();
+    for (const row of rows) {
+      if (!row.account) continue;
+      const net = Number(row.debit ?? 0) - Number(row.credit ?? 0);
+      balanceMap.set(row.account, (balanceMap.get(row.account) ?? 0) + net);
+    }
+
+    // Convention: Assets are debit-positive, Liability/Equity are credit-
+    // positive. Negate the net for L/E so all three sides come out positive
+    // when posted normally. Skip group accounts and zero balances.
+    const buildSection = (rootType: 'Asset' | 'Liability' | 'Equity') => {
+      const sectionAccounts = accounts
+        .filter((a) => a.root_type === rootType && !a.is_group)
+        .map((a) => {
+          const raw = balanceMap.get(a.name) ?? 0;
+          const balance = rootType === 'Asset' ? raw : -raw;
+          return {
+            id: a.name,
+            name: a.account_name || a.name,
+            account: a.account_name || a.name,
+            balance,
+          };
+        })
+        .filter((a) => Math.abs(a.balance) > 0.005); // hide zero-balance accounts
+      const total = sectionAccounts.reduce((s, a) => s + a.balance, 0);
+      return { accounts: sectionAccounts, total };
+    };
+
+    const assets = buildSection('Asset');
+    const liabilities = buildSection('Liability');
+    const equity = buildSection('Equity');
     const data: BSData = {
-      assets: { accounts: assets.map((a) => ({ id: a.name, name: a.account_name || a.name, account: a.account_name || a.name, balance: 0 })), total: 0 },
-      liabilities: { accounts: liabilities.map((a) => ({ id: a.name, name: a.account_name || a.name, account: a.account_name || a.name, balance: 0 })), total: 0 },
-      equity: { accounts: equity.map((a) => ({ id: a.name, name: a.account_name || a.name, account: a.account_name || a.name, balance: 0 })), total: 0 },
-      total_liabilities_and_equity: 0,
+      assets,
+      liabilities,
+      equity,
+      total_liabilities_and_equity: liabilities.total + equity.total,
     };
     return { success: true, data };
   } catch (error) {
@@ -239,35 +281,71 @@ export async function runTrialBalance(filters?: ReportFilters): Promise<
     await requirePermission("Report", "read");
     const fromDate = filters?.from_date ? new Date(filters.from_date) : new Date(new Date().getFullYear(), 0, 1);
     const toDate = filters?.to_date ? new Date(filters.to_date) : new Date();
-    const rows = await prisma.glEntry.findMany({
-      where: { posting_date: { gte: fromDate, lte: toDate }, is_cancelled: false },
-      take: 5000,
-    });
-    const accountNames = [...new Set(rows.map((r) => r.account).filter((a): a is string => !!a))];
-    const accounts = await prisma.account.findMany({
-      where: { name: { in: accountNames } },
-      select: { name: true, account_name: true },
-    });
-    const accountMap = new Map(accounts.map((a) => [a.name, a]));
-    const accountAgg = new Map<string, TBAccount>();
-    for (const row of rows) {
-      const acc = accountMap.get(row.account || '');
-      if (!acc) continue;
-      const existing = accountAgg.get(acc.name);
-      if (existing) {
-        existing.debit += Number(row.debit || 0);
-        existing.credit += Number(row.credit || 0);
-      } else {
-        accountAgg.set(acc.name, {
-          id: acc.name,
-          name: acc.account_name || acc.name,
-          account: acc.account_name || acc.name,
-          debit: Number(row.debit || 0),
-          credit: Number(row.credit || 0),
-        });
+
+    // Three buckets of GL entries:
+    //   opening    = posted strictly before fromDate (cumulative)
+    //   period     = posted within [fromDate, toDate]
+    //   closing    = opening + period (derived per row)
+    // Pulling all three sets in parallel keeps round-trips at one batch.
+    const [openingRows, periodRows, accounts] = await Promise.all([
+      prisma.glEntry.findMany({
+        where: { posting_date: { lt: fromDate }, is_cancelled: false },
+        select: { account: true, debit: true, credit: true },
+      }),
+      prisma.glEntry.findMany({
+        where: { posting_date: { gte: fromDate, lte: toDate }, is_cancelled: false },
+        select: { account: true, debit: true, credit: true },
+      }),
+      prisma.account.findMany({
+        select: { name: true, account_name: true, root_type: true, account_number: true },
+        orderBy: { lft: 'asc' },
+      }),
+    ]);
+
+    const aggregate = (
+      rows: Array<{ account: string | null; debit: number | null | { toString(): string }; credit: number | null | { toString(): string } }>,
+    ): Map<string, { debit: number; credit: number }> => {
+      const m = new Map<string, { debit: number; credit: number }>();
+      for (const row of rows) {
+        if (!row.account) continue;
+        const slot = m.get(row.account) ?? { debit: 0, credit: 0 };
+        slot.debit += Number(row.debit ?? 0);
+        slot.credit += Number(row.credit ?? 0);
+        m.set(row.account, slot);
       }
+      return m;
+    };
+
+    const openingAgg = aggregate(openingRows);
+    const periodAgg = aggregate(periodRows);
+    const accountMap = new Map(accounts.map((a) => [a.name, a]));
+
+    // Build a row for every account that has any activity (opening OR period)
+    const touched = new Set<string>([...openingAgg.keys(), ...periodAgg.keys()]);
+    const out: TBAccount[] = [];
+    for (const accName of touched) {
+      const acc = accountMap.get(accName);
+      const op = openingAgg.get(accName) ?? { debit: 0, credit: 0 };
+      const pe = periodAgg.get(accName) ?? { debit: 0, credit: 0 };
+      const openingNet = op.debit - op.credit;
+      const closingNet = openingNet + (pe.debit - pe.credit);
+      out.push({
+        id: accName,
+        name: acc?.account_name || accName,
+        account: acc?.account_name || accName,
+        account_number: acc?.account_number ?? undefined,
+        root_type: acc?.root_type ?? undefined,
+        opening_debit: openingNet > 0 ? openingNet : 0,
+        opening_credit: openingNet < 0 ? -openingNet : 0,
+        debit: pe.debit,
+        credit: pe.credit,
+        closing_dr: closingNet > 0 ? closingNet : 0,
+        closing_cr: closingNet < 0 ? -closingNet : 0,
+      });
     }
-    return { success: true, data: Array.from(accountAgg.values()) };
+    out.sort((a, b) => (a.account_number ?? '').localeCompare(b.account_number ?? '') || a.name!.localeCompare(b.name!));
+
+    return { success: true, data: out };
   } catch (error) {
     console.error('[reports] Trial Balance failed:', errorMessage(error));
     return { success: false, error: errorMessage(error, 'Failed to run Trial Balance') };
