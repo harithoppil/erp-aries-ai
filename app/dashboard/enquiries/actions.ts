@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { errorMessage } from '@/lib/utils';
 import type { PrismaWhereClause } from '@/lib/ai/types';
 
 export type EnquiryStatus = string;
@@ -95,9 +96,10 @@ export async function listEnquiries(params?: {
     });
 
     return { success: true, enquiries: rows.map(toClientSafe) };
-  } catch (error: any) {
-    console.error('[enquiries] listEnquiries failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch enquiries' };
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to fetch enquiries');
+    console.error('[enquiries] listEnquiries failed:', message);
+    return { success: false, error: message };
   }
 }
 
@@ -129,9 +131,10 @@ export async function getEnquiry(id: string): Promise<
       success: true,
       enquiry: { ...toClientSafe(enquiry), documents },
     };
-  } catch (error: any) {
-    console.error('[enquiries] getEnquiry failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch enquiry' };
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to fetch enquiry');
+    console.error('[enquiries] getEnquiry failed:', message);
+    return { success: false, error: message };
   }
 }
 
@@ -165,9 +168,10 @@ export async function createEnquiry(data: {
       success: true,
       enquiry: toClientSafe(enquiry),
     };
-  } catch (error: any) {
-    console.error('[enquiries] createEnquiry failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create enquiry' };
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to create enquiry');
+    console.error('[enquiries] createEnquiry failed:', message);
+    return { success: false, error: message };
   }
 }
 
@@ -178,9 +182,10 @@ export async function updateEnquiryStatus(id: string, status: string): Promise<
     await prisma.enquiries.update({ where: { id }, data: { status } });
     revalidatePath('/enquiries');
     return { success: true };
-  } catch (error: any) {
-    console.error('[enquiries] updateEnquiryStatus failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update enquiry status' };
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to update enquiry status');
+    console.error('[enquiries] updateEnquiryStatus failed:', message);
+    return { success: false, error: message };
   }
 }
 
@@ -198,9 +203,10 @@ export async function approveEnquiry(id: string, approver: string): Promise<
     });
     revalidatePath('/enquiries');
     return { success: true, enquiry: toClientSafe(enquiry) };
-  } catch (error: any) {
-    console.error('[enquiries] approveEnquiry failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to approve enquiry' };
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to approve enquiry');
+    console.error('[enquiries] approveEnquiry failed:', message);
+    return { success: false, error: message };
   }
 }
 
@@ -233,9 +239,10 @@ export async function updateEnquiry(
     await prisma.enquiries.update({ where: { id }, data: updateData as PrismaWhereClause });
     revalidatePath('/enquiries');
     return { success: true };
-  } catch (error: any) {
-    console.error('[enquiries] updateEnquiry failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update enquiry' };
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to update enquiry');
+    console.error('[enquiries] updateEnquiry failed:', message);
+    return { success: false, error: message };
   }
 }
 
@@ -262,9 +269,10 @@ export async function listEnquiryDocuments(id: string): Promise<
         created_at: f.created_at,
       })),
     };
-  } catch (error: any) {
-    console.error('[enquiries] listEnquiryDocuments failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch documents' };
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to fetch documents');
+    console.error('[enquiries] listEnquiryDocuments failed:', message);
+    return { success: false, error: message };
   }
 }
 
@@ -322,7 +330,7 @@ export async function uploadDocument(enquiryId: string, file: File | FormData): 
         created_at: record.created_at,
       },
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to upload document' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to upload document') };
   }
 }
