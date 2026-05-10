@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import FiscalYearDetailClient from './fiscal-year-detail-client';
 

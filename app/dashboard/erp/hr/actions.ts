@@ -4,6 +4,50 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
 
+// ── Dashboard Types ─────────────────────────────────────────────────────────
+
+export type HRDashboardData = {
+  totalEmployees: number;
+  activeEmployees: number;
+  departmentCount: number;
+  headcountByDepartment: { department: string; count: number }[];
+};
+
+// ── Dashboard KPI ──────────────────────────────────────────────────────────
+
+export async function getHRDashboardData(): Promise<HRDashboardData> {
+  await requirePermission('Employee', 'read');
+
+  const [totalEmployees, activeEmployees, departmentGroups] = await Promise.all([
+    prisma.employee.count(),
+    prisma.employee.count({ where: { status: 'Active' } }),
+    prisma.employee.groupBy({
+      by: ['department'],
+      _count: { name: true },
+      orderBy: { _count: { name: 'desc' } },
+    }),
+  ]);
+
+  const headcountByDepartment = departmentGroups
+    .filter((g) => g.department)
+    .map((g) => ({
+      department: g.department || 'Unassigned',
+      count: g._count.name,
+    }))
+    .slice(0, 8);
+
+  const departmentCount = new Set(
+    departmentGroups.filter((g) => g.department).map((g) => g.department),
+  ).size;
+
+  return {
+    totalEmployees,
+    activeEmployees,
+    departmentCount,
+    headcountByDepartment,
+  };
+}
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type ClientSafePersonnel = {

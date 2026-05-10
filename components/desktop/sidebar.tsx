@@ -47,10 +47,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Main",
     items: [
-      // ── Dashboard (singleton, no children) ────────────────────────────────
+      // ── Dashboard (singleton) ──────────────────────────────────────────────
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 
-      // ── Selling (tabs pattern, 6 items) ───────────────────────────────────
+      // ── Selling (tabs, 6 items) ───────────────────────────────────────────
+      // All pages exist ✅
       {
         label: "Selling",
         icon: ShoppingCart,
@@ -64,15 +65,17 @@ const NAV_GROUPS: NavGroup[] = [
         ],
       },
 
-      // ── Buying (tabs pattern, 7 items — borderline) ───────────────────────
+      // ── Buying (drill-down, 7 items) ──────────────────────────────────────
+      // Missing pages: Suppliers (dedicated), Supplier Quotation
       {
         label: "Buying",
         icon: Store,
+        pattern: "drill-down",
         children: [
-          { label: "Suppliers", href: "/dashboard/erp/procurement", icon: Truck },
+          { label: "Suppliers", href: "/dashboard/erp/buying/suppliers", icon: Truck },
           { label: "Material Request", href: "/dashboard/erp/material-requests", icon: ClipboardList },
           { label: "Request for Quotation", href: "/dashboard/erp/buying/rfq", icon: Receipt },
-          { label: "Supplier Quotation", href: "/dashboard/erp/quotations", icon: FileText },
+          { label: "Supplier Quotation", href: "/dashboard/erp/buying/supplier-quotations", icon: FileText },
           { label: "Purchase Order", href: "/dashboard/erp/procurement", icon: Package },
           { label: "Purchase Invoice", href: "/dashboard/erp/buying/invoices", icon: FileText },
           { label: "Procurement", href: "/dashboard/erp/procurement", icon: Handshake },
@@ -80,140 +83,168 @@ const NAV_GROUPS: NavGroup[] = [
       },
 
       // ── Stock (drill-down, 7 items) ───────────────────────────────────────
+      // Missing pages: Pick List
       {
         label: "Stock",
         icon: Package,
         pattern: "drill-down",
         children: [
-          { label: "Dashboard", href: "/dashboard/erp/stock", icon: LayoutDashboard },
+          { label: "Home", href: "/dashboard/erp/stock", icon: LayoutDashboard },
+          { label: "Dashboard", href: "/dashboard/erp/stock", icon: BarChart3 },
           { label: "Stock Entry", href: "/dashboard/erp/stock/entries", icon: ArrowLeftRight },
           { label: "Purchase Receipt", href: "/dashboard/erp/stock/purchase-receipts", icon: Truck },
           { label: "Delivery Note", href: "/dashboard/erp/stock/delivery-notes", icon: FileText },
           { label: "Material Request", href: "/dashboard/erp/material-requests", icon: ClipboardList },
-          { label: "Pick List", href: "/dashboard/erp/stock", icon: ClipboardList },
-          { label: "Warehouses", href: "/dashboard/erp/stock/warehouses", icon: Building2 },
+          { label: "Pick List", href: "/dashboard/erp/stock/pick-list", icon: ClipboardList },
         ],
       },
 
-      // ── Manufacturing (tabs pattern, 5 items) ─────────────────────────────
+      // ── Manufacturing (tabs, 6 items) ─────────────────────────────────────
+      // All pages exist ✅
       {
         label: "Manufacturing",
         icon: Factory,
         children: [
-          { label: "Dashboard", href: "/dashboard/erp/stock", icon: LayoutDashboard },
-          { label: "BOM", href: "/dashboard/erp/manufacturing/work-orders", icon: Layers },
+          { label: "Home", href: "/dashboard/erp/manufacturing", icon: LayoutDashboard },
+          { label: "Dashboard", href: "/dashboard/erp/manufacturing", icon: BarChart3 },
+          { label: "BOM", href: "/dashboard/erp/manufacturing/bom", icon: Layers },
           { label: "Work Order", href: "/dashboard/erp/manufacturing/work-orders", icon: Factory },
-          { label: "Job Card", href: "/dashboard/erp/manufacturing/work-orders", icon: ClipboardList },
+          { label: "Job Card", href: "/dashboard/erp/manufacturing/job-cards", icon: ClipboardList },
           { label: "Stock Entry", href: "/dashboard/erp/stock/entries", icon: ArrowLeftRight },
         ],
       },
 
-      // ── Projects (tabs pattern, 4 items) ──────────────────────────────────
+      // ── Projects (tabs, 5 items) ──────────────────────────────────────────
+      // All pages exist ✅
       {
         label: "Projects",
         icon: FolderKanban,
         children: [
-          { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+          { label: "Home", href: "/dashboard/erp/projects", icon: LayoutDashboard },
+          { label: "Dashboard", href: "/dashboard/erp/projects", icon: BarChart3 },
           { label: "Project", href: "/dashboard/erp/projects", icon: FolderKanban },
           { label: "Task", href: "/dashboard/erp/projects/tasks", icon: Flag },
           { label: "Timesheet", href: "/dashboard/erp/timesheets", icon: Timer },
         ],
       },
 
-      // ── Accounting (drill-down, 8 items) ──────────────────────────────────
+      // ── Accounting (mixed, 9 items) ───────────────────────────────────────
+      // Missing pages: Taxes, Share Management, Subscription
       {
         label: "Accounting",
         icon: Landmark,
         pattern: "drill-down",
         children: [
-          { label: "Invoicing", href: "/dashboard/erp/selling/invoices", icon: Receipt },
+          { label: "Invoicing", href: "/dashboard/erp/accounts", icon: Receipt },
           { label: "Payments", href: "/dashboard/erp/payments", icon: CreditCard },
-          { label: "Chart of Accounts", href: "/dashboard/erp/chart-of-accounts", icon: AccountTree },
-          { label: "Journal Entries", href: "/dashboard/erp/journal-entries", icon: BookOpen },
           { label: "Financial Reports", href: "/dashboard/erp/reports", icon: BarChart3, children: [
             { label: "General Ledger", href: "/dashboard/erp/reports/general-ledger", icon: BookOpen },
             { label: "Trial Balance", href: "/dashboard/erp/reports/trial-balance", icon: Target },
             { label: "Balance Sheet", href: "/dashboard/erp/reports/balance-sheet", icon: TrendingUp },
             { label: "Profit & Loss", href: "/dashboard/erp/reports/profit-and-loss", icon: TrendingDown },
           ]},
+          { label: "Accounts Setup", href: "/dashboard/erp/chart-of-accounts", icon: AccountTree },
+          { label: "Taxes", href: "/dashboard/erp/accounts/taxes", icon: Receipt },
+          { label: "Banking", href: "/dashboard/erp/accounts/bank-accounts", icon: Landmark },
           { label: "Budget", href: "/dashboard/erp/accounts/budgets", icon: PieChart },
-          { label: "Cost Centers", href: "/dashboard/erp/accounts/cost-centers", icon: Target },
-          { label: "Bank Accounts", href: "/dashboard/erp/accounts/bank-accounts", icon: Landmark },
+          { label: "Share Management", href: "/dashboard/erp/accounts/shares", icon: Users },
+          { label: "Subscription", href: "/dashboard/erp/accounts/subscriptions", icon: Calendar },
         ],
       },
 
-      // ── Assets (drill-down, 5 items) ──────────────────────────────────────
+      // ── Assets (drill-down, 9 items) ──────────────────────────────────────
+      // Missing pages: Depreciation, Capitalization, Movement, Reports & Masters, Maintenance
       {
         label: "Assets",
         icon: Briefcase,
         pattern: "drill-down",
         children: [
-          { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-          { label: "Asset", href: "/dashboard/erp/assets", icon: Briefcase },
-          { label: "Depreciation", href: "/dashboard/erp/assets", icon: TrendingDown },
-          { label: "Asset Movement", href: "/dashboard/erp/assets", icon: Truck },
-          { label: "Maintenance", href: "/dashboard/erp/assets", icon: Factory },
+          { label: "Home", href: "/dashboard/erp/assets", icon: LayoutDashboard },
+          { label: "Dashboard", href: "/dashboard/erp/assets", icon: BarChart3 },
+          { label: "Asset", href: "/dashboard/erp/assets/list", icon: Briefcase },
+          { label: "Depreciation Schedule", href: "/dashboard/erp/assets/depreciation", icon: TrendingDown },
+          { label: "Asset Capitalization", href: "/dashboard/erp/assets/capitalization", icon: Landmark },
+          { label: "Asset Movement", href: "/dashboard/erp/assets/movement", icon: Truck },
+          { label: "Reports & Masters", href: "/dashboard/erp/assets/reports", icon: BarChart3 },
+          { label: "Maintenance", href: "/dashboard/erp/assets/maintenance", icon: Factory },
           { label: "Reports", href: "/dashboard/erp/reports", icon: BarChart3 },
         ],
       },
 
-      // ── Quality (drill-down, 5 items) ─────────────────────────────────────
+      // ── Quality (drill-down, 9 items) ─────────────────────────────────────
+      // Missing pages: ALL sub-items except Home (Inspection, Goal, Review, Action, NC, Feedback, Meeting, Setup)
       {
         label: "Quality",
         icon: ShieldCheck,
         pattern: "drill-down",
         children: [
-          { label: "Quality Inspection", href: "/dashboard/erp/stock", icon: Search },
-          { label: "Quality Goal", href: "/dashboard/erp/stock", icon: Flag },
-          { label: "Quality Review", href: "/dashboard/erp/stock", icon: BarChart3 },
-          { label: "Non Conformance", href: "/dashboard/erp/stock", icon: AlertOctagon },
-          { label: "Setup", href: "/dashboard/erp/stock", icon: Settings },
+          { label: "Home", href: "/dashboard/erp/quality", icon: LayoutDashboard },
+          { label: "Quality Inspection", href: "/dashboard/erp/quality/inspections", icon: Search },
+          { label: "Quality Goal", href: "/dashboard/erp/quality/goals", icon: Target },
+          { label: "Quality Review", href: "/dashboard/erp/quality/reviews", icon: BarChart3 },
+          { label: "Quality Action", href: "/dashboard/erp/quality/actions", icon: Flag },
+          { label: "Non Conformance", href: "/dashboard/erp/quality/non-conformance", icon: AlertOctagon },
+          { label: "Quality Feedback", href: "/dashboard/erp/quality/feedback", icon: MessageSquare },
+          { label: "Quality Meeting", href: "/dashboard/erp/quality/meetings", icon: Users },
+          { label: "Setup", href: "/dashboard/erp/quality/setup", icon: Settings },
         ],
       },
 
-      // ── Organization (drill-down, 5 items) ────────────────────────────────
+      // ── Organization (drill-down, 7 items) ────────────────────────────────
+      // Missing pages: Letter Head, Department, Branch, Users, Role Permissions, Email Account
       {
         label: "Organization",
         icon: Building2,
         pattern: "drill-down",
         children: [
           { label: "Company", href: "/dashboard/erp/setup/company", icon: Building2 },
-          { label: "Department", href: "/dashboard/erp/hr", icon: AccountTree },
-          { label: "Users", href: "/dashboard/erp/hr", icon: Users },
-          { label: "Fiscal Years", href: "/dashboard/erp/setup/fiscal-years", icon: Calendar },
-          { label: "Email Account", href: "/dashboard/settings", icon: MessageSquare },
+          { label: "Letter Head", href: "/dashboard/erp/setup/letter-head", icon: FileText },
+          { label: "Department", href: "/dashboard/erp/organization/departments", icon: AccountTree },
+          { label: "Branch", href: "/dashboard/erp/organization/branches", icon: Globe },
+          { label: "Users", href: "/dashboard/erp/organization/users", icon: Users },
+          { label: "Role Permissions", href: "/dashboard/erp/organization/roles", icon: ShieldCheck },
+          { label: "Email Account", href: "/dashboard/erp/organization/email-accounts", icon: MessageSquare },
         ],
       },
 
-      // ── Framework (drill-down, 3 items) ───────────────────────────────────
+      // ── Framework (mixed, 9 items) ────────────────────────────────────────
+      // Missing pages: ALL except Data (Automation, Build, Email, Integrations, Printing, System, Users, Website)
       {
         label: "Framework",
         icon: LayoutGrid,
         pattern: "drill-down",
         children: [
-          { label: "Data Import", href: "/dashboard/documents", icon: Upload },
-          { label: "Data Export", href: "/dashboard/documents", icon: Download },
-          { label: "Reports", href: "/dashboard/erp/reports", icon: BarChart3 },
-          { label: "Printing", href: "/dashboard/settings", icon: Printer },
-          { label: "System", href: "/dashboard/settings", icon: Settings },
-          { label: "Website", href: "/dashboard/settings", icon: Globe },
+          { label: "Automation", href: "/dashboard/erp/framework/automation", icon: Sparkles },
+          { label: "Build", href: "/dashboard/erp/framework/build", icon: Factory },
+          { label: "Data", href: "/dashboard/documents", icon: Database },
+          { label: "Email", href: "/dashboard/erp/framework/email", icon: MessageSquare },
+          { label: "Integrations", href: "/dashboard/erp/framework/integrations", icon: GitBranch },
+          { label: "Printing", href: "/dashboard/erp/framework/printing", icon: Printer },
+          { label: "System", href: "/dashboard/erp/framework/system", icon: Settings },
+          { label: "Users (Admin)", href: "/dashboard/erp/framework/users", icon: Users },
+          { label: "Website", href: "/dashboard/erp/framework/website", icon: Globe },
         ],
       },
 
-      // ── System Settings (drill-down, 8 items) ─────────────────────────────
+      // ── ERPNext Settings (drill-down, 12 items) ───────────────────────────
+      // Missing pages: ALL individual settings pages
       {
-        label: "System Settings",
+        label: "Settings",
         icon: Settings,
         pattern: "drill-down",
         children: [
-          { label: "Global Defaults", href: "/dashboard/settings", icon: Settings },
-          { label: "Accounts Settings", href: "/dashboard/settings", icon: Landmark },
-          { label: "Selling Settings", href: "/dashboard/settings", icon: ShoppingCart },
-          { label: "Buying Settings", href: "/dashboard/settings", icon: Store },
-          { label: "Stock Settings", href: "/dashboard/settings", icon: Package },
-          { label: "Manufacturing Settings", href: "/dashboard/settings", icon: Factory },
-          { label: "Projects Settings", href: "/dashboard/settings", icon: FolderKanban },
-          { label: "Support Settings", href: "/dashboard/settings", icon: MessageSquare },
+          { label: "Global Defaults", href: "/dashboard/settings#global", icon: Settings },
+          { label: "System Settings", href: "/dashboard/settings#system", icon: Settings },
+          { label: "Accounts Settings", href: "/dashboard/settings#accounts", icon: Landmark },
+          { label: "POS Settings", href: "/dashboard/settings#pos", icon: ShoppingCart },
+          { label: "Selling Settings", href: "/dashboard/settings#selling", icon: ShoppingCart },
+          { label: "Buying Settings", href: "/dashboard/settings#buying", icon: Store },
+          { label: "Stock Settings", href: "/dashboard/settings#stock", icon: Package },
+          { label: "Manufacturing Settings", href: "/dashboard/settings#manufacturing", icon: Factory },
+          { label: "Projects Settings", href: "/dashboard/settings#projects", icon: FolderKanban },
+          { label: "CRM Settings", href: "/dashboard/settings#crm", icon: Users },
+          { label: "Support Settings", href: "/dashboard/settings#support", icon: MessageSquare },
+          { label: "Other Settings", href: "/dashboard/settings#other", icon: Settings },
         ],
       },
     ],
@@ -333,39 +364,33 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
     const isExpanded = expandedModule === item.label;
     const isDrillable = item.pattern === "drill-down" && hasChildren;
 
-    // Collapsed sidebar: icon + tooltip only
+    // Collapsed sidebar: icon + tooltip only — each item is a full-width row
     if (isCollapsed) {
-      const content = hasChildren ? (
-        <button
-          onClick={() => toggleModule(item.label, hasChildren)}
-          className={`flex w-full items-center justify-center py-2.5 transition-colors relative
-            ${active
-              ? "bg-[#1e3a5f] text-white"
-              : "text-slate-300 hover:bg-slate-800 hover:text-white"
-            }`}
-        >
-          <Icon size={20} />
-        </button>
-      ) : (
-        <Link
-          href={item.href!}
-          className={`flex w-full items-center justify-center py-2.5 transition-colors relative
-            ${active
-              ? "bg-[#1e3a5f] text-white"
-              : "text-slate-300 hover:bg-slate-800 hover:text-white"
-            }`}
-        >
-          <Icon size={20} />
-        </Link>
-      );
+      const itemClass = `flex w-full items-center justify-center py-2.5 transition-colors relative
+        ${active
+          ? "bg-[#1e3a5f] text-white"
+          : "text-slate-300 hover:bg-slate-800 hover:text-white"
+        }`;
 
       return (
-        <Tooltip key={item.label}>
-          <TooltipTrigger>{content}</TooltipTrigger>
-          <TooltipContent side="right" className="text-xs">
-            {item.label}
-          </TooltipContent>
-        </Tooltip>
+        <div key={item.label} className="w-full">
+          <Tooltip>
+            <TooltipTrigger className="w-full">
+              {hasChildren ? (
+                <button onClick={() => toggleModule(item.label, hasChildren)} className={itemClass}>
+                  <Icon size={20} />
+                </button>
+              ) : (
+                <Link href={item.href!} className={itemClass}>
+                  <Icon size={20} />
+                </Link>
+              )}
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              {item.label}
+            </TooltipContent>
+          </Tooltip>
+        </div>
       );
     }
 
@@ -533,9 +558,10 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -20, opacity: 0 }}
               transition={{ duration: 0.2 }}
+              className="flex flex-col"
             >
               {NAV_GROUPS.map((group) => (
-                <div key={group.label}>
+                <div key={group.label} className="flex flex-col">
                   {!isCollapsed && (
                     <div className="px-4 pb-2 pt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                       {group.label}

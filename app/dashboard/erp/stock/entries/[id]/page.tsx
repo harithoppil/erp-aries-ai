@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import StockEntryDetailClient from './stock-entry-detail-client';
 

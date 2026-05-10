@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import type { PrismaWhereClause } from '@/lib/ai/types';
-import type { enquirystatus } from '@/prisma/client';
 
 export type EnquiryStatus = string;
 
@@ -88,7 +87,7 @@ export async function listEnquiries(params?: {
   { success: true; enquiries: ClientSafeEnquiry[] } | { success: false; error: string }
 > {
   try {
-    const where = params?.status ? { status: params.status as enquirystatus } : {};
+    const where = params?.status ? { status: params.status } : {};
     const rows = await prisma.enquiries.findMany({
       where,
       orderBy: { created_at: 'desc' },
@@ -176,7 +175,7 @@ export async function updateEnquiryStatus(id: string, status: string): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await prisma.enquiries.update({ where: { id }, data: { status: status as enquirystatus } });
+    await prisma.enquiries.update({ where: { id }, data: { status } });
     revalidatePath('/enquiries');
     return { success: true };
   } catch (error: any) {

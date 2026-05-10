@@ -1,961 +1,13 @@
 generator client {
   provider        = "prisma-client-js"
   output          = "client"
-  previewFeatures = ["multiSchema", "postgresqlExtensions", "views"]
+  previewFeatures = ["postgresqlExtensions", "views"]
   binaryTargets   = ["native"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = "postgresql://postgres:Arieserp1!@aries-erp-ai.postgres.database.azure.com:5432/postgres?sslmode=require"
-  schemas  = ["app", "erpnext_port", "public"]
-}
-
-model accounts {
-  id                  String                @id @db.Uuid
-  name                String                @unique @db.VarChar(200)
-  account_number      String?               @db.VarChar(50)
-  account_type        accounttype?
-  root_type           String?               @db.VarChar(20)
-  report_type         String?               @db.VarChar(50)
-  parent_account      String?               @db.VarChar(200)
-  is_group            Boolean
-  company             String                @db.VarChar(200)
-  account_currency    String                @db.VarChar(3)
-  tax_rate            Float
-  balance_must_be     String?               @db.VarChar(10)
-  balance             Float
-  lft                 Int
-  rgt                 Int
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  gl_entries          gl_entries[]
-  journal_entry_lines journal_entry_lines[]
-
-  @@schema("public")
-}
-
-model ai_conversations {
-  id          String        @id @db.Uuid
-  persona_id  String        @db.Uuid
-  user_id     String?       @db.VarChar(255)
-  channel     String        @db.VarChar(50)
-  title       String?       @db.VarChar(200)
-  created_at  DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime      @default(now()) @db.Timestamptz(6)
-  ai_personas ai_personas   @relation(fields: [persona_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  ai_messages ai_messages[]
-
-  @@index([channel], map: "ix_ai_conversations_channel")
-  @@index([persona_id], map: "ix_ai_conversations_persona_id")
-  @@index([user_id], map: "ix_ai_conversations_user_id")
-  @@schema("public")
-}
-
-model ai_messages {
-  id               String           @id @db.Uuid
-  conversation_id  String           @db.Uuid
-  role             String           @db.VarChar(50)
-  content          String?
-  tool_calls       String?
-  tool_call_id     String?          @db.VarChar(100)
-  tool_name        String?          @db.VarChar(100)
-  metadata_json    String?
-  created_at       DateTime         @default(now()) @db.Timestamptz(6)
-  ai_conversations ai_conversations @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([conversation_id], map: "ix_ai_messages_conversation_id")
-  @@index([created_at], map: "ix_ai_messages_created_at")
-  @@schema("public")
-}
-
-model ai_personas {
-  id                    String               @id @db.Uuid
-  username              String               @unique @db.VarChar(100)
-  nickname              String               @db.VarChar(100)
-  position              String               @db.VarChar(200)
-  category              String               @db.VarChar(20)
-  about                 String?
-  greeting              String?
-  model                 String               @db.VarChar(100)
-  temperature           Float
-  allowed_tools         String?
-  allowed_collections   String?
-  allowed_mcp_servers   String?
-  enable_knowledge_base Boolean
-  knowledge_base_prompt String?
-  enabled               Boolean
-  built_in              Boolean
-  created_at            DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime             @default(now()) @db.Timestamptz(6)
-  ai_conversations      ai_conversations[]
-  channel_connectors    channel_connectors[]
-
-  @@schema("public")
-}
-
-model assets {
-  id                      String                @id @db.Uuid
-  asset_name              String                @db.VarChar(255)
-  asset_code              String                @unique @db.VarChar(100)
-  asset_category          String                @db.VarChar(100)
-  status                  assetstatus
-  location                String?               @db.VarChar(200)
-  warehouse_id            String?               @db.Uuid
-  purchase_date           DateTime?             @db.Timestamptz(6)
-  purchase_cost           Float?
-  current_value           Float?
-  depreciation_rate       Float
-  calibration_date        DateTime?             @db.Timestamptz(6)
-  next_calibration_date   DateTime?             @db.Timestamptz(6)
-  calibration_certificate String?               @db.VarChar(500)
-  certification_body      String?               @db.VarChar(200)
-  assigned_to_project     String?               @db.Uuid
-  assigned_to_personnel   String?               @db.Uuid
-  notes                   String?
-  created_at              DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime              @default(now()) @db.Timestamptz(6)
-  personnel               personnel?            @relation(fields: [assigned_to_personnel], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  projects                projects?             @relation(fields: [assigned_to_project], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  warehouses              warehouses?           @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  maintenance_records     maintenance_records[]
-
-  @@index([assigned_to_personnel], map: "ix_assets_assigned_to_personnel")
-  @@index([assigned_to_project], map: "ix_assets_assigned_to_project")
-  @@index([warehouse_id], map: "ix_assets_warehouse_id")
-  @@schema("public")
-}
-
-model audit_log {
-  id         String    @id @db.Uuid
-  enquiry_id String    @db.Uuid
-  action     String    @db.VarChar(100)
-  actor      String    @db.VarChar(255)
-  details    String?
-  node       String?   @db.VarChar(50)
-  created_at DateTime  @default(now()) @db.Timestamptz(6)
-  enquiries  enquiries @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model bins {
-  id             String     @id @db.Uuid
-  item_id        String     @db.Uuid
-  warehouse_id   String     @db.Uuid
-  quantity       Float
-  valuation_rate Float
-  stock_value    Float
-  updated_at     DateTime   @default(now()) @db.Timestamptz(6)
-  items          items      @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  warehouses     warehouses @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([item_id], map: "ix_bins_item_id")
-  @@index([warehouse_id], map: "ix_bins_warehouse_id")
-  @@schema("public")
-}
-
-model certifications {
-  id           String     @id @db.Uuid
-  personnel_id String     @db.Uuid
-  cert_type    String     @db.VarChar(100)
-  cert_number  String?    @db.VarChar(100)
-  issuing_body String?    @db.VarChar(200)
-  issue_date   DateTime?  @db.Timestamptz(6)
-  expiry_date  DateTime?  @db.Timestamptz(6)
-  status       certstatus
-  personnel    personnel  @relation(fields: [personnel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([personnel_id], map: "ix_certifications_personnel_id")
-  @@index([status], map: "ix_certifications_status")
-  @@schema("public")
-}
-
-model channel_connectors {
-  id                 String       @id @db.Uuid
-  channel_type       String       @db.VarChar(50)
-  name               String       @db.VarChar(200)
-  enabled            Boolean
-  config             String?
-  webhook_url        String?      @db.VarChar(500)
-  default_persona_id String?      @db.Uuid
-  created_at         DateTime     @default(now()) @db.Timestamptz(6)
-  ai_personas        ai_personas? @relation(fields: [default_persona_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model customers {
-  id             String         @id @db.Uuid
-  customer_name  String         @db.VarChar(255)
-  customer_code  String         @unique @db.VarChar(50)
-  contact_person String?        @db.VarChar(255)
-  email          String?        @db.VarChar(255)
-  phone          String?        @db.VarChar(50)
-  address        String?
-  industry       String?        @db.VarChar(100)
-  tax_id         String?        @db.VarChar(50)
-  credit_limit   Float?
-  status         String         @db.VarChar(20)
-  created_at     DateTime       @default(now()) @db.Timestamptz(6)
-  quotations     quotations[]
-  sales_orders   sales_orders[]
-
-  @@schema("public")
-}
-
-model documents {
-  id                String    @id @db.Uuid
-  enquiry_id        String    @db.Uuid
-  filename          String    @db.VarChar(500)
-  content_type      String    @db.VarChar(100)
-  storage_path      String    @db.VarChar(1000)
-  wiki_source_page  String?   @db.VarChar(500)
-  markdown_content  String?
-  processing_status String    @db.VarChar(50)
-  created_at        DateTime  @default(now()) @db.Timestamptz(6)
-  enquiries         enquiries @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model enquiries {
-  id                  String                @id @db.Uuid
-  enquiry_number      String?               @unique(map: "ix_enquiries_enquiry_number") @db.VarChar(50)
-  client_name         String                @db.VarChar(255)
-  client_email        String?               @db.VarChar(255)
-  channel             String                @db.VarChar(50)
-  industry            String?               @db.VarChar(100)
-  subdivision         String?               @db.VarChar(100)
-  description         String
-  status              enquirystatus
-  estimated_value     Float?
-  estimated_cost      Float?
-  estimated_margin    Float?
-  scope_category      String?               @db.VarChar(100)
-  complexity          String?               @db.VarChar(50)
-  resource_profile    String?
-  approved_by         String?               @db.VarChar(255)
-  approved_at         DateTime?             @db.Timestamptz(6)
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
-  audit_log           audit_log[]
-  documents           documents[]
-  projects            projects[]
-  quotations          quotations[]
-  sales_invoices      sales_invoices[]
-  workflow_executions workflow_executions[]
-
-  @@index([status], map: "ix_enquiries_status")
-  @@schema("public")
-}
-
-model invoice_items {
-  id             String         @id @db.Uuid
-  invoice_id     String         @db.Uuid
-  item_code      String?        @db.VarChar(100)
-  description    String
-  quantity       Int
-  rate           Float
-  amount         Float
-  sales_invoices sales_invoices @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model items {
-  id                String               @id @db.Uuid
-  item_code         String               @unique @db.VarChar(100)
-  item_name         String               @db.VarChar(255)
-  item_group        itemgroup
-  description       String?
-  unit              String               @db.VarChar(20)
-  has_batch         Boolean
-  has_serial        Boolean
-  valuation_method  stockvaluationmethod
-  standard_rate     Float?
-  min_order_qty     Float?
-  safety_stock      Float?
-  created_at        DateTime             @default(now()) @db.Timestamptz(6)
-  bins              bins[]
-  stock_entry_items stock_entry_items[]
-
-  @@schema("public")
-}
-
-model journal_entries {
-  id                  String                @id @db.Uuid
-  entry_number        String                @unique @db.VarChar(50)
-  posting_date        DateTime              @default(now()) @db.Timestamptz(6)
-  reference           String?               @db.VarChar(200)
-  account             String?               @db.VarChar(255)
-  party_type          String?               @db.VarChar(50)
-  party_name          String?               @db.VarChar(255)
-  entry_type          journalentrytype?
-  amount              Float?
-  currency            String                @db.VarChar(3)
-  notes               String?
-  total_debit         Float
-  total_credit        Float
-  status              String                @db.VarChar(20)
-  subsidiary_id       String?               @db.Uuid
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  subsidiaries        subsidiaries?         @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  journal_entry_lines journal_entry_lines[]
-
-  @@schema("public")
-}
-
-model maintenance_records {
-  id               String    @id @db.Uuid
-  asset_id         String    @db.Uuid
-  maintenance_type String    @db.VarChar(50)
-  description      String
-  performed_by     String    @db.VarChar(255)
-  performed_date   DateTime  @db.Timestamptz(6)
-  next_due_date    DateTime? @db.Timestamptz(6)
-  cost             Float
-  assets           assets    @relation(fields: [asset_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model material_requests {
-  id                    String    @id @db.Uuid
-  request_number        String    @unique @db.VarChar(50)
-  project_id            String?   @db.Uuid
-  requested_by          String    @db.VarChar(255)
-  purpose               String?
-  material_request_type String?   @db.VarChar(50)
-  status                String    @db.VarChar(50)
-  created_at            DateTime  @default(now()) @db.Timestamptz(6)
-  projects              projects? @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model node_executions {
-  id                  String              @id @db.Uuid
-  execution_id        String              @db.Uuid
-  node_key            String              @db.VarChar(100)
-  status              String              @db.VarChar(20)
-  input_data          String?
-  output_data         String?
-  error_message       String?
-  duration_ms         Int?
-  started_at          DateTime?           @db.Timestamptz(6)
-  completed_at        DateTime?           @db.Timestamptz(6)
-  workflow_executions workflow_executions @relation(fields: [execution_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([execution_id], map: "ix_node_executions_execution_id")
-  @@schema("public")
-}
-
-model notebooks {
-  id            String   @id @db.Uuid
-  title         String   @db.VarChar(255)
-  content       String?
-  metadata_json String?
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime @default(now()) @db.Timestamptz(6)
-
-  @@schema("public")
-}
-
-model payment_entries {
-  id               String          @id @db.Uuid
-  invoice_id       String?         @db.Uuid
-  payment_type     String          @db.VarChar(50)
-  party_type       String          @db.VarChar(50)
-  party_name       String          @db.VarChar(255)
-  amount           Float
-  currency         String          @db.VarChar(3)
-  reference_number String?         @db.VarChar(100)
-  reference_date   DateTime?       @db.Timestamptz(6)
-  posting_date     DateTime        @default(now()) @db.Timestamptz(6)
-  sales_invoices   sales_invoices? @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model personnel {
-  id                  String                @id @db.Uuid
-  employee_id         String                @unique @db.VarChar(50)
-  first_name          String                @db.VarChar(100)
-  last_name           String                @db.VarChar(100)
-  email               String?               @db.VarChar(255)
-  phone               String?               @db.VarChar(50)
-  status              personnelstatus
-  designation         String?               @db.VarChar(100)
-  department          String?               @db.VarChar(100)
-  day_rate            Float?
-  currency            String                @db.VarChar(3)
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  assets              assets[]
-  certifications      certifications[]
-  project_assignments project_assignments[]
-  timesheets          timesheets[]
-
-  @@schema("public")
-}
-
-model po_items {
-  id              String          @id @db.Uuid
-  po_id           String          @db.Uuid
-  item_code       String?         @db.VarChar(100)
-  description     String
-  quantity        Int
-  rate            Float
-  amount          Float
-  received_qty    Int             @default(0)
-  schedule_date   DateTime?       @db.Timestamptz(6)
-  purchase_orders purchase_orders @relation(fields: [po_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model project_assignments {
-  id                 String    @id @db.Uuid
-  project_id         String    @db.Uuid
-  personnel_id       String    @db.Uuid
-  role               String    @db.VarChar(100)
-  compliance_checked Boolean
-  compliance_passed  Boolean
-  compliance_issues  String?
-  personnel          personnel @relation(fields: [personnel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  projects           projects  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([personnel_id], map: "ix_project_assignments_personnel_id")
-  @@index([project_id], map: "ix_project_assignments_project_id")
-  @@schema("public")
-}
-
-model projects {
-  id                  String                @id @db.Uuid
-  project_name        String                @db.VarChar(255)
-  project_code        String                @unique @db.VarChar(50)
-  project_type        String                @db.VarChar(100)
-  status              projectstatus
-  enquiry_id          String?               @db.Uuid
-  customer_name       String                @db.VarChar(255)
-  expected_start      DateTime?             @db.Timestamptz(6)
-  expected_end        DateTime?             @db.Timestamptz(6)
-  actual_start        DateTime?             @db.Timestamptz(6)
-  actual_end          DateTime?             @db.Timestamptz(6)
-  project_location    String?               @db.VarChar(200)
-  vessel_name         String?               @db.VarChar(200)
-  estimated_cost      Float?
-  actual_cost         Float
-  day_rate            Float?
-  currency            String                @db.VarChar(3)
-  notes               String?
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
-  assets              assets[]
-  gl_entries          gl_entries[]
-  journal_entry_lines journal_entry_lines[]
-  material_requests   material_requests[]
-  project_assignments project_assignments[]
-  enquiries           enquiries?            @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  purchase_orders     purchase_orders[]
-  tasks               tasks[]
-  timesheets          timesheets[]
-
-  @@schema("public")
-}
-
-model purchase_orders {
-  id                String     @id @db.Uuid
-  po_number         String     @unique @db.VarChar(50)
-  supplier_id       String     @db.Uuid
-  project_id        String?    @db.Uuid
-  status            postatus
-  order_date        DateTime   @default(now()) @db.Timestamptz(6)
-  expected_delivery DateTime?  @db.Timestamptz(6)
-  subtotal          Float
-  tax_amount        Float
-  total             Float
-  currency          String     @db.VarChar(3)
-  notes             String?
-  created_at        DateTime   @default(now()) @db.Timestamptz(6)
-  po_items          po_items[]
-  projects          projects?  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  suppliers         suppliers  @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model quality_inspections {
-  id                String   @id @db.Uuid
-  inspection_type   String   @db.VarChar(100)
-  reference         String?  @db.VarChar(200)
-  status            String   @db.VarChar(50)
-  findings          String?
-  corrective_action String?
-  inspected_by      String   @db.VarChar(255)
-  inspection_date   DateTime @default(now()) @db.Timestamptz(6)
-  created_at        DateTime @default(now()) @db.Timestamptz(6)
-
-  @@schema("public")
-}
-
-model quotation_items {
-  id           String     @id @db.Uuid
-  quotation_id String     @db.Uuid
-  item_code    String?    @db.VarChar(100)
-  description  String
-  quantity     Int
-  rate         Float
-  amount       Float
-  quotations   quotations @relation(fields: [quotation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model quotations {
-  id               String            @id @db.Uuid
-  quotation_number String            @unique @db.VarChar(50)
-  enquiry_id       String?           @db.Uuid
-  customer_id      String?           @db.Uuid
-  customer_name    String            @db.VarChar(255)
-  project_type     String?           @db.VarChar(100)
-  valid_until      DateTime?         @db.Timestamptz(6)
-  status           quotationstatus
-  subtotal         Float
-  tax_rate         Float
-  tax_amount       Float
-  total            Float
-  currency         String            @db.VarChar(3)
-  notes            String?
-  created_at       DateTime          @default(now()) @db.Timestamptz(6)
-  quotation_items  quotation_items[]
-  customers        customers?        @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  enquiries        enquiries?        @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sales_orders     sales_orders[]
-
-  @@schema("public")
-}
-
-model sales_invoices {
-  id                 String              @id @db.Uuid
-  invoice_number     String              @unique @db.VarChar(50)
-  enquiry_id         String?             @db.Uuid
-  customer_name      String              @db.VarChar(255)
-  customer_email     String?             @db.VarChar(255)
-  posting_date       DateTime            @default(now()) @db.Timestamptz(6)
-  due_date           DateTime?           @db.Timestamptz(6)
-  status             salesinvoicestatus
-  subtotal           Float
-  tax_rate           Float
-  tax_amount         Float
-  total              Float
-  currency           String              @db.VarChar(3)
-  paid_amount        Float
-  outstanding_amount Float
-  document_id        String?             @db.Uuid
-  created_at         DateTime            @default(now()) @db.Timestamptz(6)
-  invoice_items      invoice_items[]
-  payment_entries    payment_entries[]
-  uploaded_documents uploaded_documents? @relation(fields: [document_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  enquiries          enquiries?          @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model sales_order_items {
-  id             String       @id @db.Uuid
-  sales_order_id String       @db.Uuid
-  item_code      String?      @db.VarChar(100)
-  description    String
-  quantity       Int
-  rate           Float
-  amount         Float
-  delivered_qty  Int
-  sales_orders   sales_orders @relation(fields: [sales_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model sales_orders {
-  id                String              @id @db.Uuid
-  order_number      String              @unique @db.VarChar(50)
-  quotation_id      String?             @db.Uuid
-  customer_id       String?             @db.Uuid
-  customer_name     String              @db.VarChar(255)
-  project_type      String?             @db.VarChar(100)
-  delivery_date     DateTime?           @db.Timestamptz(6)
-  status            salesorderstatus
-  subtotal          Float
-  tax_rate          Float
-  tax_amount        Float
-  total             Float
-  currency          String              @db.VarChar(3)
-  notes             String?
-  created_at        DateTime            @default(now()) @db.Timestamptz(6)
-  sales_order_items sales_order_items[]
-  customers         customers?          @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  quotations        quotations?         @relation(fields: [quotation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model stock_entries {
-  id                String              @id @db.Uuid
-  entry_number      String?             @unique @db.VarChar(50)
-  entry_type        String              @db.VarChar(50)
-  posting_date      DateTime            @default(now()) @db.Timestamptz(6)
-  from_warehouse_id String?             @db.Uuid
-  to_warehouse_id   String?             @db.Uuid
-  project_id        String?             @db.Uuid
-  status            String              @db.VarChar(20)
-  total_amount      Float?
-  currency          String              @db.VarChar(3)
-  notes             String?
-  created_at        DateTime            @default(now()) @db.Timestamptz(6)
-  from_warehouse    warehouses?         @relation("stock_entries_from_warehouse", fields: [from_warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  to_warehouse      warehouses?         @relation("stock_entries_to_warehouse", fields: [to_warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  stock_entry_items stock_entry_items[]
-
-  @@schema("public")
-}
-
-model stock_entry_items {
-  id             String        @id @db.Uuid
-  stock_entry_id String        @db.Uuid
-  item_id        String        @db.Uuid
-  item_code      String?       @db.VarChar(100)
-  qty            Float
-  rate           Float?
-  amount         Float?
-  serial_no      String?       @db.VarChar(100)
-  batch_no       String?       @db.VarChar(100)
-  items          items         @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  stock_entries  stock_entries @relation(fields: [stock_entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([stock_entry_id], map: "ix_stock_entry_items_stock_entry_id")
-  @@index([item_id], map: "ix_stock_entry_items_item_id")
-  @@schema("public")
-}
-
-model suppliers {
-  id                 String              @id @db.Uuid
-  supplier_name      String              @db.VarChar(255)
-  supplier_code      String              @unique @db.VarChar(50)
-  contact_person     String?             @db.VarChar(255)
-  email              String?             @db.VarChar(255)
-  phone              String?             @db.VarChar(50)
-  address            String?
-  category           String?             @db.VarChar(100)
-  rating             Float?
-  status             String?             @db.VarChar(20)
-  disabled           Boolean             @default(false)
-  prevent_pos        Boolean             @default(false)
-  warn_pos           Boolean             @default(false)
-  document_id        String?             @db.Uuid
-  created_at         DateTime            @default(now()) @db.Timestamptz(6)
-  purchase_orders    purchase_orders[]
-  uploaded_documents uploaded_documents? @relation(fields: [document_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model tasks {
-  id          String     @id @db.Uuid
-  project_id  String     @db.Uuid
-  subject     String     @db.VarChar(255)
-  description String?
-  status      taskstatus
-  assigned_to String?    @db.VarChar(255)
-  start_date  DateTime?  @db.Timestamptz(6)
-  end_date    DateTime?  @db.Timestamptz(6)
-  progress    Float
-  projects    projects   @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([project_id], map: "ix_tasks_project_id")
-  @@schema("public")
-}
-
-model tax_categories {
-  id          String  @id @db.Uuid
-  name        String  @unique @db.VarChar(100)
-  rate        Float
-  description String?
-
-  @@schema("public")
-}
-
-model timesheets {
-  id            String    @id @db.Uuid
-  project_id    String    @db.Uuid
-  personnel_id  String    @db.Uuid
-  date          DateTime  @db.Timestamptz(6)
-  hours         Float
-  activity_type String    @db.VarChar(100)
-  description   String?
-  billable      Boolean
-  personnel     personnel @relation(fields: [personnel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  projects      projects  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([project_id], map: "ix_timesheets_project_id")
-  @@schema("public")
-}
-
-model ui_dashboards {
-  id                 String   @id @db.Uuid
-  name               String   @db.VarChar(200)
-  ui_type            String   @db.VarChar(50)
-  schema_json        String
-  created_by_persona String?  @db.VarChar(100)
-  is_active          Boolean
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime @default(now()) @db.Timestamptz(6)
-
-  @@schema("public")
-}
-
-model uploaded_documents {
-  id                 String           @id @db.Uuid
-  original_filename  String           @db.VarChar(500)
-  content_type       String           @db.VarChar(100)
-  file_size          Int
-  gcs_bucket         String           @db.VarChar(255)
-  gcs_path           String           @db.VarChar(1000)
-  doc_type           doctype
-  auto_detected_type String?          @db.VarChar(100)
-  entity_type        String?          @db.VarChar(100)
-  entity_id          String?          @db.Uuid
-  processing_status  processingstatus
-  extracted_data     String?
-  confidence_score   Float?
-  error_message      String?
-  thumbnail_url      String?          @db.VarChar(1000)
-  created_at         DateTime         @default(now()) @db.Timestamptz(6)
-  processed_at       DateTime?        @db.Timestamptz(6)
-  sales_invoices     sales_invoices[]
-  suppliers          suppliers[]
-
-  @@schema("public")
-}
-
-model warehouses {
-  id                 String          @id @db.Uuid
-  warehouse_name     String          @db.VarChar(200)
-  warehouse_code     String          @unique @db.VarChar(50)
-  location           String          @db.VarChar(200)
-  is_group           Boolean
-  parent_warehouse   String?         @db.VarChar(200)
-  created_at         DateTime        @default(now()) @db.Timestamptz(6)
-  assets             assets[]
-  bins               bins[]
-  stock_entries_from stock_entries[] @relation("stock_entries_from_warehouse")
-  stock_entries_to   stock_entries[] @relation("stock_entries_to_warehouse")
-
-  @@schema("public")
-}
-
-model workflow_edges {
-  id              String    @id @db.Uuid
-  workflow_id     String    @db.Uuid
-  source_node_key String    @db.VarChar(100)
-  target_node_key String    @db.VarChar(100)
-  condition       String?   @db.VarChar(200)
-  workflows       workflows @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([workflow_id], map: "ix_workflow_edges_workflow_id")
-  @@schema("public")
-}
-
-model workflow_executions {
-  id               String            @id @db.Uuid
-  workflow_id      String            @db.Uuid
-  enquiry_id       String            @db.Uuid
-  status           String            @db.VarChar(20)
-  current_node_key String?           @db.VarChar(100)
-  error_message    String?
-  started_at       DateTime?         @db.Timestamptz(6)
-  completed_at     DateTime?         @db.Timestamptz(6)
-  node_executions  node_executions[]
-  enquiries        enquiries         @relation(fields: [enquiry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workflows        workflows         @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([enquiry_id], map: "ix_workflow_executions_enquiry_id")
-  @@index([workflow_id], map: "ix_workflow_executions_workflow_id")
-  @@schema("public")
-}
-
-model workflow_nodes {
-  id          String    @id @db.Uuid
-  workflow_id String    @db.Uuid
-  node_key    String    @db.VarChar(100)
-  node_type   String    @db.VarChar(50)
-  label       String    @db.VarChar(200)
-  description String?
-  config      String?
-  position_x  Int
-  position_y  Int
-  workflows   workflows @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([workflow_id], map: "ix_workflow_nodes_workflow_id")
-  @@schema("public")
-}
-
-model workflows {
-  id                  String                @id @db.Uuid
-  name                String                @db.VarChar(200)
-  description         String?
-  version             Int
-  status              String                @db.VarChar(20)
-  is_default          Boolean
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
-  workflow_edges      workflow_edges[]
-  workflow_executions workflow_executions[]
-  workflow_nodes      workflow_nodes[]
-
-  @@schema("public")
-}
-
-model cost_centers {
-  id                 String        @id @db.Uuid
-  name               String        @db.VarChar(200)
-  cost_center_number String?       @db.VarChar(50)
-  parent_cost_center String?       @db.VarChar(200)
-  subsidiary_id      String?       @db.Uuid
-  is_group           Boolean
-  disabled           Boolean
-  lft                Int
-  rgt                Int
-  created_at         DateTime      @default(now()) @db.Timestamptz(6)
-  subsidiaries       subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model fiscal_years {
-  id              String        @id @db.Uuid
-  year            String        @db.VarChar(20)
-  year_start_date DateTime?     @db.Timestamptz(6)
-  year_end_date   DateTime?     @db.Timestamptz(6)
-  disabled        Boolean
-  is_short_year   Boolean
-  subsidiary_id   String?       @db.Uuid
-  created_at      DateTime      @default(now()) @db.Timestamptz(6)
-  subsidiaries    subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model gl_entries {
-  id                         String        @id @db.Uuid
-  posting_date               DateTime?     @db.Timestamptz(6)
-  fiscal_year                String?       @db.VarChar(20)
-  account_id                 String?       @db.Uuid
-  account_currency           String?       @db.VarChar(3)
-  party_type                 String?       @db.VarChar(50)
-  party_name                 String?       @db.VarChar(255)
-  voucher_type               String?       @db.VarChar(50)
-  voucher_no                 String?       @db.VarChar(100)
-  voucher_detail_no          String?       @db.VarChar(100)
-  against_voucher_type       String?       @db.VarChar(50)
-  against_voucher            String?       @db.VarChar(100)
-  debit                      Float
-  credit                     Float
-  debit_in_account_currency  Float
-  credit_in_account_currency Float
-  cost_center                String?       @db.VarChar(200)
-  project_id                 String?       @db.Uuid
-  subsidiary_id              String?       @db.Uuid
-  is_opening                 String?       @db.VarChar(10)
-  is_cancelled               Boolean
-  remarks                    String?
-  created_at                 DateTime      @default(now()) @db.Timestamptz(6)
-  accounts                   accounts?     @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  projects                   projects?     @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  subsidiaries               subsidiaries? @relation(fields: [subsidiary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([account_id], map: "ix_gl_entries_account_id")
-  @@schema("public")
-}
-
-model journal_entry_lines {
-  id               String          @id @db.Uuid
-  journal_entry_id String          @db.Uuid
-  account_id       String?         @db.Uuid
-  party_type       String?         @db.VarChar(50)
-  party_name       String?         @db.VarChar(255)
-  debit            Float
-  credit           Float
-  cost_center      String?         @db.VarChar(200)
-  project_id       String?         @db.Uuid
-  reference_type   String?         @db.VarChar(50)
-  reference_name   String?         @db.VarChar(100)
-  user_remark      String?
-  created_at       DateTime        @default(now()) @db.Timestamptz(6)
-  accounts         accounts?       @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  journal_entries  journal_entries @relation(fields: [journal_entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  projects         projects?       @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([journal_entry_id], map: "ix_journal_entry_lines_journal_entry_id")
-  @@schema("public")
-}
-
-model subsidiaries {
-  id                         String            @id @db.Uuid
-  name                       String            @db.VarChar(200)
-  abbr                       String?           @db.VarChar(20)
-  default_currency           String            @db.VarChar(3)
-  country                    String?           @db.VarChar(100)
-  tax_id                     String?           @db.VarChar(50)
-  default_receivable_account String?           @db.VarChar(200)
-  default_payable_account    String?           @db.VarChar(200)
-  default_income_account     String?           @db.VarChar(200)
-  default_expense_account    String?           @db.VarChar(200)
-  default_bank_account       String?           @db.VarChar(200)
-  default_cash_account       String?           @db.VarChar(200)
-  cost_center                String?           @db.VarChar(200)
-  created_at                 DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at                 DateTime          @default(now()) @db.Timestamptz(6)
-  cost_centers               cost_centers[]
-  fiscal_years               fiscal_years[]
-  gl_entries                 gl_entries[]
-  journal_entries            journal_entries[]
-
-  @@schema("public")
-}
-
-model users {
-  id            String     @id @default(uuid()) @db.Uuid
-  email         String     @unique @db.VarChar(255)
-  password_hash String     @db.VarChar(255)
-  name          String     @db.VarChar(200)
-  role          String     @default("user") @db.VarChar(50)
-  department    String?    @db.VarChar(100)
-  subsidiary    String?    @db.VarChar(200)
-  company       String     @default("Aries Marine") @db.VarChar(200)
-  is_active     Boolean    @default(true)
-  avatar_url    String?
-  last_login    DateTime?  @db.Timestamptz(6)
-  created_at    DateTime   @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime   @default(now()) @updatedAt @db.Timestamptz(6)
-  sessions               sessions[]
-  webauthn_credentials   webauthn_credentials[]
-  refresh_tokens         refresh_tokens[]
-
-  @@schema("public")
-}
-
-model sessions {
-  id            String         @id @default(uuid()) @db.Uuid
-  user_id       String         @db.Uuid
-  session_token String         @unique @db.VarChar(500)
-  expires       DateTime       @db.Timestamptz(6)
-  ip_address    String?        @db.VarChar(45)
-  user_agent    String?
-  is_active     Boolean        @default(true)
-  created_at    DateTime       @default(now()) @db.Timestamptz(6)
-  users         users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  refresh_tokens refresh_tokens[]
-
-  @@schema("public")
 }
 
 model BOM {
@@ -1020,7 +72,6 @@ model BOM {
   operations                                 BOMOperation[]
   secondaryItems                             BOMSecondaryItem[]
 
-  @@schema("app")
 }
 
 model BOMItem {
@@ -1057,7 +108,6 @@ model BOMItem {
   bomId                         String  @db.Uuid
   bom                           BOM     @relation(fields: [bomId], references: [id], onDelete: Cascade)
 
-  @@schema("app")
 }
 
 model BOMOperation {
@@ -1093,7 +143,6 @@ model BOMOperation {
   bomId                        String  @db.Uuid
   bom                          BOM     @relation(fields: [bomId], references: [id], onDelete: Cascade)
 
-  @@schema("app")
 }
 
 model BOMExplosionItem {
@@ -1116,7 +165,6 @@ model BOMExplosionItem {
   bomId                         String  @db.Uuid
   bom                           BOM     @relation(fields: [bomId], references: [id], onDelete: Cascade)
 
-  @@schema("app")
 }
 
 model BOMSecondaryItem {
@@ -1143,7 +191,6 @@ model BOMSecondaryItem {
   bomId               String  @db.Uuid
   bom                 BOM     @relation(fields: [bomId], references: [id], onDelete: Cascade)
 
-  @@schema("app")
 }
 
 model Account {
@@ -1178,7 +225,6 @@ model Account {
   @@index([parent_account])
   @@index([account_category])
   @@map("account")
-  @@schema("erpnext_port")
 }
 
 model AccountCategory {
@@ -1194,7 +240,6 @@ model AccountCategory {
   root_type             String?   @db.VarChar(100)
 
   @@map("account_category")
-  @@schema("erpnext_port")
 }
 
 model AccountClosingBalance {
@@ -1230,7 +275,6 @@ model AccountClosingBalance {
   @@index([finance_book])
   @@index([period_closing_voucher])
   @@map("account_closing_balance")
-  @@schema("erpnext_port")
 }
 
 model AccountingDimension {
@@ -1248,7 +292,6 @@ model AccountingDimension {
 
   @@index([document_type])
   @@map("accounting_dimension")
-  @@schema("erpnext_port")
 }
 
 model AccountingDimensionDetail {
@@ -1274,7 +317,6 @@ model AccountingDimensionDetail {
   @@index([reference_document])
   @@index([offsetting_account])
   @@map("accounting_dimension_detail")
-  @@schema("erpnext_port")
 }
 
 model AccountingDimensionFilter {
@@ -1295,7 +337,6 @@ model AccountingDimensionFilter {
 
   @@index([company])
   @@map("accounting_dimension_filter")
-  @@schema("erpnext_port")
 }
 
 model AccountingPeriod {
@@ -1316,7 +357,6 @@ model AccountingPeriod {
   @@index([company])
   @@index([exempted_role])
   @@map("accounting_period")
-  @@schema("erpnext_port")
 }
 
 model AccountsSettings {
@@ -1391,7 +431,6 @@ model AccountsSettings {
   @@index([role_to_override_stop_action])
   @@index([role_to_notify_on_depreciation_failure])
   @@map("accounts_settings")
-  @@schema("erpnext_port")
 }
 
 model ActivityCost {
@@ -1414,7 +453,6 @@ model ActivityCost {
   @@index([employee])
   @@index([department])
   @@map("activity_cost")
-  @@schema("erpnext_port")
 }
 
 model ActivityType {
@@ -1431,7 +469,6 @@ model ActivityType {
   disabled      Boolean?  @default(false)
 
   @@map("activity_type")
-  @@schema("erpnext_port")
 }
 
 model AdvancePaymentLedgerEntry {
@@ -1459,7 +496,6 @@ model AdvancePaymentLedgerEntry {
   @@index([currency])
   @@index([company])
   @@map("advance_payment_ledger_entry")
-  @@schema("erpnext_port")
 }
 
 model AdvanceTaxesAndCharges {
@@ -1497,7 +533,6 @@ model AdvanceTaxesAndCharges {
   @@index([project])
   @@index([currency])
   @@map("advance_taxes_and_charges")
-  @@schema("erpnext_port")
 }
 
 model AllowedDimension {
@@ -1516,7 +551,6 @@ model AllowedDimension {
 
   @@index([accounting_dimension])
   @@map("allowed_dimension")
-  @@schema("erpnext_port")
 }
 
 model AllowedToTransactWith {
@@ -1534,7 +568,6 @@ model AllowedToTransactWith {
 
   @@index([company])
   @@map("allowed_to_transact_with")
-  @@schema("erpnext_port")
 }
 
 model ApplicableOnAccount {
@@ -1553,7 +586,6 @@ model ApplicableOnAccount {
 
   @@index([applicable_on_account])
   @@map("applicable_on_account")
-  @@schema("erpnext_port")
 }
 
 model Appointment {
@@ -1579,7 +611,6 @@ model Appointment {
   @@index([calendar_event])
   @@index([appointment_with])
   @@map("appointment")
-  @@schema("erpnext_port")
 }
 
 model AppointmentBookingSettings {
@@ -1600,7 +631,6 @@ model AppointmentBookingSettings {
 
   @@index([holiday_list])
   @@map("appointment_booking_settings")
-  @@schema("erpnext_port")
 }
 
 model AppointmentBookingSlots {
@@ -1619,7 +649,6 @@ model AppointmentBookingSlots {
   to_time     String    @db.VarChar(20)
 
   @@map("appointment_booking_slots")
-  @@schema("erpnext_port")
 }
 
 model Asset {
@@ -1700,7 +729,6 @@ model Asset {
   @@index([amended_from])
   @@index([split_from])
   @@map("asset")
-  @@schema("erpnext_port")
 }
 
 model AssetActivity {
@@ -1719,7 +747,6 @@ model AssetActivity {
   @@index([asset])
   @@index([user])
   @@map("asset_activity")
-  @@schema("erpnext_port")
 }
 
 model AssetCapitalization {
@@ -1759,7 +786,6 @@ model AssetCapitalization {
   @@index([project])
   @@index([target_fixed_asset_account])
   @@map("asset_capitalization")
-  @@schema("erpnext_port")
 }
 
 model AssetCapitalizationAssetItem {
@@ -1791,7 +817,6 @@ model AssetCapitalizationAssetItem {
   @@index([project])
   @@index([finance_book])
   @@map("asset_capitalization_asset_item")
-  @@schema("erpnext_port")
 }
 
 model AssetCapitalizationServiceItem {
@@ -1819,7 +844,6 @@ model AssetCapitalizationServiceItem {
   @@index([uom])
   @@index([cost_center])
   @@map("asset_capitalization_service_item")
-  @@schema("erpnext_port")
 }
 
 model AssetCapitalizationStockItem {
@@ -1855,7 +879,6 @@ model AssetCapitalizationStockItem {
   @@index([cost_center])
   @@index([serial_and_batch_bundle])
   @@map("asset_capitalization_stock_item")
-  @@schema("erpnext_port")
 }
 
 model AssetCategory {
@@ -1871,7 +894,6 @@ model AssetCategory {
   non_depreciable_category Boolean?  @default(false)
 
   @@map("asset_category")
-  @@schema("erpnext_port")
 }
 
 model AssetCategoryAccount {
@@ -1897,7 +919,6 @@ model AssetCategoryAccount {
   @@index([depreciation_expense_account])
   @@index([capital_work_in_progress_account])
   @@map("asset_category_account")
-  @@schema("erpnext_port")
 }
 
 model AssetDepreciationSchedule {
@@ -1934,7 +955,6 @@ model AssetDepreciationSchedule {
   @@index([status])
   @@index([company])
   @@map("asset_depreciation_schedule")
-  @@schema("erpnext_port")
 }
 
 model AssetFinanceBook {
@@ -1964,7 +984,6 @@ model AssetFinanceBook {
 
   @@index([finance_book])
   @@map("asset_finance_book")
-  @@schema("erpnext_port")
 }
 
 model AssetMaintenance {
@@ -1988,7 +1007,6 @@ model AssetMaintenance {
   @@index([company])
   @@index([maintenance_team])
   @@map("asset_maintenance")
-  @@schema("erpnext_port")
 }
 
 model AssetMaintenanceLog {
@@ -2023,7 +1041,6 @@ model AssetMaintenanceLog {
   @@index([task])
   @@index([amended_from])
   @@map("asset_maintenance_log")
-  @@schema("erpnext_port")
 }
 
 model AssetMaintenanceTask {
@@ -2052,7 +1069,6 @@ model AssetMaintenanceTask {
 
   @@index([assign_to])
   @@map("asset_maintenance_task")
-  @@schema("erpnext_port")
 }
 
 model AssetMaintenanceTeam {
@@ -2071,7 +1087,6 @@ model AssetMaintenanceTeam {
   @@index([maintenance_manager])
   @@index([company])
   @@map("asset_maintenance_team")
-  @@schema("erpnext_port")
 }
 
 model AssetMovement {
@@ -2093,7 +1108,6 @@ model AssetMovement {
   @@index([reference_doctype])
   @@index([amended_from])
   @@map("asset_movement")
-  @@schema("erpnext_port")
 }
 
 model AssetMovementItem {
@@ -2122,7 +1136,6 @@ model AssetMovementItem {
   @@index([to_employee])
   @@index([company])
   @@map("asset_movement_item")
-  @@schema("erpnext_port")
 }
 
 model AssetRepair {
@@ -2158,7 +1171,6 @@ model AssetRepair {
   @@index([project])
   @@index([company])
   @@map("asset_repair")
-  @@schema("erpnext_port")
 }
 
 model AssetRepairConsumedItem {
@@ -2185,7 +1197,6 @@ model AssetRepairConsumedItem {
   @@index([serial_and_batch_bundle])
   @@index([warehouse])
   @@map("asset_repair_consumed_item")
-  @@schema("erpnext_port")
 }
 
 model AssetRepairPurchaseInvoice {
@@ -2206,7 +1217,6 @@ model AssetRepairPurchaseInvoice {
   @@index([purchase_invoice])
   @@index([expense_account])
   @@map("asset_repair_purchase_invoice")
-  @@schema("erpnext_port")
 }
 
 model AssetShiftAllocation {
@@ -2226,7 +1236,6 @@ model AssetShiftAllocation {
   @@index([asset])
   @@index([finance_book])
   @@map("asset_shift_allocation")
-  @@schema("erpnext_port")
 }
 
 model AssetShiftFactor {
@@ -2242,7 +1251,6 @@ model AssetShiftFactor {
   default      Boolean?  @default(false)
 
   @@map("asset_shift_factor")
-  @@schema("erpnext_port")
 }
 
 model AssetValueAdjustment {
@@ -2274,7 +1282,6 @@ model AssetValueAdjustment {
   @@index([amended_from])
   @@index([difference_account])
   @@map("asset_value_adjustment")
-  @@schema("erpnext_port")
 }
 
 model AuthorizationControl {
@@ -2287,7 +1294,6 @@ model AuthorizationControl {
   idx         Int?      @default(0)
 
   @@map("authorization_control")
-  @@schema("erpnext_port")
 }
 
 model AuthorizationRule {
@@ -2319,7 +1325,6 @@ model AuthorizationRule {
   @@index([approving_role])
   @@index([approving_user])
   @@map("authorization_rule")
-  @@schema("erpnext_port")
 }
 
 model AvailabilityOfSlots {
@@ -2338,7 +1343,6 @@ model AvailabilityOfSlots {
   to_time     String    @db.VarChar(20)
 
   @@map("availability_of_slots")
-  @@schema("erpnext_port")
 }
 
 model Bank {
@@ -2357,7 +1361,6 @@ model Bank {
   plaid_access_token String?   @db.VarChar(255)
 
   @@map("bank")
-  @@schema("erpnext_port")
 }
 
 model BankAccount {
@@ -2395,7 +1398,6 @@ model BankAccount {
   @@index([company])
   @@index([party_type])
   @@map("bank_account")
-  @@schema("erpnext_port")
 }
 
 model BankAccountSubtype {
@@ -2409,7 +1411,6 @@ model BankAccountSubtype {
   account_subtype String?   @unique @db.VarChar(255)
 
   @@map("bank_account_subtype")
-  @@schema("erpnext_port")
 }
 
 model BankAccountType {
@@ -2423,7 +1424,6 @@ model BankAccountType {
   account_type String?   @unique @db.VarChar(255)
 
   @@map("bank_account_type")
-  @@schema("erpnext_port")
 }
 
 model BankClearance {
@@ -2446,7 +1446,6 @@ model BankClearance {
   @@index([account_currency])
   @@index([bank_account])
   @@map("bank_clearance")
-  @@schema("erpnext_port")
 }
 
 model BankClearanceDetail {
@@ -2471,7 +1470,6 @@ model BankClearanceDetail {
 
   @@index([payment_document])
   @@map("bank_clearance_detail")
-  @@schema("erpnext_port")
 }
 
 model BankGuarantee {
@@ -2516,7 +1514,6 @@ model BankGuarantee {
   @@index([account])
   @@index([amended_from])
   @@map("bank_guarantee")
-  @@schema("erpnext_port")
 }
 
 model BankReconciliationTool {
@@ -2545,7 +1542,6 @@ model BankReconciliationTool {
   @@index([bank_account])
   @@index([account_currency])
   @@map("bank_reconciliation_tool")
-  @@schema("erpnext_port")
 }
 
 model BankStatementImport {
@@ -2586,7 +1582,6 @@ model BankStatementImport {
   @@index([status])
   @@index([reference_doctype])
   @@map("bank_statement_import")
-  @@schema("erpnext_port")
 }
 
 model BankTransaction {
@@ -2627,7 +1622,6 @@ model BankTransaction {
   @@index([amended_from])
   @@index([party_type])
   @@map("bank_transaction")
-  @@schema("erpnext_port")
 }
 
 model BankTransactionMapping {
@@ -2645,7 +1639,6 @@ model BankTransactionMapping {
   file_field             String    @db.VarChar(255)
 
   @@map("bank_transaction_mapping")
-  @@schema("erpnext_port")
 }
 
 model BankTransactionPayments {
@@ -2666,7 +1659,6 @@ model BankTransactionPayments {
 
   @@index([payment_document])
   @@map("bank_transaction_payments")
-  @@schema("erpnext_port")
 }
 
 model Batch {
@@ -2701,7 +1693,6 @@ model Batch {
   @@index([reference_doctype])
   @@index([stock_uom])
   @@map("batch")
-  @@schema("erpnext_port")
 }
 
 model Bin {
@@ -2734,7 +1725,6 @@ model Bin {
   @@index([stock_uom])
   @@index([company])
   @@map("bin")
-  @@schema("erpnext_port")
 }
 
 model BisectAccountingStatements {
@@ -2765,7 +1755,6 @@ model BisectAccountingStatements {
   @@index([current_node])
   @@index([company])
   @@map("bisect_accounting_statements")
-  @@schema("erpnext_port")
 }
 
 model BisectNodes {
@@ -2790,7 +1779,6 @@ model BisectNodes {
   @@index([left_child])
   @@index([right_child])
   @@map("bisect_nodes")
-  @@schema("erpnext_port")
 }
 
 model BlanketOrder {
@@ -2822,7 +1810,6 @@ model BlanketOrder {
   @@index([amended_from])
   @@index([tc_name])
   @@map("blanket_order")
-  @@schema("erpnext_port")
 }
 
 model BlanketOrderItem {
@@ -2846,7 +1833,6 @@ model BlanketOrderItem {
 
   @@index([item_code])
   @@map("blanket_order_item")
-  @@schema("erpnext_port")
 }
 
 model Bom {
@@ -2925,7 +1911,6 @@ model Bom {
   @@index([default_source_warehouse])
   @@index([default_target_warehouse])
   @@map("bom")
-  @@schema("erpnext_port")
 }
 
 model BomCreator {
@@ -2973,7 +1958,6 @@ model BomCreator {
   @@index([status])
   @@index([routing])
   @@map("bom_creator")
-  @@schema("erpnext_port")
 }
 
 model BomCreatorItem {
@@ -3019,7 +2003,6 @@ model BomCreatorItem {
   @@index([stock_uom])
   @@index([operation])
   @@map("bom_creator_item")
-  @@schema("erpnext_port")
 }
 
 model BomExplosionItem {
@@ -3054,7 +2037,6 @@ model BomExplosionItem {
   @@index([operation])
   @@index([stock_uom])
   @@map("bom_explosion_item")
-  @@schema("erpnext_port")
 }
 
 model BomItem {
@@ -3105,7 +2087,6 @@ model BomItem {
   @@index([stock_uom])
   @@index([original_item])
   @@map("bom_item")
-  @@schema("erpnext_port")
 }
 
 model BomOperation {
@@ -3157,7 +2138,6 @@ model BomOperation {
   @@index([fg_warehouse])
   @@index([source_warehouse])
   @@map("bom_operation")
-  @@schema("erpnext_port")
 }
 
 model BomSecondaryItem {
@@ -3194,7 +2174,6 @@ model BomSecondaryItem {
   @@index([stock_uom])
   @@index([uom])
   @@map("bom_secondary_item")
-  @@schema("erpnext_port")
 }
 
 model BomUpdateBatch {
@@ -3215,7 +2194,6 @@ model BomUpdateBatch {
 
   @@index([status])
   @@map("bom_update_batch")
-  @@schema("erpnext_port")
 }
 
 model BomUpdateLog {
@@ -3241,7 +2219,6 @@ model BomUpdateLog {
   @@index([amended_from])
   @@index([error_log])
   @@map("bom_update_log")
-  @@schema("erpnext_port")
 }
 
 model BomUpdateTool {
@@ -3260,7 +2237,6 @@ model BomUpdateTool {
   @@index([current_bom])
   @@index([new_bom])
   @@map("bom_update_tool")
-  @@schema("erpnext_port")
 }
 
 model BomWebsiteItem {
@@ -3282,7 +2258,6 @@ model BomWebsiteItem {
 
   @@index([item_code])
   @@map("bom_website_item")
-  @@schema("erpnext_port")
 }
 
 model BomWebsiteOperation {
@@ -3305,7 +2280,6 @@ model BomWebsiteOperation {
   @@index([operation])
   @@index([workstation])
   @@map("bom_website_operation")
-  @@schema("erpnext_port")
 }
 
 model Branch {
@@ -3319,7 +2293,6 @@ model Branch {
   branch      String    @unique @db.VarChar(255)
 
   @@map("branch")
-  @@schema("erpnext_port")
 }
 
 model Brand {
@@ -3335,7 +2308,6 @@ model Brand {
   image       String?   @db.VarChar(2048)
 
   @@map("brand")
-  @@schema("erpnext_port")
 }
 
 model Budget {
@@ -3383,7 +2355,6 @@ model Budget {
   @@index([from_fiscal_year])
   @@index([to_fiscal_year])
   @@map("budget")
-  @@schema("erpnext_port")
 }
 
 model BudgetAccount {
@@ -3402,7 +2373,6 @@ model BudgetAccount {
 
   @@index([account])
   @@map("budget_account")
-  @@schema("erpnext_port")
 }
 
 model BudgetDistribution {
@@ -3422,7 +2392,6 @@ model BudgetDistribution {
   percent     Float?
 
   @@map("budget_distribution")
-  @@schema("erpnext_port")
 }
 
 model BulkTransactionLog {
@@ -3439,7 +2408,6 @@ model BulkTransactionLog {
   failed      Int?
 
   @@map("bulk_transaction_log")
-  @@schema("erpnext_port")
 }
 
 model BulkTransactionLogDetail {
@@ -3462,7 +2430,6 @@ model BulkTransactionLogDetail {
   @@index([from_doctype])
   @@index([to_doctype])
   @@map("bulk_transaction_log_detail")
-  @@schema("erpnext_port")
 }
 
 model BuyingSettings {
@@ -3506,7 +2473,6 @@ model BuyingSettings {
   @@index([role_to_override_stop_action])
   @@index([fixed_email])
   @@map("buying_settings")
-  @@schema("erpnext_port")
 }
 
 model CallLog {
@@ -3540,7 +2506,6 @@ model CallLog {
   @@index([type_of_call])
   @@index([call_received_by])
   @@map("call_log")
-  @@schema("erpnext_port")
 }
 
 model Campaign {
@@ -3556,7 +2521,6 @@ model Campaign {
   description   String?
 
   @@map("campaign")
-  @@schema("erpnext_port")
 }
 
 model CampaignEmailSchedule {
@@ -3575,7 +2539,6 @@ model CampaignEmailSchedule {
 
   @@index([email_template])
   @@map("campaign_email_schedule")
-  @@schema("erpnext_port")
 }
 
 model CampaignItem {
@@ -3593,7 +2556,6 @@ model CampaignItem {
 
   @@index([campaign])
   @@map("campaign_item")
-  @@schema("erpnext_port")
 }
 
 model CashierClosing {
@@ -3619,7 +2581,6 @@ model CashierClosing {
   @@index([user])
   @@index([amended_from])
   @@map("cashier_closing")
-  @@schema("erpnext_port")
 }
 
 model CashierClosingPayments {
@@ -3638,7 +2599,6 @@ model CashierClosingPayments {
 
   @@index([mode_of_payment])
   @@map("cashier_closing_payments")
-  @@schema("erpnext_port")
 }
 
 model ChartOfAccountsImporter {
@@ -3656,7 +2616,6 @@ model ChartOfAccountsImporter {
 
   @@index([company])
   @@map("chart_of_accounts_importer")
-  @@schema("erpnext_port")
 }
 
 model ChequePrintTemplate {
@@ -3699,7 +2658,6 @@ model ChequePrintTemplate {
   cheque_print_preview            String?
 
   @@map("cheque_print_template")
-  @@schema("erpnext_port")
 }
 
 model ClosedDocument {
@@ -3718,7 +2676,6 @@ model ClosedDocument {
 
   @@index([document_type])
   @@map("closed_document")
-  @@schema("erpnext_port")
 }
 
 model CodeList {
@@ -3740,7 +2697,6 @@ model CodeList {
 
   @@index([default_common_code])
   @@map("code_list")
-  @@schema("erpnext_port")
 }
 
 model CommonCode {
@@ -3760,7 +2716,6 @@ model CommonCode {
 
   @@index([code_list])
   @@map("common_code")
-  @@schema("erpnext_port")
 }
 
 model CommunicationMedium {
@@ -3780,7 +2735,6 @@ model CommunicationMedium {
   @@index([catch_all])
   @@index([provider])
   @@map("communication_medium")
-  @@schema("erpnext_port")
 }
 
 model CommunicationMediumTimeslot {
@@ -3801,7 +2755,6 @@ model CommunicationMediumTimeslot {
 
   @@index([employee_group])
   @@map("communication_medium_timeslot")
-  @@schema("erpnext_port")
 }
 
 model Company {
@@ -3957,7 +2910,6 @@ model Company {
   @@index([default_sales_contact])
   @@index([role_allowed_for_frozen_entries])
   @@map("company")
-  @@schema("erpnext_port")
 }
 
 model Competitor {
@@ -3972,7 +2924,6 @@ model Competitor {
   website         String?   @db.VarChar(255)
 
   @@map("competitor")
-  @@schema("erpnext_port")
 }
 
 model CompetitorDetail {
@@ -3990,7 +2941,6 @@ model CompetitorDetail {
 
   @@index([competitor])
   @@map("competitor_detail")
-  @@schema("erpnext_port")
 }
 
 model Contract {
@@ -4029,7 +2979,6 @@ model Contract {
   @@index([amended_from])
   @@index([signed_by_company])
   @@map("contract")
-  @@schema("erpnext_port")
 }
 
 model ContractFulfilmentChecklist {
@@ -4050,7 +2999,6 @@ model ContractFulfilmentChecklist {
 
   @@index([amended_from])
   @@map("contract_fulfilment_checklist")
-  @@schema("erpnext_port")
 }
 
 model ContractTemplate {
@@ -4067,7 +3015,6 @@ model ContractTemplate {
   contract_template_help String?
 
   @@map("contract_template")
-  @@schema("erpnext_port")
 }
 
 model ContractTemplateFulfilmentTerms {
@@ -4084,7 +3031,6 @@ model ContractTemplateFulfilmentTerms {
   requirement String?   @db.VarChar(255)
 
   @@map("contract_template_fulfilment_terms")
-  @@schema("erpnext_port")
 }
 
 model CostCenter {
@@ -4109,7 +3055,6 @@ model CostCenter {
   @@index([company])
   @@index([old_parent])
   @@map("cost_center")
-  @@schema("erpnext_port")
 }
 
 model CostCenterAllocation {
@@ -4129,7 +3074,6 @@ model CostCenterAllocation {
   @@index([company])
   @@index([amended_from])
   @@map("cost_center_allocation")
-  @@schema("erpnext_port")
 }
 
 model CostCenterAllocationPercentage {
@@ -4148,7 +3092,6 @@ model CostCenterAllocationPercentage {
 
   @@index([cost_center])
   @@map("cost_center_allocation_percentage")
-  @@schema("erpnext_port")
 }
 
 model CouponCode {
@@ -4176,7 +3119,6 @@ model CouponCode {
   @@index([pricing_rule])
   @@index([amended_from])
   @@map("coupon_code")
-  @@schema("erpnext_port")
 }
 
 model CrmNote {
@@ -4196,7 +3138,6 @@ model CrmNote {
 
   @@index([added_by])
   @@map("crm_note")
-  @@schema("erpnext_port")
 }
 
 model CrmSettings {
@@ -4216,7 +3157,6 @@ model CrmSettings {
   update_timestamp_on_new_communication    Boolean?  @default(false)
 
   @@map("crm_settings")
-  @@schema("erpnext_port")
 }
 
 model CurrencyExchange {
@@ -4237,7 +3177,6 @@ model CurrencyExchange {
   @@index([from_currency])
   @@index([to_currency])
   @@map("currency_exchange")
-  @@schema("erpnext_port")
 }
 
 model CurrencyExchangeSettings {
@@ -4257,7 +3196,6 @@ model CurrencyExchangeSettings {
   use_http         Boolean?  @default(false)
 
   @@map("currency_exchange_settings")
-  @@schema("erpnext_port")
 }
 
 model CurrencyExchangeSettingsDetails {
@@ -4275,7 +3213,6 @@ model CurrencyExchangeSettingsDetails {
   value       String    @db.VarChar(255)
 
   @@map("currency_exchange_settings_details")
-  @@schema("erpnext_port")
 }
 
 model CurrencyExchangeSettingsResult {
@@ -4292,7 +3229,6 @@ model CurrencyExchangeSettingsResult {
   key         String    @db.VarChar(255)
 
   @@map("currency_exchange_settings_result")
-  @@schema("erpnext_port")
 }
 
 model Customer {
@@ -4371,7 +3307,6 @@ model Customer {
   @@index([prospect_name])
   @@index([tax_withholding_group])
   @@map("customer")
-  @@schema("erpnext_port")
 }
 
 model CustomerCreditLimit {
@@ -4391,7 +3326,6 @@ model CustomerCreditLimit {
 
   @@index([company])
   @@map("customer_credit_limit")
-  @@schema("erpnext_port")
 }
 
 model CustomerGroup {
@@ -4416,7 +3350,6 @@ model CustomerGroup {
   @@index([payment_terms])
   @@index([old_parent])
   @@map("customer_group")
-  @@schema("erpnext_port")
 }
 
 model CustomerGroupItem {
@@ -4434,7 +3367,6 @@ model CustomerGroupItem {
 
   @@index([customer_group])
   @@map("customer_group_item")
-  @@schema("erpnext_port")
 }
 
 model CustomerItem {
@@ -4452,7 +3384,6 @@ model CustomerItem {
 
   @@index([customer])
   @@map("customer_item")
-  @@schema("erpnext_port")
 }
 
 model CustomerNumberAtSupplier {
@@ -4471,7 +3402,6 @@ model CustomerNumberAtSupplier {
 
   @@index([company])
   @@map("customer_number_at_supplier")
-  @@schema("erpnext_port")
 }
 
 model CustomsTariffNumber {
@@ -4486,7 +3416,6 @@ model CustomsTariffNumber {
   description   String?   @db.VarChar(255)
 
   @@map("customs_tariff_number")
-  @@schema("erpnext_port")
 }
 
 model DeliveryNote {
@@ -4642,7 +3571,6 @@ model DeliveryNote {
   @@index([utm_campaign])
   @@index([company_contact_person])
   @@map("delivery_note")
-  @@schema("erpnext_port")
 }
 
 model DeliveryNoteItem {
@@ -4752,7 +3680,6 @@ model DeliveryNoteItem {
   @@index([batch_no])
   @@index([against_pick_list])
   @@map("delivery_note_item")
-  @@schema("erpnext_port")
 }
 
 model DeliveryScheduleItem {
@@ -4780,7 +3707,6 @@ model DeliveryScheduleItem {
   @@index([uom])
   @@index([stock_uom])
   @@map("delivery_schedule_item")
-  @@schema("erpnext_port")
 }
 
 model DeliverySettings {
@@ -4799,7 +3725,6 @@ model DeliverySettings {
   @@index([dispatch_template])
   @@index([dispatch_attachment])
   @@map("delivery_settings")
-  @@schema("erpnext_port")
 }
 
 model DeliveryStop {
@@ -4836,7 +3761,6 @@ model DeliveryStop {
   @@index([contact])
   @@index([uom])
   @@map("delivery_stop")
-  @@schema("erpnext_port")
 }
 
 model DeliveryTrip {
@@ -4873,7 +3797,6 @@ model DeliveryTrip {
   @@index([driver_address])
   @@index([employee])
   @@map("delivery_trip")
-  @@schema("erpnext_port")
 }
 
 model Department {
@@ -4896,7 +3819,6 @@ model Department {
   @@index([parent_department])
   @@index([company])
   @@map("department")
-  @@schema("erpnext_port")
 }
 
 model DependentTask {
@@ -4914,7 +3836,6 @@ model DependentTask {
 
   @@index([task])
   @@map("dependent_task")
-  @@schema("erpnext_port")
 }
 
 model DepreciationSchedule {
@@ -4938,7 +3859,6 @@ model DepreciationSchedule {
   @@index([journal_entry])
   @@index([shift])
   @@map("depreciation_schedule")
-  @@schema("erpnext_port")
 }
 
 model Designation {
@@ -4953,7 +3873,6 @@ model Designation {
   description      String?
 
   @@map("designation")
-  @@schema("erpnext_port")
 }
 
 model DiscountedInvoice {
@@ -4977,7 +3896,6 @@ model DiscountedInvoice {
   @@index([customer])
   @@index([debit_to])
   @@map("discounted_invoice")
-  @@schema("erpnext_port")
 }
 
 model DowntimeEntry {
@@ -5000,7 +3918,6 @@ model DowntimeEntry {
   @@index([workstation])
   @@index([operator])
   @@map("downtime_entry")
-  @@schema("erpnext_port")
 }
 
 model Driver {
@@ -5029,7 +3946,6 @@ model Driver {
   @@index([address])
   @@index([user])
   @@map("driver")
-  @@schema("erpnext_port")
 }
 
 model DrivingLicenseCategory {
@@ -5049,7 +3965,6 @@ model DrivingLicenseCategory {
   expiry_date  DateTime? @db.Timestamptz(3)
 
   @@map("driving_license_category")
-  @@schema("erpnext_port")
 }
 
 model Dunning {
@@ -5108,7 +4023,6 @@ model Dunning {
   @@index([company_address])
   @@index([currency])
   @@map("dunning")
-  @@schema("erpnext_port")
 }
 
 model DunningLetterText {
@@ -5130,7 +4044,6 @@ model DunningLetterText {
 
   @@index([language])
   @@map("dunning_letter_text")
-  @@schema("erpnext_port")
 }
 
 model DunningType {
@@ -5153,7 +4066,6 @@ model DunningType {
   @@index([cost_center])
   @@index([company])
   @@map("dunning_type")
-  @@schema("erpnext_port")
 }
 
 model EmailCampaign {
@@ -5176,7 +4088,6 @@ model EmailCampaign {
   @@index([status])
   @@index([sender])
   @@map("email_campaign")
-  @@schema("erpnext_port")
 }
 
 model EmailDigest {
@@ -5219,7 +4130,6 @@ model EmailDigest {
 
   @@index([company])
   @@map("email_digest")
-  @@schema("erpnext_port")
 }
 
 model EmailDigestRecipient {
@@ -5237,7 +4147,6 @@ model EmailDigestRecipient {
 
   @@index([recipient])
   @@map("email_digest_recipient")
-  @@schema("erpnext_port")
 }
 
 model Employee {
@@ -5328,7 +4237,6 @@ model Employee {
   @@index([holiday_list])
   @@index([salary_currency])
   @@map("employee")
-  @@schema("erpnext_port")
 }
 
 model EmployeeEducation {
@@ -5350,7 +4258,6 @@ model EmployeeEducation {
   maj_opt_subj    String?
 
   @@map("employee_education")
-  @@schema("erpnext_port")
 }
 
 model EmployeeExternalWorkHistory {
@@ -5372,7 +4279,6 @@ model EmployeeExternalWorkHistory {
   total_experience String?   @db.VarChar(255)
 
   @@map("employee_external_work_history")
-  @@schema("erpnext_port")
 }
 
 model EmployeeGroup {
@@ -5386,7 +4292,6 @@ model EmployeeGroup {
   employee_group_name String    @unique @db.VarChar(255)
 
   @@map("employee_group")
-  @@schema("erpnext_port")
 }
 
 model EmployeeGroupTable {
@@ -5406,7 +4311,6 @@ model EmployeeGroupTable {
 
   @@index([employee])
   @@map("employee_group_table")
-  @@schema("erpnext_port")
 }
 
 model EmployeeInternalWorkHistory {
@@ -5430,7 +4334,6 @@ model EmployeeInternalWorkHistory {
   @@index([department])
   @@index([designation])
   @@map("employee_internal_work_history")
-  @@schema("erpnext_port")
 }
 
 model ExchangeRateRevaluation {
@@ -5453,7 +4356,6 @@ model ExchangeRateRevaluation {
   @@index([company])
   @@index([amended_from])
   @@map("exchange_rate_revaluation")
-  @@schema("erpnext_port")
 }
 
 model ExchangeRateRevaluationAccount {
@@ -5484,7 +4386,6 @@ model ExchangeRateRevaluationAccount {
   @@index([party_type])
   @@index([account_currency])
   @@map("exchange_rate_revaluation_account")
-  @@schema("erpnext_port")
 }
 
 model FinanceBook {
@@ -5498,7 +4399,6 @@ model FinanceBook {
   finance_book_name String?   @unique @db.VarChar(255)
 
   @@map("finance_book")
-  @@schema("erpnext_port")
 }
 
 model FinancialReportRow {
@@ -5531,7 +4431,6 @@ model FinancialReportRow {
   advanced_filtering  Boolean?  @default(false)
 
   @@map("financial_report_row")
-  @@schema("erpnext_port")
 }
 
 model FinancialReportTemplate {
@@ -5549,7 +4448,6 @@ model FinancialReportTemplate {
 
   @@index([module])
   @@map("financial_report_template")
-  @@schema("erpnext_port")
 }
 
 model FiscalYear {
@@ -5568,7 +4466,6 @@ model FiscalYear {
   is_short_year   Boolean?  @default(false)
 
   @@map("fiscal_year")
-  @@schema("erpnext_port")
 }
 
 model FiscalYearCompany {
@@ -5586,7 +4483,6 @@ model FiscalYearCompany {
 
   @@index([company])
   @@map("fiscal_year_company")
-  @@schema("erpnext_port")
 }
 
 model GlEntry {
@@ -5645,7 +4541,6 @@ model GlEntry {
   @@index([finance_book])
   @@index([transaction_currency])
   @@map("gl_entry")
-  @@schema("erpnext_port")
 }
 
 model GlobalDefaults {
@@ -5672,7 +4567,6 @@ model GlobalDefaults {
   @@index([default_currency])
   @@index([demo_company])
   @@map("global_defaults")
-  @@schema("erpnext_port")
 }
 
 model Holiday {
@@ -5692,7 +4586,6 @@ model Holiday {
   is_half_day  Boolean?  @default(false)
 
   @@map("holiday")
-  @@schema("erpnext_port")
 }
 
 model HolidayList {
@@ -5717,7 +4610,6 @@ model HolidayList {
   is_half_day          Boolean?  @default(false)
 
   @@map("holiday_list")
-  @@schema("erpnext_port")
 }
 
 model ImportSupplierInvoice {
@@ -5745,7 +4637,6 @@ model ImportSupplierInvoice {
   @@index([status])
   @@index([default_buying_price_list])
   @@map("import_supplier_invoice")
-  @@schema("erpnext_port")
 }
 
 model IncomingCallHandlingSchedule {
@@ -5766,7 +4657,6 @@ model IncomingCallHandlingSchedule {
 
   @@index([agent_group])
   @@map("incoming_call_handling_schedule")
-  @@schema("erpnext_port")
 }
 
 model IncomingCallSettings {
@@ -5783,7 +4673,6 @@ model IncomingCallSettings {
   agent_unavailable_message String?   @db.VarChar(255)
 
   @@map("incoming_call_settings")
-  @@schema("erpnext_port")
 }
 
 model Incoterm {
@@ -5799,7 +4688,6 @@ model Incoterm {
   description String?
 
   @@map("incoterm")
-  @@schema("erpnext_port")
 }
 
 model IndustryType {
@@ -5813,7 +4701,6 @@ model IndustryType {
   industry    String    @unique @db.VarChar(255)
 
   @@map("industry_type")
-  @@schema("erpnext_port")
 }
 
 model InstallationNote {
@@ -5853,7 +4740,6 @@ model InstallationNote {
   @@index([amended_from])
   @@index([project])
   @@map("installation_note")
-  @@schema("erpnext_port")
 }
 
 model InstallationNoteItem {
@@ -5879,7 +4765,6 @@ model InstallationNoteItem {
   @@index([item_code])
   @@index([serial_and_batch_bundle])
   @@map("installation_note_item")
-  @@schema("erpnext_port")
 }
 
 model InventoryDimension {
@@ -5908,7 +4793,6 @@ model InventoryDimension {
   @@index([reference_document])
   @@index([document_type])
   @@map("inventory_dimension")
-  @@schema("erpnext_port")
 }
 
 model InvoiceDiscounting {
@@ -5945,7 +4829,6 @@ model InvoiceDiscounting {
   @@index([accounts_receivable_unpaid])
   @@index([amended_from])
   @@map("invoice_discounting")
-  @@schema("erpnext_port")
 }
 
 model Issue {
@@ -6004,7 +4887,6 @@ model Issue {
   @@index([company])
   @@index([issue_split_from])
   @@map("issue")
-  @@schema("erpnext_port")
 }
 
 model IssuePriority {
@@ -6018,7 +4900,6 @@ model IssuePriority {
   description String?
 
   @@map("issue_priority")
-  @@schema("erpnext_port")
 }
 
 model IssueType {
@@ -6032,7 +4913,6 @@ model IssueType {
   description String?
 
   @@map("issue_type")
-  @@schema("erpnext_port")
 }
 
 model Item {
@@ -6135,7 +5015,6 @@ model Item {
   @@index([purchase_tax_withholding_category])
   @@index([sales_tax_withholding_category])
   @@map("item")
-  @@schema("erpnext_port")
 }
 
 model ItemAlternative {
@@ -6155,7 +5034,6 @@ model ItemAlternative {
   @@index([item_code])
   @@index([alternative_item_code])
   @@map("item_alternative")
-  @@schema("erpnext_port")
 }
 
 model ItemAttribute {
@@ -6174,7 +5052,6 @@ model ItemAttribute {
   disabled       Boolean?  @default(false)
 
   @@map("item_attribute")
-  @@schema("erpnext_port")
 }
 
 model ItemAttributeValue {
@@ -6192,7 +5069,6 @@ model ItemAttributeValue {
   abbr            String    @db.VarChar(255)
 
   @@map("item_attribute_value")
-  @@schema("erpnext_port")
 }
 
 model ItemBarcode {
@@ -6212,7 +5088,6 @@ model ItemBarcode {
 
   @@index([uom])
   @@map("item_barcode")
-  @@schema("erpnext_port")
 }
 
 model ItemCustomerDetail {
@@ -6233,7 +5108,6 @@ model ItemCustomerDetail {
   @@index([customer_name])
   @@index([customer_group])
   @@map("item_customer_detail")
-  @@schema("erpnext_port")
 }
 
 model ItemDefault {
@@ -6283,7 +5157,6 @@ model ItemDefault {
   @@index([default_inventory_account])
   @@index([inventory_account_currency])
   @@map("item_default")
-  @@schema("erpnext_port")
 }
 
 model ItemGroup {
@@ -6305,7 +5178,6 @@ model ItemGroup {
   @@index([parent_item_group])
   @@index([old_parent])
   @@map("item_group")
-  @@schema("erpnext_port")
 }
 
 model ItemLeadTime {
@@ -6333,7 +5205,6 @@ model ItemLeadTime {
   @@index([item_code])
   @@index([stock_uom])
   @@map("item_lead_time")
-  @@schema("erpnext_port")
 }
 
 model ItemManufacturer {
@@ -6354,7 +5225,6 @@ model ItemManufacturer {
   @@index([manufacturer])
   @@index([item_code])
   @@map("item_manufacturer")
-  @@schema("erpnext_port")
 }
 
 model ItemPrice {
@@ -6394,7 +5264,6 @@ model ItemPrice {
   @@index([currency])
   @@index([batch_no])
   @@map("item_price")
-  @@schema("erpnext_port")
 }
 
 model ItemQualityInspectionParameter {
@@ -6420,7 +5289,6 @@ model ItemQualityInspectionParameter {
   @@index([specification])
   @@index([parameter_group])
   @@map("item_quality_inspection_parameter")
-  @@schema("erpnext_port")
 }
 
 model ItemReorder {
@@ -6443,7 +5311,6 @@ model ItemReorder {
   @@index([warehouse_group])
   @@index([warehouse])
   @@map("item_reorder")
-  @@schema("erpnext_port")
 }
 
 model ItemSupplier {
@@ -6462,7 +5329,6 @@ model ItemSupplier {
 
   @@index([supplier])
   @@map("item_supplier")
-  @@schema("erpnext_port")
 }
 
 model ItemTax {
@@ -6485,7 +5351,6 @@ model ItemTax {
   @@index([item_tax_template])
   @@index([tax_category])
   @@map("item_tax")
-  @@schema("erpnext_port")
 }
 
 model ItemTaxTemplate {
@@ -6502,7 +5367,6 @@ model ItemTaxTemplate {
 
   @@index([company])
   @@map("item_tax_template")
-  @@schema("erpnext_port")
 }
 
 model ItemTaxTemplateDetail {
@@ -6522,7 +5386,6 @@ model ItemTaxTemplateDetail {
 
   @@index([tax_type])
   @@map("item_tax_template_detail")
-  @@schema("erpnext_port")
 }
 
 model ItemVariant {
@@ -6541,7 +5404,6 @@ model ItemVariant {
 
   @@index([item_attribute])
   @@map("item_variant")
-  @@schema("erpnext_port")
 }
 
 model ItemVariantAttribute {
@@ -6567,7 +5429,6 @@ model ItemVariantAttribute {
   @@index([variant_of])
   @@index([attribute])
   @@map("item_variant_attribute")
-  @@schema("erpnext_port")
 }
 
 model ItemVariantSettings {
@@ -6583,7 +5444,6 @@ model ItemVariantSettings {
   allow_different_uom          Boolean?  @default(false)
 
   @@map("item_variant_settings")
-  @@schema("erpnext_port")
 }
 
 model ItemWebsiteSpecification {
@@ -6601,7 +5461,6 @@ model ItemWebsiteSpecification {
   description String?
 
   @@map("item_website_specification")
-  @@schema("erpnext_port")
 }
 
 model ItemWiseTaxDetail {
@@ -6622,7 +5481,6 @@ model ItemWiseTaxDetail {
   taxable_amount Decimal?  @db.Decimal(18, 2)
 
   @@map("item_wise_tax_detail")
-  @@schema("erpnext_port")
 }
 
 model JobCard {
@@ -6706,7 +5564,6 @@ model JobCard {
   @@index([source_warehouse])
   @@index([semi_fg_bom])
   @@map("job_card")
-  @@schema("erpnext_port")
 }
 
 model JobCardItem {
@@ -6738,7 +5595,6 @@ model JobCardItem {
   @@index([item_group])
   @@index([stock_uom])
   @@map("job_card_item")
-  @@schema("erpnext_port")
 }
 
 model JobCardOperation {
@@ -6760,7 +5616,6 @@ model JobCardOperation {
   @@index([status])
   @@index([sub_operation])
   @@map("job_card_operation")
-  @@schema("erpnext_port")
 }
 
 model JobCardScheduledTime {
@@ -6779,7 +5634,6 @@ model JobCardScheduledTime {
   time_in_mins Float?
 
   @@map("job_card_scheduled_time")
-  @@schema("erpnext_port")
 }
 
 model JobCardSecondaryItem {
@@ -6804,7 +5658,6 @@ model JobCardSecondaryItem {
   @@index([item_code])
   @@index([stock_uom])
   @@map("job_card_secondary_item")
-  @@schema("erpnext_port")
 }
 
 model JobCardTimeLog {
@@ -6828,7 +5681,6 @@ model JobCardTimeLog {
   @@index([employee])
   @@index([operation])
   @@map("job_card_time_log")
-  @@schema("erpnext_port")
 }
 
 model JournalEntry {
@@ -6910,7 +5762,6 @@ model JournalEntry {
   @@index([stock_asset_account])
   @@index([tax_withholding_group])
   @@map("journal_entry")
-  @@schema("erpnext_port")
 }
 
 model JournalEntryAccount {
@@ -6956,7 +5807,6 @@ model JournalEntryAccount {
   @@index([bank_account])
   @@index([advance_voucher_type])
   @@map("journal_entry_account")
-  @@schema("erpnext_port")
 }
 
 model JournalEntryTemplate {
@@ -6976,7 +5826,6 @@ model JournalEntryTemplate {
 
   @@index([company])
   @@map("journal_entry_template")
-  @@schema("erpnext_port")
 }
 
 model JournalEntryTemplateAccount {
@@ -7001,7 +5850,6 @@ model JournalEntryTemplateAccount {
   @@index([cost_center])
   @@index([project])
   @@map("journal_entry_template_account")
-  @@schema("erpnext_port")
 }
 
 model LandedCostItem {
@@ -7031,7 +5879,6 @@ model LandedCostItem {
   @@index([item_code])
   @@index([cost_center])
   @@map("landed_cost_item")
-  @@schema("erpnext_port")
 }
 
 model LandedCostPurchaseReceipt {
@@ -7053,7 +5900,6 @@ model LandedCostPurchaseReceipt {
 
   @@index([supplier])
   @@map("landed_cost_purchase_receipt")
-  @@schema("erpnext_port")
 }
 
 model LandedCostTaxesAndCharges {
@@ -7079,7 +5925,6 @@ model LandedCostTaxesAndCharges {
   @@index([expense_account])
   @@index([account_currency])
   @@map("landed_cost_taxes_and_charges")
-  @@schema("erpnext_port")
 }
 
 model LandedCostVendorInvoice {
@@ -7098,7 +5943,6 @@ model LandedCostVendorInvoice {
 
   @@index([vendor_invoice])
   @@map("landed_cost_vendor_invoice")
-  @@schema("erpnext_port")
 }
 
 model LandedCostVoucher {
@@ -7122,7 +5966,6 @@ model LandedCostVoucher {
   @@index([company])
   @@index([amended_from])
   @@map("landed_cost_voucher")
-  @@schema("erpnext_port")
 }
 
 model Lead {
@@ -7198,7 +6041,6 @@ model Lead {
   @@index([utm_medium])
   @@index([utm_campaign])
   @@map("lead")
-  @@schema("erpnext_port")
 }
 
 model LedgerHealth {
@@ -7216,7 +6058,6 @@ model LedgerHealth {
   general_and_payment_ledger_mismatch Boolean?  @default(false)
 
   @@map("ledger_health")
-  @@schema("erpnext_port")
 }
 
 model LedgerHealthMonitor {
@@ -7233,7 +6074,6 @@ model LedgerHealthMonitor {
   monitor_for_last_x_days             Int       @default(60)
 
   @@map("ledger_health_monitor")
-  @@schema("erpnext_port")
 }
 
 model LedgerHealthMonitorCompany {
@@ -7251,7 +6091,6 @@ model LedgerHealthMonitorCompany {
 
   @@index([company])
   @@map("ledger_health_monitor_company")
-  @@schema("erpnext_port")
 }
 
 model LedgerMerge {
@@ -7273,7 +6112,6 @@ model LedgerMerge {
   @@index([company])
   @@index([status])
   @@map("ledger_merge")
-  @@schema("erpnext_port")
 }
 
 model LedgerMergeAccounts {
@@ -7293,7 +6131,6 @@ model LedgerMergeAccounts {
 
   @@index([account])
   @@map("ledger_merge_accounts")
-  @@schema("erpnext_port")
 }
 
 model LinkedLocation {
@@ -7311,7 +6148,6 @@ model LinkedLocation {
 
   @@index([location])
   @@map("linked_location")
-  @@schema("erpnext_port")
 }
 
 model Location {
@@ -7338,7 +6174,6 @@ model Location {
   @@index([parent_location])
   @@index([area_uom])
   @@map("location")
-  @@schema("erpnext_port")
 }
 
 model LostReasonDetail {
@@ -7356,7 +6191,6 @@ model LostReasonDetail {
 
   @@index([lost_reason])
   @@map("lost_reason_detail")
-  @@schema("erpnext_port")
 }
 
 model LowerDeductionCertificate {
@@ -7383,7 +6217,6 @@ model LowerDeductionCertificate {
   @@index([tax_withholding_category])
   @@index([company])
   @@map("lower_deduction_certificate")
-  @@schema("erpnext_port")
 }
 
 model LoyaltyPointEntry {
@@ -7413,7 +6246,6 @@ model LoyaltyPointEntry {
   @@index([company])
   @@index([invoice_type])
   @@map("loyalty_point_entry")
-  @@schema("erpnext_port")
 }
 
 model LoyaltyPointEntryRedemption {
@@ -7432,7 +6264,6 @@ model LoyaltyPointEntryRedemption {
   redeemed_points Int?
 
   @@map("loyalty_point_entry_redemption")
-  @@schema("erpnext_port")
 }
 
 model LoyaltyProgram {
@@ -7465,7 +6296,6 @@ model LoyaltyProgram {
   @@index([company])
   @@index([project])
   @@map("loyalty_program")
-  @@schema("erpnext_port")
 }
 
 model LoyaltyProgramCollection {
@@ -7484,7 +6314,6 @@ model LoyaltyProgramCollection {
   collection_factor Decimal   @db.Decimal(18, 2)
 
   @@map("loyalty_program_collection")
-  @@schema("erpnext_port")
 }
 
 model MaintenanceSchedule {
@@ -7521,7 +6350,6 @@ model MaintenanceSchedule {
   @@index([company])
   @@index([amended_from])
   @@map("maintenance_schedule")
-  @@schema("erpnext_port")
 }
 
 model MaintenanceScheduleDetail {
@@ -7548,7 +6376,6 @@ model MaintenanceScheduleDetail {
   @@index([sales_person])
   @@index([item_reference])
   @@map("maintenance_schedule_detail")
-  @@schema("erpnext_port")
 }
 
 model MaintenanceScheduleItem {
@@ -7579,7 +6406,6 @@ model MaintenanceScheduleItem {
   @@index([sales_order])
   @@index([serial_and_batch_bundle])
   @@map("maintenance_schedule_item")
-  @@schema("erpnext_port")
 }
 
 model MaintenanceTeamMember {
@@ -7600,7 +6426,6 @@ model MaintenanceTeamMember {
   @@index([team_member])
   @@index([maintenance_role])
   @@map("maintenance_team_member")
-  @@schema("erpnext_port")
 }
 
 model MaintenanceVisit {
@@ -7644,7 +6469,6 @@ model MaintenanceVisit {
   @@index([maintenance_schedule])
   @@index([maintenance_schedule_detail])
   @@map("maintenance_visit")
-  @@schema("erpnext_port")
 }
 
 model MaintenanceVisitPurpose {
@@ -7673,7 +6497,6 @@ model MaintenanceVisitPurpose {
   @@index([service_person])
   @@index([prevdoc_doctype])
   @@map("maintenance_visit_purpose")
-  @@schema("erpnext_port")
 }
 
 model Manufacturer {
@@ -7695,7 +6518,6 @@ model Manufacturer {
 
   @@index([country])
   @@map("manufacturer")
-  @@schema("erpnext_port")
 }
 
 model ManufacturingSettings {
@@ -7727,7 +6549,6 @@ model ManufacturingSettings {
   set_op_cost_and_secondary_items_from_sub_assemblies      Boolean?  @default(false)
 
   @@map("manufacturing_settings")
-  @@schema("erpnext_port")
 }
 
 model MarketSegment {
@@ -7741,7 +6562,6 @@ model MarketSegment {
   market_segment String?   @unique @db.VarChar(255)
 
   @@map("market_segment")
-  @@schema("erpnext_port")
 }
 
 model MasterProductionSchedule {
@@ -7769,7 +6589,6 @@ model MasterProductionSchedule {
   @@index([amended_from])
   @@index([sales_forecast])
   @@map("master_production_schedule")
-  @@schema("erpnext_port")
 }
 
 model MasterProductionScheduleItem {
@@ -7798,7 +6617,6 @@ model MasterProductionScheduleItem {
   @@index([bom_no])
   @@index([uom])
   @@map("master_production_schedule_item")
-  @@schema("erpnext_port")
 }
 
 model MaterialRequest {
@@ -7848,7 +6666,6 @@ model MaterialRequest {
   @@index([work_order])
   @@index([buying_price_list])
   @@map("material_request")
-  @@schema("erpnext_port")
 }
 
 model MaterialRequestItem {
@@ -7920,7 +6737,6 @@ model MaterialRequestItem {
   @@index([bom_no])
   @@index([wip_composite_asset])
   @@map("material_request_item")
-  @@schema("erpnext_port")
 }
 
 model MaterialRequestPlanItem {
@@ -7966,7 +6782,6 @@ model MaterialRequestPlanItem {
   @@index([from_bom])
   @@index([main_item_code])
   @@map("material_request_plan_item")
-  @@schema("erpnext_port")
 }
 
 model ModeOfPayment {
@@ -7982,7 +6797,6 @@ model ModeOfPayment {
   enabled         Boolean?  @default(true)
 
   @@map("mode_of_payment")
-  @@schema("erpnext_port")
 }
 
 model ModeOfPaymentAccount {
@@ -8002,7 +6816,6 @@ model ModeOfPaymentAccount {
   @@index([company])
   @@index([default_account])
   @@map("mode_of_payment_account")
-  @@schema("erpnext_port")
 }
 
 model MonthlyDistribution {
@@ -8018,7 +6831,6 @@ model MonthlyDistribution {
 
   @@index([fiscal_year])
   @@map("monthly_distribution")
-  @@schema("erpnext_port")
 }
 
 model MonthlyDistributionPercentage {
@@ -8036,7 +6848,6 @@ model MonthlyDistributionPercentage {
   percentage_allocation Float?
 
   @@map("monthly_distribution_percentage")
-  @@schema("erpnext_port")
 }
 
 model NonConformance {
@@ -8059,7 +6870,6 @@ model NonConformance {
   @@index([procedure])
   @@index([status])
   @@map("non_conformance")
-  @@schema("erpnext_port")
 }
 
 model OpeningInvoiceCreationTool {
@@ -8080,7 +6890,6 @@ model OpeningInvoiceCreationTool {
   @@index([cost_center])
   @@index([project])
   @@map("opening_invoice_creation_tool")
-  @@schema("erpnext_port")
 }
 
 model OpeningInvoiceCreationToolItem {
@@ -8111,7 +6920,6 @@ model OpeningInvoiceCreationToolItem {
   @@index([temporary_opening_account])
   @@index([cost_center])
   @@map("opening_invoice_creation_tool_item")
-  @@schema("erpnext_port")
 }
 
 model Operation {
@@ -8133,7 +6941,6 @@ model Operation {
   @@index([workstation])
   @@index([quality_inspection_template])
   @@map("operation")
-  @@schema("erpnext_port")
 }
 
 model Opportunity {
@@ -8217,7 +7024,6 @@ model Opportunity {
   @@index([utm_campaign])
   @@index([utm_medium])
   @@map("opportunity")
-  @@schema("erpnext_port")
 }
 
 model OpportunityItem {
@@ -8250,7 +7056,6 @@ model OpportunityItem {
   @@index([brand])
   @@index([uom])
   @@map("opportunity_item")
-  @@schema("erpnext_port")
 }
 
 model OpportunityLostReason {
@@ -8264,7 +7069,6 @@ model OpportunityLostReason {
   lost_reason String?   @unique @db.VarChar(255)
 
   @@map("opportunity_lost_reason")
-  @@schema("erpnext_port")
 }
 
 model OpportunityLostReasonDetail {
@@ -8282,7 +7086,6 @@ model OpportunityLostReasonDetail {
 
   @@index([lost_reason])
   @@map("opportunity_lost_reason_detail")
-  @@schema("erpnext_port")
 }
 
 model OpportunityType {
@@ -8296,7 +7099,6 @@ model OpportunityType {
   description String?
 
   @@map("opportunity_type")
-  @@schema("erpnext_port")
 }
 
 model OverduePayment {
@@ -8329,7 +7131,6 @@ model OverduePayment {
   @@index([mode_of_payment])
   @@index([sales_invoice])
   @@map("overdue_payment")
-  @@schema("erpnext_port")
 }
 
 model PackedItem {
@@ -8379,7 +7180,6 @@ model PackedItem {
   @@index([uom])
   @@index([serial_and_batch_bundle])
   @@map("packed_item")
-  @@schema("erpnext_port")
 }
 
 model PackingSlip {
@@ -8407,7 +7207,6 @@ model PackingSlip {
   @@index([letter_head])
   @@index([amended_from])
   @@map("packing_slip")
-  @@schema("erpnext_port")
 }
 
 model PackingSlipItem {
@@ -8438,7 +7237,6 @@ model PackingSlipItem {
   @@index([stock_uom])
   @@index([weight_uom])
   @@map("packing_slip_item")
-  @@schema("erpnext_port")
 }
 
 model PartyAccount {
@@ -8460,7 +7258,6 @@ model PartyAccount {
   @@index([account])
   @@index([advance_account])
   @@map("party_account")
-  @@schema("erpnext_port")
 }
 
 model PartyLink {
@@ -8479,7 +7276,6 @@ model PartyLink {
   @@index([primary_role])
   @@index([secondary_role])
   @@map("party_link")
-  @@schema("erpnext_port")
 }
 
 model PartySpecificItem {
@@ -8496,7 +7292,6 @@ model PartySpecificItem {
   based_on_value    String    @db.VarChar(140)
 
   @@map("party_specific_item")
-  @@schema("erpnext_port")
 }
 
 model PartyType {
@@ -8512,7 +7307,6 @@ model PartyType {
 
   @@index([party_type])
   @@map("party_type")
-  @@schema("erpnext_port")
 }
 
 model PauseSlaOnStatus {
@@ -8530,7 +7324,6 @@ model PauseSlaOnStatus {
 
   @@index([status])
   @@map("pause_sla_on_status")
-  @@schema("erpnext_port")
 }
 
 model PaymentEntry {
@@ -8632,7 +7425,6 @@ model PaymentEntry {
   @@index([sales_taxes_and_charges_template])
   @@index([tax_withholding_group])
   @@map("payment_entry")
-  @@schema("erpnext_port")
 }
 
 model PaymentEntryDeduction {
@@ -8655,7 +7447,6 @@ model PaymentEntryDeduction {
   @@index([account])
   @@index([cost_center])
   @@map("payment_entry_deduction")
-  @@schema("erpnext_port")
 }
 
 model PaymentEntryReference {
@@ -8695,7 +7486,6 @@ model PaymentEntryReference {
   @@index([payment_request])
   @@index([advance_voucher_type])
   @@map("payment_entry_reference")
-  @@schema("erpnext_port")
 }
 
 model PaymentGatewayAccount {
@@ -8719,7 +7509,6 @@ model PaymentGatewayAccount {
   @@index([payment_account])
   @@index([company])
   @@map("payment_gateway_account")
-  @@schema("erpnext_port")
 }
 
 model PaymentLedgerEntry {
@@ -8761,7 +7550,6 @@ model PaymentLedgerEntry {
   @@index([project])
   @@index([finance_book])
   @@map("payment_ledger_entry")
-  @@schema("erpnext_port")
 }
 
 model PaymentOrder {
@@ -8788,7 +7576,6 @@ model PaymentOrder {
   @@index([company_bank_account])
   @@index([company_bank])
   @@map("payment_order")
-  @@schema("erpnext_port")
 }
 
 model PaymentOrderReference {
@@ -8819,7 +7606,6 @@ model PaymentOrderReference {
   @@index([bank_account])
   @@index([account])
   @@map("payment_order_reference")
-  @@schema("erpnext_port")
 }
 
 model PaymentReconciliation {
@@ -8859,7 +7645,6 @@ model PaymentReconciliation {
   @@index([project])
   @@index([default_advance_account])
   @@map("payment_reconciliation")
-  @@schema("erpnext_port")
 }
 
 model PaymentReconciliationAllocation {
@@ -8896,7 +7681,6 @@ model PaymentReconciliationAllocation {
   @@index([currency])
   @@index([cost_center])
   @@map("payment_reconciliation_allocation")
-  @@schema("erpnext_port")
 }
 
 model PaymentReconciliationInvoice {
@@ -8920,7 +7704,6 @@ model PaymentReconciliationInvoice {
 
   @@index([currency])
   @@map("payment_reconciliation_invoice")
-  @@schema("erpnext_port")
 }
 
 model PaymentReconciliationPayment {
@@ -8950,7 +7733,6 @@ model PaymentReconciliationPayment {
   @@index([currency])
   @@index([cost_center])
   @@map("payment_reconciliation_payment")
-  @@schema("erpnext_port")
 }
 
 model PaymentReference {
@@ -8973,7 +7755,6 @@ model PaymentReference {
   @@index([payment_term])
   @@index([payment_schedule])
   @@map("payment_reference")
-  @@schema("erpnext_port")
 }
 
 model PaymentRequest {
@@ -9041,7 +7822,6 @@ model PaymentRequest {
   @@index([company])
   @@index([party_account_currency])
   @@map("payment_request")
-  @@schema("erpnext_port")
 }
 
 model PaymentSchedule {
@@ -9079,7 +7859,6 @@ model PaymentSchedule {
   @@index([payment_term])
   @@index([mode_of_payment])
   @@map("payment_schedule")
-  @@schema("erpnext_port")
 }
 
 model PaymentTerm {
@@ -9104,7 +7883,6 @@ model PaymentTerm {
 
   @@index([mode_of_payment])
   @@map("payment_term")
-  @@schema("erpnext_port")
 }
 
 model PaymentTermsTemplate {
@@ -9119,7 +7897,6 @@ model PaymentTermsTemplate {
   allocate_payment_based_on_payment_terms Boolean?  @default(false)
 
   @@map("payment_terms_template")
-  @@schema("erpnext_port")
 }
 
 model PaymentTermsTemplateDetail {
@@ -9148,7 +7925,6 @@ model PaymentTermsTemplateDetail {
   @@index([payment_term])
   @@index([mode_of_payment])
   @@map("payment_terms_template_detail")
-  @@schema("erpnext_port")
 }
 
 model PeggedCurrencies {
@@ -9161,7 +7937,6 @@ model PeggedCurrencies {
   idx         Int?      @default(0)
 
   @@map("pegged_currencies")
-  @@schema("erpnext_port")
 }
 
 model PeggedCurrencyDetails {
@@ -9182,7 +7957,6 @@ model PeggedCurrencyDetails {
   @@index([source_currency])
   @@index([pegged_against])
   @@map("pegged_currency_details")
-  @@schema("erpnext_port")
 }
 
 model PeriodClosingVoucher {
@@ -9209,7 +7983,6 @@ model PeriodClosingVoucher {
   @@index([company])
   @@index([closing_account_head])
   @@map("period_closing_voucher")
-  @@schema("erpnext_port")
 }
 
 model PickList {
@@ -9250,7 +8023,6 @@ model PickList {
   @@index([material_request])
   @@index([status])
   @@map("pick_list")
-  @@schema("erpnext_port")
 }
 
 model PickListItem {
@@ -9299,7 +8071,6 @@ model PickListItem {
   @@index([material_request])
   @@index([serial_and_batch_bundle])
   @@map("pick_list_item")
-  @@schema("erpnext_port")
 }
 
 model PlaidSettings {
@@ -9318,7 +8089,6 @@ model PlaidSettings {
   enable_european_access Boolean?  @default(false)
 
   @@map("plaid_settings")
-  @@schema("erpnext_port")
 }
 
 model PlantFloor {
@@ -9338,7 +8108,6 @@ model PlantFloor {
   @@index([warehouse])
   @@index([company])
   @@map("plant_floor")
-  @@schema("erpnext_port")
 }
 
 model PortalUser {
@@ -9356,7 +8125,6 @@ model PortalUser {
 
   @@index([user])
   @@map("portal_user")
-  @@schema("erpnext_port")
 }
 
 model PosClosingEntry {
@@ -9390,7 +8158,6 @@ model PosClosingEntry {
   @@index([pos_opening_entry])
   @@index([status])
   @@map("pos_closing_entry")
-  @@schema("erpnext_port")
 }
 
 model PosClosingEntryDetail {
@@ -9412,7 +8179,6 @@ model PosClosingEntryDetail {
 
   @@index([mode_of_payment])
   @@map("pos_closing_entry_detail")
-  @@schema("erpnext_port")
 }
 
 model PosClosingEntryTaxes {
@@ -9431,7 +8197,6 @@ model PosClosingEntryTaxes {
 
   @@index([account_head])
   @@map("pos_closing_entry_taxes")
-  @@schema("erpnext_port")
 }
 
 model PosCustomerGroup {
@@ -9449,7 +8214,6 @@ model PosCustomerGroup {
 
   @@index([customer_group])
   @@map("pos_customer_group")
-  @@schema("erpnext_port")
 }
 
 model PosField {
@@ -9472,7 +8236,6 @@ model PosField {
   default_value String?   @db.VarChar(255)
 
   @@map("pos_field")
-  @@schema("erpnext_port")
 }
 
 model PosInvoice {
@@ -9647,7 +8410,6 @@ model PosInvoice {
   @@index([utm_source])
   @@index([company_contact_person])
   @@map("pos_invoice")
-  @@schema("erpnext_port")
 }
 
 model PosInvoiceItem {
@@ -9753,7 +8515,6 @@ model PosInvoiceItem {
   @@index([project])
   @@index([serial_and_batch_bundle])
   @@map("pos_invoice_item")
-  @@schema("erpnext_port")
 }
 
 model PosInvoiceMergeLog {
@@ -9783,7 +8544,6 @@ model PosInvoiceMergeLog {
   @@index([customer_group])
   @@index([company])
   @@map("pos_invoice_merge_log")
-  @@schema("erpnext_port")
 }
 
 model PosInvoiceReference {
@@ -9808,7 +8568,6 @@ model PosInvoiceReference {
   @@index([customer])
   @@index([return_against])
   @@map("pos_invoice_reference")
-  @@schema("erpnext_port")
 }
 
 model PosItemGroup {
@@ -9826,7 +8585,6 @@ model PosItemGroup {
 
   @@index([item_group])
   @@map("pos_item_group")
-  @@schema("erpnext_port")
 }
 
 model PosOpeningEntry {
@@ -9854,7 +8612,6 @@ model PosOpeningEntry {
   @@index([amended_from])
   @@index([status])
   @@map("pos_opening_entry")
-  @@schema("erpnext_port")
 }
 
 model PosOpeningEntryDetail {
@@ -9873,7 +8630,6 @@ model PosOpeningEntryDetail {
 
   @@index([mode_of_payment])
   @@map("pos_opening_entry_detail")
-  @@schema("erpnext_port")
 }
 
 model PosPaymentMethod {
@@ -9893,7 +8649,6 @@ model PosPaymentMethod {
 
   @@index([mode_of_payment])
   @@map("pos_payment_method")
-  @@schema("erpnext_port")
 }
 
 model PosProfile {
@@ -9968,7 +8723,6 @@ model PosProfile {
   @@index([utm_medium])
   @@index([project])
   @@map("pos_profile")
-  @@schema("erpnext_port")
 }
 
 model PosProfileUser {
@@ -9987,7 +8741,6 @@ model PosProfileUser {
 
   @@index([user])
   @@map("pos_profile_user")
-  @@schema("erpnext_port")
 }
 
 model PosSearchFields {
@@ -10005,7 +8758,6 @@ model PosSearchFields {
   field       String    @db.VarChar(100)
 
   @@map("pos_search_fields")
-  @@schema("erpnext_port")
 }
 
 model PosSettings {
@@ -10020,7 +8772,6 @@ model PosSettings {
   post_change_gl_entries Boolean?  @default(false)
 
   @@map("pos_settings")
-  @@schema("erpnext_port")
 }
 
 model PriceList {
@@ -10040,7 +8791,6 @@ model PriceList {
 
   @@index([currency])
   @@map("price_list")
-  @@schema("erpnext_port")
 }
 
 model PriceListCountry {
@@ -10058,7 +8808,6 @@ model PriceListCountry {
 
   @@index([country])
   @@map("price_list_country")
-  @@schema("erpnext_port")
 }
 
 model PricingRule {
@@ -10148,7 +8897,6 @@ model PricingRule {
   @@index([free_item_uom])
   @@index([promotional_scheme])
   @@map("pricing_rule")
-  @@schema("erpnext_port")
 }
 
 model PricingRuleBrand {
@@ -10168,7 +8916,6 @@ model PricingRuleBrand {
   @@index([brand])
   @@index([uom])
   @@map("pricing_rule_brand")
-  @@schema("erpnext_port")
 }
 
 model PricingRuleDetail {
@@ -10191,7 +8938,6 @@ model PricingRuleDetail {
 
   @@index([pricing_rule])
   @@map("pricing_rule_detail")
-  @@schema("erpnext_port")
 }
 
 model PricingRuleItemCode {
@@ -10211,7 +8957,6 @@ model PricingRuleItemCode {
   @@index([item_code])
   @@index([uom])
   @@map("pricing_rule_item_code")
-  @@schema("erpnext_port")
 }
 
 model PricingRuleItemGroup {
@@ -10231,7 +8976,6 @@ model PricingRuleItemGroup {
   @@index([item_group])
   @@index([uom])
   @@map("pricing_rule_item_group")
-  @@schema("erpnext_port")
 }
 
 model ProcessDeferredAccounting {
@@ -10254,7 +8998,6 @@ model ProcessDeferredAccounting {
   @@index([account])
   @@index([company])
   @@map("process_deferred_accounting")
-  @@schema("erpnext_port")
 }
 
 model ProcessPaymentReconciliation {
@@ -10289,7 +9032,6 @@ model ProcessPaymentReconciliation {
   @@index([amended_from])
   @@index([default_advance_account])
   @@map("process_payment_reconciliation")
-  @@schema("erpnext_port")
 }
 
 model ProcessPaymentReconciliationLog {
@@ -10311,7 +9053,6 @@ model ProcessPaymentReconciliationLog {
   @@index([process_pr])
   @@index([status])
   @@map("process_payment_reconciliation_log")
-  @@schema("erpnext_port")
 }
 
 model ProcessPaymentReconciliationLogAllocations {
@@ -10346,7 +9087,6 @@ model ProcessPaymentReconciliationLogAllocations {
   @@index([difference_account])
   @@index([currency])
   @@map("process_payment_reconciliation_log_allocations")
-  @@schema("erpnext_port")
 }
 
 model ProcessPeriodClosingVoucher {
@@ -10367,7 +9107,6 @@ model ProcessPeriodClosingVoucher {
   @@index([status])
   @@index([amended_from])
   @@map("process_period_closing_voucher")
-  @@schema("erpnext_port")
 }
 
 model ProcessPeriodClosingVoucherDetail {
@@ -10388,7 +9127,6 @@ model ProcessPeriodClosingVoucherDetail {
 
   @@index([status])
   @@map("process_period_closing_voucher_detail")
-  @@schema("erpnext_port")
 }
 
 model ProcessStatementOfAccounts {
@@ -10452,7 +9190,6 @@ model ProcessStatementOfAccounts {
   @@index([territory])
   @@index([print_format])
   @@map("process_statement_of_accounts")
-  @@schema("erpnext_port")
 }
 
 model ProcessStatementOfAccountsCc {
@@ -10470,7 +9207,6 @@ model ProcessStatementOfAccountsCc {
 
   @@index([cc])
   @@map("process_statement_of_accounts_cc")
-  @@schema("erpnext_port")
 }
 
 model ProcessStatementOfAccountsCustomer {
@@ -10491,7 +9227,6 @@ model ProcessStatementOfAccountsCustomer {
 
   @@index([customer])
   @@map("process_statement_of_accounts_customer")
-  @@schema("erpnext_port")
 }
 
 model ProcessSubscription {
@@ -10509,7 +9244,6 @@ model ProcessSubscription {
   @@index([amended_from])
   @@index([subscription])
   @@map("process_subscription")
-  @@schema("erpnext_port")
 }
 
 model ProductBundle {
@@ -10527,7 +9261,6 @@ model ProductBundle {
 
   @@index([new_item_code])
   @@map("product_bundle")
-  @@schema("erpnext_port")
 }
 
 model ProductBundleItem {
@@ -10550,7 +9283,6 @@ model ProductBundleItem {
   @@index([item_code])
   @@index([uom])
   @@map("product_bundle_item")
-  @@schema("erpnext_port")
 }
 
 model ProductionPlan {
@@ -10607,7 +9339,6 @@ model ProductionPlan {
   @@index([for_warehouse])
   @@index([sub_assembly_warehouse])
   @@map("production_plan")
-  @@schema("erpnext_port")
 }
 
 model ProductionPlanItem {
@@ -10648,7 +9379,6 @@ model ProductionPlanItem {
   @@index([material_request])
   @@index([product_bundle_item])
   @@map("production_plan_item")
-  @@schema("erpnext_port")
 }
 
 model ProductionPlanItemReference {
@@ -10669,7 +9399,6 @@ model ProductionPlanItemReference {
 
   @@index([sales_order])
   @@map("production_plan_item_reference")
-  @@schema("erpnext_port")
 }
 
 model ProductionPlanMaterialRequest {
@@ -10688,7 +9417,6 @@ model ProductionPlanMaterialRequest {
 
   @@index([material_request])
   @@map("production_plan_material_request")
-  @@schema("erpnext_port")
 }
 
 model ProductionPlanMaterialRequestWarehouse {
@@ -10706,7 +9434,6 @@ model ProductionPlanMaterialRequestWarehouse {
 
   @@index([warehouse])
   @@map("production_plan_material_request_warehouse")
-  @@schema("erpnext_port")
 }
 
 model ProductionPlanSalesOrder {
@@ -10730,7 +9457,6 @@ model ProductionPlanSalesOrder {
   @@index([customer])
   @@index([status])
   @@map("production_plan_sales_order")
-  @@schema("erpnext_port")
 }
 
 model ProductionPlanSubAssemblyItem {
@@ -10780,7 +9506,6 @@ model ProductionPlanSubAssemblyItem {
   @@index([supplier])
   @@index([sales_order])
   @@map("production_plan_sub_assembly_item")
-  @@schema("erpnext_port")
 }
 
 model Project {
@@ -10844,7 +9569,6 @@ model Project {
   @@index([cost_center])
   @@index([holiday_list])
   @@map("project")
-  @@schema("erpnext_port")
 }
 
 model ProjectTemplate {
@@ -10860,7 +9584,6 @@ model ProjectTemplate {
 
   @@index([project_type])
   @@map("project_template")
-  @@schema("erpnext_port")
 }
 
 model ProjectTemplateTask {
@@ -10879,7 +9602,6 @@ model ProjectTemplateTask {
 
   @@index([task])
   @@map("project_template_task")
-  @@schema("erpnext_port")
 }
 
 model ProjectType {
@@ -10894,7 +9616,6 @@ model ProjectType {
   description  String?
 
   @@map("project_type")
-  @@schema("erpnext_port")
 }
 
 model ProjectUpdate {
@@ -10915,7 +9636,6 @@ model ProjectUpdate {
   @@index([project])
   @@index([amended_from])
   @@map("project_update")
-  @@schema("erpnext_port")
 }
 
 model ProjectUser {
@@ -10940,7 +9660,6 @@ model ProjectUser {
 
   @@index([user])
   @@map("project_user")
-  @@schema("erpnext_port")
 }
 
 model ProjectsSettings {
@@ -10957,7 +9676,6 @@ model ProjectsSettings {
   fetch_timesheet_in_sales_invoice Boolean?  @default(false)
 
   @@map("projects_settings")
-  @@schema("erpnext_port")
 }
 
 model PromotionalScheme {
@@ -10990,7 +9708,6 @@ model PromotionalScheme {
   @@index([company])
   @@index([currency])
   @@map("promotional_scheme")
-  @@schema("erpnext_port")
 }
 
 model PromotionalSchemePriceDiscount {
@@ -11025,7 +9742,6 @@ model PromotionalSchemePriceDiscount {
   @@index([for_price_list])
   @@index([warehouse])
   @@map("promotional_scheme_price_discount")
-  @@schema("erpnext_port")
 }
 
 model PromotionalSchemeProductDiscount {
@@ -11063,7 +9779,6 @@ model PromotionalSchemeProductDiscount {
   @@index([free_item_uom])
   @@index([warehouse])
   @@map("promotional_scheme_product_discount")
-  @@schema("erpnext_port")
 }
 
 model Prospect {
@@ -11098,7 +9813,6 @@ model Prospect {
   @@index([prospect_owner])
   @@index([company])
   @@map("prospect")
-  @@schema("erpnext_port")
 }
 
 model ProspectLead {
@@ -11122,7 +9836,6 @@ model ProspectLead {
   @@index([lead])
   @@index([status])
   @@map("prospect_lead")
-  @@schema("erpnext_port")
 }
 
 model ProspectOpportunity {
@@ -11149,7 +9862,6 @@ model ProspectOpportunity {
   @@index([currency])
   @@index([contact_person])
   @@map("prospect_opportunity")
-  @@schema("erpnext_port")
 }
 
 model PsoaCostCenter {
@@ -11167,7 +9879,6 @@ model PsoaCostCenter {
 
   @@index([cost_center_name])
   @@map("psoa_cost_center")
-  @@schema("erpnext_port")
 }
 
 model PsoaProject {
@@ -11185,7 +9896,6 @@ model PsoaProject {
 
   @@index([project_name])
   @@map("psoa_project")
-  @@schema("erpnext_port")
 }
 
 model PurchaseInvoice {
@@ -11367,7 +10077,6 @@ model PurchaseInvoice {
   @@index([dispatch_address])
   @@index([tax_withholding_group])
   @@map("purchase_invoice")
-  @@schema("erpnext_port")
 }
 
 model PurchaseInvoiceAdvance {
@@ -11393,7 +10102,6 @@ model PurchaseInvoiceAdvance {
 
   @@index([reference_type])
   @@map("purchase_invoice_advance")
-  @@schema("erpnext_port")
 }
 
 model PurchaseInvoiceItem {
@@ -11519,7 +10227,6 @@ model PurchaseInvoiceItem {
   @@index([material_request])
   @@index([tax_withholding_category])
   @@map("purchase_invoice_item")
-  @@schema("erpnext_port")
 }
 
 model PurchaseOrder {
@@ -11667,7 +10374,6 @@ model PurchaseOrder {
   @@index([supplier_group])
   @@index([mps])
   @@map("purchase_order")
-  @@schema("erpnext_port")
 }
 
 model PurchaseOrderItem {
@@ -11783,7 +10489,6 @@ model PurchaseOrderItem {
   @@index([wip_composite_asset])
   @@index([job_card])
   @@map("purchase_order_item")
-  @@schema("erpnext_port")
 }
 
 model PurchaseReceipt {
@@ -11919,7 +10624,6 @@ model PurchaseReceipt {
   @@index([subcontracting_receipt])
   @@index([dispatch_address])
   @@map("purchase_receipt")
-  @@schema("erpnext_port")
 }
 
 model PurchaseReceiptItem {
@@ -12055,7 +10759,6 @@ model PurchaseReceiptItem {
   @@index([wip_composite_asset])
   @@index([sales_order])
   @@map("purchase_receipt_item")
-  @@schema("erpnext_port")
 }
 
 model PurchaseReceiptItemSupplied {
@@ -12092,7 +10795,6 @@ model PurchaseReceiptItemSupplied {
   @@index([stock_uom])
   @@index([purchase_order])
   @@map("purchase_receipt_item_supplied")
-  @@schema("erpnext_port")
 }
 
 model PurchaseTaxesAndCharges {
@@ -12135,7 +10837,6 @@ model PurchaseTaxesAndCharges {
   @@index([project])
   @@index([account_currency])
   @@map("purchase_taxes_and_charges")
-  @@schema("erpnext_port")
 }
 
 model PurchaseTaxesAndChargesTemplate {
@@ -12155,7 +10856,6 @@ model PurchaseTaxesAndChargesTemplate {
   @@index([company])
   @@index([tax_category])
   @@map("purchase_taxes_and_charges_template")
-  @@schema("erpnext_port")
 }
 
 model PutawayRule {
@@ -12184,7 +10884,6 @@ model PutawayRule {
   @@index([company])
   @@index([uom])
   @@map("putaway_rule")
-  @@schema("erpnext_port")
 }
 
 model QualityAction {
@@ -12209,7 +10908,6 @@ model QualityAction {
   @@index([review])
   @@index([feedback])
   @@map("quality_action")
-  @@schema("erpnext_port")
 }
 
 model QualityActionResolution {
@@ -12232,7 +10930,6 @@ model QualityActionResolution {
   @@index([status])
   @@index([responsible])
   @@map("quality_action_resolution")
-  @@schema("erpnext_port")
 }
 
 model QualityFeedback {
@@ -12249,7 +10946,6 @@ model QualityFeedback {
 
   @@index([template])
   @@map("quality_feedback")
-  @@schema("erpnext_port")
 }
 
 model QualityFeedbackParameter {
@@ -12268,7 +10964,6 @@ model QualityFeedbackParameter {
   feedback    String?
 
   @@map("quality_feedback_parameter")
-  @@schema("erpnext_port")
 }
 
 model QualityFeedbackTemplate {
@@ -12282,7 +10977,6 @@ model QualityFeedbackTemplate {
   template    String    @unique @db.VarChar(255)
 
   @@map("quality_feedback_template")
-  @@schema("erpnext_port")
 }
 
 model QualityFeedbackTemplateParameter {
@@ -12299,7 +10993,6 @@ model QualityFeedbackTemplateParameter {
   parameter   String?   @db.VarChar(255)
 
   @@map("quality_feedback_template_parameter")
-  @@schema("erpnext_port")
 }
 
 model QualityGoal {
@@ -12318,7 +11011,6 @@ model QualityGoal {
 
   @@index([procedure])
   @@map("quality_goal")
-  @@schema("erpnext_port")
 }
 
 model QualityGoalObjective {
@@ -12338,7 +11030,6 @@ model QualityGoalObjective {
 
   @@index([uom])
   @@map("quality_goal_objective")
-  @@schema("erpnext_port")
 }
 
 model QualityInspection {
@@ -12383,7 +11074,6 @@ model QualityInspection {
   @@index([company])
   @@index([letter_head])
   @@map("quality_inspection")
-  @@schema("erpnext_port")
 }
 
 model QualityInspectionParameter {
@@ -12400,7 +11090,6 @@ model QualityInspectionParameter {
 
   @@index([parameter_group])
   @@map("quality_inspection_parameter")
-  @@schema("erpnext_port")
 }
 
 model QualityInspectionParameterGroup {
@@ -12414,7 +11103,6 @@ model QualityInspectionParameterGroup {
   group_name  String    @unique @db.VarChar(255)
 
   @@map("quality_inspection_parameter_group")
-  @@schema("erpnext_port")
 }
 
 model QualityInspectionReading {
@@ -12454,7 +11142,6 @@ model QualityInspectionReading {
   @@index([status])
   @@index([parameter_group])
   @@map("quality_inspection_reading")
-  @@schema("erpnext_port")
 }
 
 model QualityInspectionTemplate {
@@ -12468,7 +11155,6 @@ model QualityInspectionTemplate {
   quality_inspection_template_name String    @unique @db.VarChar(255)
 
   @@map("quality_inspection_template")
-  @@schema("erpnext_port")
 }
 
 model QualityMeeting {
@@ -12483,7 +11169,6 @@ model QualityMeeting {
 
   @@index([status])
   @@map("quality_meeting")
-  @@schema("erpnext_port")
 }
 
 model QualityMeetingAgenda {
@@ -12500,7 +11185,6 @@ model QualityMeetingAgenda {
   agenda      String?
 
   @@map("quality_meeting_agenda")
-  @@schema("erpnext_port")
 }
 
 model QualityMeetingMinutes {
@@ -12519,7 +11203,6 @@ model QualityMeetingMinutes {
   document_name String?   @db.VarChar(140)
 
   @@map("quality_meeting_minutes")
-  @@schema("erpnext_port")
 }
 
 model QualityProcedure {
@@ -12542,7 +11225,6 @@ model QualityProcedure {
   @@index([parent_quality_procedure])
   @@index([process_owner])
   @@map("quality_procedure")
-  @@schema("erpnext_port")
 }
 
 model QualityProcedureProcess {
@@ -12561,7 +11243,6 @@ model QualityProcedureProcess {
 
   @@index([procedure])
   @@map("quality_procedure_process")
-  @@schema("erpnext_port")
 }
 
 model QualityReview {
@@ -12582,7 +11263,6 @@ model QualityReview {
   @@index([status])
   @@index([goal])
   @@map("quality_review")
-  @@schema("erpnext_port")
 }
 
 model QualityReviewObjective {
@@ -12605,7 +11285,6 @@ model QualityReviewObjective {
   @@index([uom])
   @@index([status])
   @@map("quality_review_objective")
-  @@schema("erpnext_port")
 }
 
 model QuickStockBalance {
@@ -12629,7 +11308,6 @@ model QuickStockBalance {
   @@index([warehouse])
   @@index([item])
   @@map("quick_stock_balance")
-  @@schema("erpnext_port")
 }
 
 model Quotation {
@@ -12753,7 +11431,6 @@ model Quotation {
   @@index([utm_medium])
   @@index([company_contact_person])
   @@map("quotation")
-  @@schema("erpnext_port")
 }
 
 model QuotationItem {
@@ -12834,7 +11511,6 @@ model QuotationItem {
   @@index([brand])
   @@index([blanket_order])
   @@map("quotation_item")
-  @@schema("erpnext_port")
 }
 
 model QuotationLostReason {
@@ -12848,7 +11524,6 @@ model QuotationLostReason {
   order_lost_reason String    @unique @db.VarChar(255)
 
   @@map("quotation_lost_reason")
-  @@schema("erpnext_port")
 }
 
 model QuotationLostReasonDetail {
@@ -12866,7 +11541,6 @@ model QuotationLostReasonDetail {
 
   @@index([lost_reason])
   @@map("quotation_lost_reason_detail")
-  @@schema("erpnext_port")
 }
 
 model RenameTool {
@@ -12883,7 +11557,6 @@ model RenameTool {
 
   @@index([select_doctype])
   @@map("rename_tool")
-  @@schema("erpnext_port")
 }
 
 model RepostAccountingLedger {
@@ -12901,7 +11574,6 @@ model RepostAccountingLedger {
   @@index([company])
   @@index([amended_from])
   @@map("repost_accounting_ledger")
-  @@schema("erpnext_port")
 }
 
 model RepostAccountingLedgerItems {
@@ -12920,7 +11592,6 @@ model RepostAccountingLedgerItems {
 
   @@index([voucher_type])
   @@map("repost_accounting_ledger_items")
-  @@schema("erpnext_port")
 }
 
 model RepostAllowedTypes {
@@ -12938,7 +11609,6 @@ model RepostAllowedTypes {
 
   @@index([document_type])
   @@map("repost_allowed_types")
-  @@schema("erpnext_port")
 }
 
 model RepostItemValuation {
@@ -12981,7 +11651,6 @@ model RepostItemValuation {
   @@index([company])
   @@index([voucher_type])
   @@map("repost_item_valuation")
-  @@schema("erpnext_port")
 }
 
 model RepostPaymentLedger {
@@ -13004,7 +11673,6 @@ model RepostPaymentLedger {
   @@index([amended_from])
   @@index([company])
   @@map("repost_payment_ledger")
-  @@schema("erpnext_port")
 }
 
 model RepostPaymentLedgerItems {
@@ -13023,7 +11691,6 @@ model RepostPaymentLedgerItems {
 
   @@index([voucher_type])
   @@map("repost_payment_ledger_items")
-  @@schema("erpnext_port")
 }
 
 model RequestForQuotation {
@@ -13077,7 +11744,6 @@ model RequestForQuotation {
   @@index([billing_address])
   @@index([shipping_address])
   @@map("request_for_quotation")
-  @@schema("erpnext_port")
 }
 
 model RequestForQuotationItem {
@@ -13120,7 +11786,6 @@ model RequestForQuotationItem {
   @@index([item_group])
   @@index([stock_uom])
   @@map("request_for_quotation_item")
-  @@schema("erpnext_port")
 }
 
 model RequestForQuotationSupplier {
@@ -13145,7 +11810,6 @@ model RequestForQuotationSupplier {
   @@index([supplier])
   @@index([contact])
   @@map("request_for_quotation_supplier")
-  @@schema("erpnext_port")
 }
 
 model Routing {
@@ -13160,7 +11824,6 @@ model Routing {
   disabled     Boolean?  @default(false)
 
   @@map("routing")
-  @@schema("erpnext_port")
 }
 
 model SalesForecast {
@@ -13187,7 +11850,6 @@ model SalesForecast {
   @@index([amended_from])
   @@index([status])
   @@map("sales_forecast")
-  @@schema("erpnext_port")
 }
 
 model SalesForecastItem {
@@ -13214,7 +11876,6 @@ model SalesForecastItem {
   @@index([uom])
   @@index([warehouse])
   @@map("sales_forecast_item")
-  @@schema("erpnext_port")
 }
 
 model SalesInvoice {
@@ -13427,7 +12088,6 @@ model SalesInvoice {
   @@index([pos_closing_entry])
   @@index([tax_withholding_group])
   @@map("sales_invoice")
-  @@schema("erpnext_port")
 }
 
 model SalesInvoiceAdvance {
@@ -13453,7 +12113,6 @@ model SalesInvoiceAdvance {
 
   @@index([reference_type])
   @@map("sales_invoice_advance")
-  @@schema("erpnext_port")
 }
 
 model SalesInvoiceItem {
@@ -13575,7 +12234,6 @@ model SalesInvoiceItem {
   @@index([pos_invoice])
   @@index([tax_withholding_category])
   @@map("sales_invoice_item")
-  @@schema("erpnext_port")
 }
 
 model SalesInvoicePayment {
@@ -13601,7 +12259,6 @@ model SalesInvoicePayment {
   @@index([mode_of_payment])
   @@index([account])
   @@map("sales_invoice_payment")
-  @@schema("erpnext_port")
 }
 
 model SalesInvoiceReference {
@@ -13626,7 +12283,6 @@ model SalesInvoiceReference {
   @@index([customer])
   @@index([return_against])
   @@map("sales_invoice_reference")
-  @@schema("erpnext_port")
 }
 
 model SalesInvoiceTimesheet {
@@ -13653,7 +12309,6 @@ model SalesInvoiceTimesheet {
   @@index([time_sheet])
   @@index([activity_type])
   @@map("sales_invoice_timesheet")
-  @@schema("erpnext_port")
 }
 
 model SalesOrder {
@@ -13809,7 +12464,6 @@ model SalesOrder {
   @@index([utm_campaign])
   @@index([company_contact_person])
   @@map("sales_order")
-  @@schema("erpnext_port")
 }
 
 model SalesOrderItem {
@@ -13925,7 +12579,6 @@ model SalesOrderItem {
   @@index([project])
   @@index([fg_item])
   @@map("sales_order_item")
-  @@schema("erpnext_port")
 }
 
 model SalesPartner {
@@ -13955,7 +12608,6 @@ model SalesPartner {
   @@index([partner_type])
   @@index([territory])
   @@map("sales_partner")
-  @@schema("erpnext_port")
 }
 
 model SalesPartnerItem {
@@ -13973,7 +12625,6 @@ model SalesPartnerItem {
 
   @@index([sales_partner])
   @@map("sales_partner_item")
-  @@schema("erpnext_port")
 }
 
 model SalesPartnerType {
@@ -13987,7 +12638,6 @@ model SalesPartnerType {
   sales_partner_type String    @unique @db.VarChar(255)
 
   @@map("sales_partner_type")
-  @@schema("erpnext_port")
 }
 
 model SalesPerson {
@@ -14013,7 +12663,6 @@ model SalesPerson {
   @@index([employee])
   @@index([department])
   @@map("sales_person")
-  @@schema("erpnext_port")
 }
 
 model SalesStage {
@@ -14027,7 +12676,6 @@ model SalesStage {
   stage_name  String?   @unique @db.VarChar(255)
 
   @@map("sales_stage")
-  @@schema("erpnext_port")
 }
 
 model SalesTaxesAndCharges {
@@ -14068,7 +12716,6 @@ model SalesTaxesAndCharges {
   @@index([project])
   @@index([account_currency])
   @@map("sales_taxes_and_charges")
-  @@schema("erpnext_port")
 }
 
 model SalesTaxesAndChargesTemplate {
@@ -14088,7 +12735,6 @@ model SalesTaxesAndChargesTemplate {
   @@index([company])
   @@index([tax_category])
   @@map("sales_taxes_and_charges_template")
-  @@schema("erpnext_port")
 }
 
 model SalesTeam {
@@ -14111,7 +12757,6 @@ model SalesTeam {
 
   @@index([sales_person])
   @@map("sales_team")
-  @@schema("erpnext_port")
 }
 
 model SellingSettings {
@@ -14161,7 +12806,6 @@ model SellingSettings {
   @@index([selling_price_list])
   @@index([role_to_override_stop_action])
   @@map("selling_settings")
-  @@schema("erpnext_port")
 }
 
 model SerialAndBatchBundle {
@@ -14201,7 +12845,6 @@ model SerialAndBatchBundle {
   @@index([amended_from])
   @@index([warehouse])
   @@map("serial_and_batch_bundle")
-  @@schema("erpnext_port")
 }
 
 model SerialAndBatchEntry {
@@ -14239,7 +12882,6 @@ model SerialAndBatchEntry {
   @@index([warehouse])
   @@index([item_code])
   @@map("serial_and_batch_entry")
-  @@schema("erpnext_port")
 }
 
 model SerialNo {
@@ -14289,7 +12931,6 @@ model SerialNo {
   @@index([customer])
   @@index([reference_doctype])
   @@map("serial_no")
-  @@schema("erpnext_port")
 }
 
 model ServiceDay {
@@ -14308,7 +12949,6 @@ model ServiceDay {
   end_time    String    @db.VarChar(20)
 
   @@map("service_day")
-  @@schema("erpnext_port")
 }
 
 model ServiceLevelAgreement {
@@ -14336,7 +12976,6 @@ model ServiceLevelAgreement {
   @@index([default_priority])
   @@index([document_type])
   @@map("service_level_agreement")
-  @@schema("erpnext_port")
 }
 
 model ServiceLevelPriority {
@@ -14357,7 +12996,6 @@ model ServiceLevelPriority {
 
   @@index([priority])
   @@map("service_level_priority")
-  @@schema("erpnext_port")
 }
 
 model ShareBalance {
@@ -14382,7 +13020,6 @@ model ShareBalance {
 
   @@index([share_type])
   @@map("share_balance")
-  @@schema("erpnext_port")
 }
 
 model ShareTransfer {
@@ -14419,7 +13056,6 @@ model ShareTransfer {
   @@index([company])
   @@index([amended_from])
   @@map("share_transfer")
-  @@schema("erpnext_port")
 }
 
 model ShareType {
@@ -14434,7 +13070,6 @@ model ShareType {
   description String?
 
   @@map("share_type")
-  @@schema("erpnext_port")
 }
 
 model Shareholder {
@@ -14456,7 +13091,6 @@ model Shareholder {
 
   @@index([company])
   @@map("shareholder")
-  @@schema("erpnext_port")
 }
 
 model Shipment {
@@ -14530,7 +13164,6 @@ model Shipment {
   @@index([incoterm])
   @@index([pickup_contact_person])
   @@map("shipment")
-  @@schema("erpnext_port")
 }
 
 model ShipmentDeliveryNote {
@@ -14549,7 +13182,6 @@ model ShipmentDeliveryNote {
 
   @@index([delivery_note])
   @@map("shipment_delivery_note")
-  @@schema("erpnext_port")
 }
 
 model ShipmentParcel {
@@ -14570,7 +13202,6 @@ model ShipmentParcel {
   count       Int       @default(1)
 
   @@map("shipment_parcel")
-  @@schema("erpnext_port")
 }
 
 model ShipmentParcelTemplate {
@@ -14588,7 +13219,6 @@ model ShipmentParcelTemplate {
   parcel_template_name String    @unique @db.VarChar(255)
 
   @@map("shipment_parcel_template")
-  @@schema("erpnext_port")
 }
 
 model ShippingRule {
@@ -14614,7 +13244,6 @@ model ShippingRule {
   @@index([cost_center])
   @@index([project])
   @@map("shipping_rule")
-  @@schema("erpnext_port")
 }
 
 model ShippingRuleCondition {
@@ -14633,7 +13262,6 @@ model ShippingRuleCondition {
   shipping_amount Decimal   @db.Decimal(18, 2)
 
   @@map("shipping_rule_condition")
-  @@schema("erpnext_port")
 }
 
 model ShippingRuleCountry {
@@ -14651,7 +13279,6 @@ model ShippingRuleCountry {
 
   @@index([country])
   @@map("shipping_rule_country")
-  @@schema("erpnext_port")
 }
 
 model SlaFulfilledOnStatus {
@@ -14669,7 +13296,6 @@ model SlaFulfilledOnStatus {
 
   @@index([status])
   @@map("sla_fulfilled_on_status")
-  @@schema("erpnext_port")
 }
 
 model SmsCenter {
@@ -14699,7 +13325,6 @@ model SmsCenter {
   @@index([department])
   @@index([branch])
   @@map("sms_center")
-  @@schema("erpnext_port")
 }
 
 model StockClosingBalance {
@@ -14736,7 +13361,6 @@ model StockClosingBalance {
   @@index([stock_closing_entry])
   @@index([batch_no])
   @@map("stock_closing_balance")
-  @@schema("erpnext_port")
 }
 
 model StockClosingEntry {
@@ -14758,7 +13382,6 @@ model StockClosingEntry {
   @@index([status])
   @@index([amended_from])
   @@map("stock_closing_entry")
-  @@schema("erpnext_port")
 }
 
 model StockEntry {
@@ -14857,7 +13480,6 @@ model StockEntry {
   @@index([subcontracting_inward_order])
   @@index([cost_center])
   @@map("stock_entry")
-  @@schema("erpnext_port")
 }
 
 model StockEntryDetail {
@@ -14949,7 +13571,6 @@ model StockEntryDetail {
   @@index([serial_and_batch_bundle])
   @@index([against_fg])
   @@map("stock_entry_detail")
-  @@schema("erpnext_port")
 }
 
 model StockEntryType {
@@ -14965,7 +13586,6 @@ model StockEntryType {
   is_standard    Boolean?  @default(false)
 
   @@map("stock_entry_type")
-  @@schema("erpnext_port")
 }
 
 model StockLedgerEntry {
@@ -15016,7 +13636,6 @@ model StockLedgerEntry {
   @@index([company])
   @@index([serial_and_batch_bundle])
   @@map("stock_ledger_entry")
-  @@schema("erpnext_port")
 }
 
 model StockReconciliation {
@@ -15048,7 +13667,6 @@ model StockReconciliation {
   @@index([amended_from])
   @@index([set_warehouse])
   @@map("stock_reconciliation")
-  @@schema("erpnext_port")
 }
 
 model StockReconciliationItem {
@@ -15095,7 +13713,6 @@ model StockReconciliationItem {
   @@index([current_serial_and_batch_bundle])
   @@index([item_group])
   @@map("stock_reconciliation_item")
-  @@schema("erpnext_port")
 }
 
 model StockRepostingSettings {
@@ -15118,7 +13735,6 @@ model StockRepostingSettings {
 
   @@index([notify_reposting_error_to_role])
   @@map("stock_reposting_settings")
-  @@schema("erpnext_port")
 }
 
 model StockReservationEntry {
@@ -15160,7 +13776,6 @@ model StockReservationEntry {
   @@index([status])
   @@index([amended_from])
   @@map("stock_reservation_entry")
-  @@schema("erpnext_port")
 }
 
 model StockSettings {
@@ -15227,7 +13842,6 @@ model StockSettings {
   @@index([role_allowed_to_create_edit_back_dated_transactions])
   @@index([role_allowed_to_over_deliver_receive])
   @@map("stock_settings")
-  @@schema("erpnext_port")
 }
 
 model SubOperation {
@@ -15247,7 +13861,6 @@ model SubOperation {
 
   @@index([operation])
   @@map("sub_operation")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingBom {
@@ -15274,7 +13887,6 @@ model SubcontractingBom {
   @@index([service_item_uom])
   @@index([finished_good_uom])
   @@map("subcontracting_bom")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingInwardOrder {
@@ -15313,7 +13925,6 @@ model SubcontractingInwardOrder {
   @@index([customer_warehouse])
   @@index([currency])
   @@map("subcontracting_inward_order")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingInwardOrderItem {
@@ -15347,7 +13958,6 @@ model SubcontractingInwardOrderItem {
   @@index([bom])
   @@index([delivery_warehouse])
   @@map("subcontracting_inward_order_item")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingInwardOrderReceivedItem {
@@ -15382,7 +13992,6 @@ model SubcontractingInwardOrderReceivedItem {
   @@index([stock_uom])
   @@index([warehouse])
   @@map("subcontracting_inward_order_received_item")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingInwardOrderSecondaryItem {
@@ -15410,7 +14019,6 @@ model SubcontractingInwardOrderSecondaryItem {
   @@index([fg_item_code])
   @@index([warehouse])
   @@map("subcontracting_inward_order_secondary_item")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingInwardOrderServiceItem {
@@ -15438,7 +14046,6 @@ model SubcontractingInwardOrderServiceItem {
   @@index([fg_item])
   @@index([uom])
   @@map("subcontracting_inward_order_service_item")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingOrder {
@@ -15503,7 +14110,6 @@ model SubcontractingOrder {
   @@index([project])
   @@index([supplier_currency])
   @@map("subcontracting_order")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingOrderItem {
@@ -15561,7 +14167,6 @@ model SubcontractingOrderItem {
   @@index([material_request])
   @@index([job_card])
   @@map("subcontracting_order_item")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingOrderServiceItem {
@@ -15590,7 +14195,6 @@ model SubcontractingOrderServiceItem {
   @@index([fg_item])
   @@index([material_request])
   @@map("subcontracting_order_service_item")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingOrderSuppliedItem {
@@ -15625,7 +14229,6 @@ model SubcontractingOrderSuppliedItem {
   @@index([stock_uom])
   @@index([reserve_warehouse])
   @@map("subcontracting_order_supplied_item")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingReceipt {
@@ -15706,7 +14309,6 @@ model SubcontractingReceipt {
   @@index([cost_center])
   @@index([project])
   @@map("subcontracting_receipt")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingReceiptItem {
@@ -15791,7 +14393,6 @@ model SubcontractingReceiptItem {
   @@index([job_card])
   @@index([service_expense_account])
   @@map("subcontracting_receipt_item")
-  @@schema("erpnext_port")
 }
 
 model SubcontractingReceiptSuppliedItem {
@@ -15837,7 +14438,6 @@ model SubcontractingReceiptSuppliedItem {
   @@index([expense_account])
   @@index([cost_center])
   @@map("subcontracting_receipt_supplied_item")
-  @@schema("erpnext_port")
 }
 
 model Subscription {
@@ -15880,7 +14480,6 @@ model Subscription {
   @@index([cost_center])
   @@index([company])
   @@map("subscription")
-  @@schema("erpnext_port")
 }
 
 model SubscriptionInvoice {
@@ -15899,7 +14498,6 @@ model SubscriptionInvoice {
 
   @@index([document_type])
   @@map("subscription_invoice")
-  @@schema("erpnext_port")
 }
 
 model SubscriptionPlan {
@@ -15928,7 +14526,6 @@ model SubscriptionPlan {
   @@index([payment_gateway])
   @@index([cost_center])
   @@map("subscription_plan")
-  @@schema("erpnext_port")
 }
 
 model SubscriptionPlanDetail {
@@ -15947,7 +14544,6 @@ model SubscriptionPlanDetail {
 
   @@index([plan])
   @@map("subscription_plan_detail")
-  @@schema("erpnext_port")
 }
 
 model SubscriptionSettings {
@@ -15963,7 +14559,6 @@ model SubscriptionSettings {
   prorate            Boolean?  @default(true)
 
   @@map("subscription_settings")
-  @@schema("erpnext_port")
 }
 
 model Supplier {
@@ -16029,7 +14624,6 @@ model Supplier {
   @@index([tax_withholding_group])
   @@index([gender])
   @@map("supplier")
-  @@schema("erpnext_port")
 }
 
 model SupplierGroup {
@@ -16052,7 +14646,6 @@ model SupplierGroup {
   @@index([payment_terms])
   @@index([old_parent])
   @@map("supplier_group")
-  @@schema("erpnext_port")
 }
 
 model SupplierGroupItem {
@@ -16070,7 +14663,6 @@ model SupplierGroupItem {
 
   @@index([supplier_group])
   @@map("supplier_group_item")
-  @@schema("erpnext_port")
 }
 
 model SupplierItem {
@@ -16088,7 +14680,6 @@ model SupplierItem {
 
   @@index([supplier])
   @@map("supplier_item")
-  @@schema("erpnext_port")
 }
 
 model SupplierNumberAtCustomer {
@@ -16107,7 +14698,6 @@ model SupplierNumberAtCustomer {
 
   @@index([company])
   @@map("supplier_number_at_customer")
-  @@schema("erpnext_port")
 }
 
 model SupplierQuotation {
@@ -16212,7 +14802,6 @@ model SupplierQuotation {
   @@index([cost_center])
   @@index([project])
   @@map("supplier_quotation")
-  @@schema("erpnext_port")
 }
 
 model SupplierQuotationItem {
@@ -16292,7 +14881,6 @@ model SupplierQuotationItem {
   @@index([manufacturer])
   @@index([cost_center])
   @@map("supplier_quotation_item")
-  @@schema("erpnext_port")
 }
 
 model SupplierScorecard {
@@ -16322,7 +14910,6 @@ model SupplierScorecard {
   @@index([status])
   @@index([employee])
   @@map("supplier_scorecard")
-  @@schema("erpnext_port")
 }
 
 model SupplierScorecardCriteria {
@@ -16339,7 +14926,6 @@ model SupplierScorecardCriteria {
   weight        Float?
 
   @@map("supplier_scorecard_criteria")
-  @@schema("erpnext_port")
 }
 
 model SupplierScorecardPeriod {
@@ -16362,7 +14948,6 @@ model SupplierScorecardPeriod {
   @@index([scorecard])
   @@index([amended_from])
   @@map("supplier_scorecard_period")
-  @@schema("erpnext_port")
 }
 
 model SupplierScorecardScoringCriteria {
@@ -16384,7 +14969,6 @@ model SupplierScorecardScoringCriteria {
 
   @@index([criteria_name])
   @@map("supplier_scorecard_scoring_criteria")
-  @@schema("erpnext_port")
 }
 
 model SupplierScorecardScoringStanding {
@@ -16413,7 +14997,6 @@ model SupplierScorecardScoringStanding {
   @@index([standing_name])
   @@index([employee_link])
   @@map("supplier_scorecard_scoring_standing")
-  @@schema("erpnext_port")
 }
 
 model SupplierScorecardScoringVariable {
@@ -16435,7 +15018,6 @@ model SupplierScorecardScoringVariable {
 
   @@index([variable_label])
   @@map("supplier_scorecard_scoring_variable")
-  @@schema("erpnext_port")
 }
 
 model SupplierScorecardStanding {
@@ -16460,7 +15042,6 @@ model SupplierScorecardStanding {
 
   @@index([employee_link])
   @@map("supplier_scorecard_standing")
-  @@schema("erpnext_port")
 }
 
 model SupplierScorecardVariable {
@@ -16478,7 +15059,6 @@ model SupplierScorecardVariable {
   description    String?
 
   @@map("supplier_scorecard_variable")
-  @@schema("erpnext_port")
 }
 
 model SupportSearchSource {
@@ -16509,7 +15089,6 @@ model SupportSearchSource {
 
   @@index([source_doctype])
   @@map("support_search_source")
-  @@schema("erpnext_port")
 }
 
 model SupportSettings {
@@ -16536,7 +15115,6 @@ model SupportSettings {
   greeting_subtitle                       String?   @default("Browse help topics") @db.VarChar(255)
 
   @@map("support_settings")
-  @@schema("erpnext_port")
 }
 
 model TargetDetail {
@@ -16560,7 +15138,6 @@ model TargetDetail {
   @@index([fiscal_year])
   @@index([distribution_id])
   @@map("target_detail")
-  @@schema("erpnext_port")
 }
 
 model Task {
@@ -16616,7 +15193,6 @@ model Task {
   @@index([company])
   @@index([completed_by])
   @@map("task")
-  @@schema("erpnext_port")
 }
 
 model TaskDependsOn {
@@ -16636,7 +15212,6 @@ model TaskDependsOn {
 
   @@index([task])
   @@map("task_depends_on")
-  @@schema("erpnext_port")
 }
 
 model TaskType {
@@ -16651,7 +15226,6 @@ model TaskType {
   description String?
 
   @@map("task_type")
-  @@schema("erpnext_port")
 }
 
 model TaxCategory {
@@ -16666,7 +15240,6 @@ model TaxCategory {
   disabled    Boolean?  @default(false)
 
   @@map("tax_category")
-  @@schema("erpnext_port")
 }
 
 model TaxRule {
@@ -16716,7 +15289,6 @@ model TaxRule {
   @@index([shipping_country])
   @@index([company])
   @@map("tax_rule")
-  @@schema("erpnext_port")
 }
 
 model TaxWithholdingAccount {
@@ -16736,7 +15308,6 @@ model TaxWithholdingAccount {
   @@index([company])
   @@index([account])
   @@map("tax_withholding_account")
-  @@schema("erpnext_port")
 }
 
 model TaxWithholdingCategory {
@@ -16755,7 +15326,6 @@ model TaxWithholdingCategory {
   disable_transaction_threshold Boolean?  @default(false)
 
   @@map("tax_withholding_category")
-  @@schema("erpnext_port")
 }
 
 model TaxWithholdingEntry {
@@ -16801,7 +15371,6 @@ model TaxWithholdingEntry {
   @@index([tax_withholding_group])
   @@index([company])
   @@map("tax_withholding_entry")
-  @@schema("erpnext_port")
 }
 
 model TaxWithholdingGroup {
@@ -16815,7 +15384,6 @@ model TaxWithholdingGroup {
   group_name  String    @unique @db.VarChar(255)
 
   @@map("tax_withholding_group")
-  @@schema("erpnext_port")
 }
 
 model TaxWithholdingRate {
@@ -16838,7 +15406,6 @@ model TaxWithholdingRate {
 
   @@index([tax_withholding_group])
   @@map("tax_withholding_rate")
-  @@schema("erpnext_port")
 }
 
 model TelephonyCallType {
@@ -16854,7 +15421,6 @@ model TelephonyCallType {
 
   @@index([amended_from])
   @@map("telephony_call_type")
-  @@schema("erpnext_port")
 }
 
 model TermsAndConditions {
@@ -16874,7 +15440,6 @@ model TermsAndConditions {
   copy_attachments_to_transaction Boolean?  @default(false)
 
   @@map("terms_and_conditions")
-  @@schema("erpnext_port")
 }
 
 model Territory {
@@ -16897,7 +15462,6 @@ model Territory {
   @@index([territory_manager])
   @@index([old_parent])
   @@map("territory")
-  @@schema("erpnext_port")
 }
 
 model TerritoryItem {
@@ -16915,7 +15479,6 @@ model TerritoryItem {
 
   @@index([territory])
   @@map("territory_item")
-  @@schema("erpnext_port")
 }
 
 model Timesheet {
@@ -16965,7 +15528,6 @@ model Timesheet {
   @@index([customer])
   @@index([currency])
   @@map("timesheet")
-  @@schema("erpnext_port")
 }
 
 model TimesheetDetail {
@@ -17006,7 +15568,6 @@ model TimesheetDetail {
   @@index([task])
   @@index([sales_invoice])
   @@map("timesheet_detail")
-  @@schema("erpnext_port")
 }
 
 model TransactionDeletionRecord {
@@ -17033,7 +15594,6 @@ model TransactionDeletionRecord {
   @@index([amended_from])
   @@index([status])
   @@map("transaction_deletion_record")
-  @@schema("erpnext_port")
 }
 
 model TransactionDeletionRecordDetails {
@@ -17054,7 +15614,6 @@ model TransactionDeletionRecordDetails {
 
   @@index([doctype_name])
   @@map("transaction_deletion_record_details")
-  @@schema("erpnext_port")
 }
 
 model TransactionDeletionRecordItem {
@@ -17072,7 +15631,6 @@ model TransactionDeletionRecordItem {
 
   @@index([doctype_name])
   @@map("transaction_deletion_record_item")
-  @@schema("erpnext_port")
 }
 
 model TransactionDeletionRecordToDelete {
@@ -17094,7 +15652,6 @@ model TransactionDeletionRecordToDelete {
 
   @@index([doctype_name])
   @@map("transaction_deletion_record_to_delete")
-  @@schema("erpnext_port")
 }
 
 model UaeVatAccount {
@@ -17112,7 +15669,6 @@ model UaeVatAccount {
 
   @@index([account])
   @@map("uae_vat_account")
-  @@schema("erpnext_port")
 }
 
 model UaeVatSettings {
@@ -17127,7 +15683,6 @@ model UaeVatSettings {
 
   @@index([company])
   @@map("uae_vat_settings")
-  @@schema("erpnext_port")
 }
 
 model UnreconcilePayment {
@@ -17148,7 +15703,6 @@ model UnreconcilePayment {
   @@index([company])
   @@index([voucher_type])
   @@map("unreconcile_payment")
-  @@schema("erpnext_port")
 }
 
 model UnreconcilePaymentEntries {
@@ -17174,7 +15728,6 @@ model UnreconcilePaymentEntries {
   @@index([reference_doctype])
   @@index([account_currency])
   @@map("unreconcile_payment_entries")
-  @@schema("erpnext_port")
 }
 
 model Uom {
@@ -17195,7 +15748,6 @@ model Uom {
 
   @@index([category])
   @@map("uom")
-  @@schema("erpnext_port")
 }
 
 model UomCategory {
@@ -17209,7 +15761,6 @@ model UomCategory {
   category_name String    @unique @db.VarChar(255)
 
   @@map("uom_category")
-  @@schema("erpnext_port")
 }
 
 model UomConversionDetail {
@@ -17228,7 +15779,6 @@ model UomConversionDetail {
 
   @@index([uom])
   @@map("uom_conversion_detail")
-  @@schema("erpnext_port")
 }
 
 model UomConversionFactor {
@@ -17248,7 +15798,6 @@ model UomConversionFactor {
   @@index([from_uom])
   @@index([to_uom])
   @@map("uom_conversion_factor")
-  @@schema("erpnext_port")
 }
 
 model VariantField {
@@ -17265,7 +15814,6 @@ model VariantField {
   field_name  String    @db.VarChar(255)
 
   @@map("variant_field")
-  @@schema("erpnext_port")
 }
 
 model Vehicle {
@@ -17303,7 +15851,6 @@ model Vehicle {
   @@index([amended_from])
   @@index([company])
   @@map("vehicle")
-  @@schema("erpnext_port")
 }
 
 model Video {
@@ -17328,7 +15875,6 @@ model Video {
   youtube_video_id String?   @db.VarChar(255)
 
   @@map("video")
-  @@schema("erpnext_port")
 }
 
 model VideoSettings {
@@ -17344,7 +15890,6 @@ model VideoSettings {
   frequency               String?   @default("1 hr") @db.VarChar(100)
 
   @@map("video_settings")
-  @@schema("erpnext_port")
 }
 
 model VoiceCallSettings {
@@ -17363,7 +15908,6 @@ model VoiceCallSettings {
 
   @@index([user])
   @@map("voice_call_settings")
-  @@schema("erpnext_port")
 }
 
 model Warehouse {
@@ -17406,7 +15950,6 @@ model Warehouse {
   @@index([default_in_transit_warehouse])
   @@index([customer])
   @@map("warehouse")
-  @@schema("erpnext_port")
 }
 
 model WarehouseType {
@@ -17420,7 +15963,6 @@ model WarehouseType {
   description String?
 
   @@map("warehouse_type")
-  @@schema("erpnext_port")
 }
 
 model WarrantyClaim {
@@ -17473,7 +16015,6 @@ model WarrantyClaim {
   @@index([company])
   @@index([amended_from])
   @@map("warranty_claim")
-  @@schema("erpnext_port")
 }
 
 model WebsiteAttribute {
@@ -17491,7 +16032,6 @@ model WebsiteAttribute {
 
   @@index([attribute])
   @@map("website_attribute")
-  @@schema("erpnext_port")
 }
 
 model WebsiteFilterField {
@@ -17508,7 +16048,6 @@ model WebsiteFilterField {
   fieldname   String?   @db.VarChar(255)
 
   @@map("website_filter_field")
-  @@schema("erpnext_port")
 }
 
 model WebsiteItemGroup {
@@ -17526,7 +16065,6 @@ model WebsiteItemGroup {
 
   @@index([item_group])
   @@map("website_item_group")
-  @@schema("erpnext_port")
 }
 
 model WorkOrder {
@@ -17612,7 +16150,6 @@ model WorkOrder {
   @@index([mps])
   @@index([subcontracting_inward_order])
   @@map("work_order")
-  @@schema("erpnext_port")
 }
 
 model WorkOrderItem {
@@ -17653,7 +16190,6 @@ model WorkOrderItem {
   @@index([source_warehouse])
   @@index([stock_uom])
   @@map("work_order_item")
-  @@schema("erpnext_port")
 }
 
 model WorkOrderOperation {
@@ -17707,7 +16243,6 @@ model WorkOrderOperation {
   @@index([fg_warehouse])
   @@index([source_warehouse])
   @@map("work_order_operation")
-  @@schema("erpnext_port")
 }
 
 model Workstation {
@@ -17739,7 +16274,6 @@ model Workstation {
   @@index([status])
   @@index([warehouse])
   @@map("workstation")
-  @@schema("erpnext_port")
 }
 
 model WorkstationCost {
@@ -17758,7 +16292,6 @@ model WorkstationCost {
 
   @@index([operating_component])
   @@map("workstation_cost")
-  @@schema("erpnext_port")
 }
 
 model WorkstationOperatingComponent {
@@ -17772,7 +16305,6 @@ model WorkstationOperatingComponent {
   component_name String    @unique @db.VarChar(255)
 
   @@map("workstation_operating_component")
-  @@schema("erpnext_port")
 }
 
 model WorkstationOperatingComponentAccount {
@@ -17792,7 +16324,6 @@ model WorkstationOperatingComponentAccount {
   @@index([company])
   @@index([expense_account])
   @@map("workstation_operating_component_account")
-  @@schema("erpnext_port")
 }
 
 model WorkstationType {
@@ -17808,7 +16339,6 @@ model WorkstationType {
   description      String?
 
   @@map("workstation_type")
-  @@schema("erpnext_port")
 }
 
 model WorkstationWorkingHour {
@@ -17828,7 +16358,6 @@ model WorkstationWorkingHour {
   hours       Float?
 
   @@map("workstation_working_hour")
-  @@schema("erpnext_port")
 }
 
 model south_africa_vat_account {
@@ -17845,244 +16374,196 @@ model south_africa_vat_account {
   account     String?   @db.VarChar(140)
 
   @@index([account])
-  @@schema("erpnext_port")
 }
 
-model south_africa_vat_settings {
-  name        String    @id @db.VarChar(140)
-  creation    DateTime? @default(now()) @db.Timestamptz(3)
-  modified    DateTime? @db.Timestamptz(3)
-  modified_by String?   @db.VarChar(255)
-  owner       String?   @db.VarChar(255)
-  docstatus   Int?      @default(0)
-  idx         Int?      @default(0)
-  company     String    @unique @db.VarChar(140)
 
-  @@index([company])
-  @@schema("erpnext_port")
+// ── Custom Application Models ───────────────────────────────────────────────
+
+model users {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique @db.VarChar(255)
+  password_hash   String    @db.VarChar(255)
+  name            String    @db.VarChar(200)
+  role            String    @default("user") @db.VarChar(50)
+  department      String?   @db.VarChar(100)
+  subsidiary      String?   @db.VarChar(200)
+  company         String    @default("Aries Marine") @db.VarChar(200)
+  is_active       Boolean   @default(true)
+  avatar_url      String?
+  last_login      DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  sessions              sessions[]
+  refresh_tokens        refresh_tokens[]
+  webauthn_credentials  webauthn_credentials[]
 }
 
-enum accounttype {
-  ASSET
-  LIABILITY
-  INCOME
-  EXPENSE
-  EQUITY
-  RECEIVABLE
-  PAYABLE
-
-  @@schema("public")
+model sessions {
+  id             String    @id @default(uuid()) @db.Uuid
+  user_id        String    @db.Uuid
+  session_token  String    @unique @db.VarChar(500)
+  expires        DateTime  @db.Timestamptz(6)
+  ip_address     String?   @db.VarChar(45)
+  user_agent     String?
+  is_active      Boolean   @default(true)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-enum assetstatus {
-  AVAILABLE
-  IN_USE
-  UNDER_MAINTENANCE
-  CALIBRATION_DUE
-  DECOMMISSIONED
-
-  @@schema("public")
-}
-
-enum certstatus {
-  VALID
-  EXPIRING_SOON
-  EXPIRED
-  SUSPENDED
-
-  @@schema("public")
-}
-
-enum doctype {
-  INVOICE
-  RECEIPT
-  CONTRACT
-  CERTIFICATE
-  REPORT
-  OTHER
-
-  @@schema("public")
-}
-
-enum enquirystatus {
-  DRAFT
-  INGESTED
-  CLASSIFIED
-  RULES_APPLIED
-  LLM_DRAFTED
-  POLICY_REVIEW
-  HUMAN_REVIEW
-  APPROVED
-  EXECUTING
-  COMPLETED
-  REJECTED
-
-  @@schema("public")
-}
-
-enum itemgroup {
-  CONSUMABLE
-  EQUIPMENT
-  SERVICE
-  RAW_MATERIAL
-  SPARE_PART
-
-  @@schema("public")
-}
-
-enum journalentrytype {
-  DEBIT
-  CREDIT
-
-  @@schema("public")
-}
-
-enum personnelstatus {
-  ACTIVE
-  ON_PROJECT
-  ON_LEAVE
-  INACTIVE
-
-  @@schema("public")
-}
-
-enum postatus {
-  DRAFT
-  SUBMITTED
-  APPROVED
-  RECEIVED
-  CANCELLED
-
-  @@schema("public")
-}
-
-enum processingstatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-
-  @@schema("public")
-}
-
-enum projectstatus {
-  PLANNING
-  ACTIVE
-  ON_HOLD
-  COMPLETED
-  CANCELLED
-
-  @@schema("public")
-}
-
-enum quotationstatus {
-  DRAFT
-  SENT
-  ACCEPTED
-  REJECTED
-  EXPIRED
-
-  @@schema("public")
-}
-
-enum salesinvoicestatus {
-  DRAFT
-  SUBMITTED
-  PAID
-  CANCELLED
-  OVERDUE
-
-  @@schema("public")
-}
-
-enum salesorderstatus {
-  DRAFT
-  TO_DELIVER
-  TO_BILL
-  COMPLETED
-  CANCELLED
-
-  @@schema("public")
-}
-
-enum stockvaluationmethod {
-  FIFO
-  MOVING_AVERAGE
-
-  @@schema("public")
-}
-
-enum taskstatus {
-  TODO
-  IN_PROGRESS
-  REVIEW
-  DONE
-
-  @@schema("public")
+model refresh_tokens {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  token      String   @unique @db.VarChar(500)
+  session_id String?  @db.Uuid
+  expires    DateTime @db.Timestamptz(6)
+  is_revoked Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model webauthn_credentials {
   id              String    @id @default(uuid()) @db.Uuid
   user_id         String    @db.Uuid
   credential_id   String    @unique @db.VarChar(255)
-  public_key      Bytes
-  counter         Int       @default(0)
-  transports      String?   @db.VarChar(200)
-  device_name     String?   @db.VarChar(200)
+  public_key      String
+  counter         Int
+  device_type     String?   @db.VarChar(50)
+  device_name     String?   @db.VarChar(255)
+  backed_up       Boolean   @default(false)
+  transports      String?
   last_used       DateTime? @db.Timestamptz(6)
   created_at      DateTime  @default(now()) @db.Timestamptz(6)
   users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@schema("public")
 }
 
-model refresh_tokens {
-  id           String    @id @default(uuid()) @db.Uuid
-  user_id      String    @db.Uuid
-  token        String    @unique @db.VarChar(500)
-  session_id   String?   @db.Uuid
-  expires      DateTime  @db.Timestamptz(6)
-  is_revoked   Boolean   @default(false)
-  created_at   DateTime  @default(now()) @db.Timestamptz(6)
-  users        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  sessions     sessions? @relation(fields: [session_id], references: [id], onDelete: SetNull)
+model ai_personas {
+  id                    String               @id @default(uuid()) @db.Uuid
+  username              String               @unique @db.VarChar(100)
+  nickname              String               @db.VarChar(100)
+  position              String               @db.VarChar(200)
+  category              String               @db.VarChar(20)
+  about                 String?
+  greeting              String?
+  model                 String               @db.VarChar(100)
+  temperature           Float
+  allowed_tools         String?
+  allowed_collections   String?
+  allowed_mcp_servers   String?
+  enable_knowledge_base Boolean
+  knowledge_base_prompt String?
+  enabled               Boolean
+  built_in              Boolean
+  created_at            DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime             @default(now()) @db.Timestamptz(6)
+  ai_conversations      ai_conversations[]
+  channel_connectors    channel_connectors[]
+}
 
-  @@schema("public")
+model ai_conversations {
+  id          String        @id @default(uuid()) @db.Uuid
+  persona_id  String        @db.Uuid
+  user_id     String?       @db.VarChar(255)
+  channel     String        @db.VarChar(50)
+  title       String?       @db.VarChar(200)
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime      @default(now()) @db.Timestamptz(6)
+  ai_personas ai_personas   @relation(fields: [persona_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ai_messages ai_messages[]
+}
+
+model ai_messages {
+  id               String           @id @default(uuid()) @db.Uuid
+  conversation_id  String           @db.Uuid
+  role             String           @db.VarChar(50)
+  content          String?
+  tool_calls       String?
+  tool_call_id     String?          @db.VarChar(100)
+  tool_name        String?          @db.VarChar(100)
+  metadata_json    String?
+  created_at       DateTime         @default(now()) @db.Timestamptz(6)
+  ai_conversations ai_conversations @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model channel_connectors {
+  id                 String       @id @default(uuid()) @db.Uuid
+  channel_type       String       @db.VarChar(50)
+  name               String       @db.VarChar(200)
+  enabled            Boolean
+  config             String?
+  webhook_url        String?      @db.VarChar(500)
+  default_persona_id String?      @db.Uuid
+  created_at         DateTime     @default(now()) @db.Timestamptz(6)
+  ai_personas        ai_personas? @relation(fields: [default_persona_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model enquiries {
+  id                  String    @id @default(uuid()) @db.Uuid
+  enquiry_number      String?   @unique @db.VarChar(50)
+  client_name         String    @db.VarChar(255)
+  client_email        String?   @db.VarChar(255)
+  channel             String    @db.VarChar(50)
+  industry            String?   @db.VarChar(100)
+  subdivision         String?   @db.VarChar(100)
+  description         String
+  status              String    @default("new") @db.VarChar(50)
+  estimated_value     Float?
+  estimated_cost      Float?
+  estimated_margin    Float?
+  scope_category      String?   @db.VarChar(100)
+  complexity          String?   @db.VarChar(50)
+  resource_profile    String?
+  approved_by         String?   @db.VarChar(255)
+  approved_at         DateTime? @db.Timestamptz(6)
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+model documents {
+  id                String   @id @default(uuid()) @db.Uuid
+  enquiry_id        String   @db.Uuid
+  filename          String   @db.VarChar(500)
+  content_type      String   @db.VarChar(100)
+  storage_path      String   @db.VarChar(1000)
+  wiki_source_page  String?  @db.VarChar(500)
+  markdown_content  String?
+  processing_status String   @db.VarChar(50)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model notebooks {
+  id            String   @id @default(uuid()) @db.Uuid
+  title         String   @db.VarChar(255)
+  content       String?
+  metadata_json String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model ui_dashboards {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String   @db.VarChar(200)
+  ui_type            String   @db.VarChar(50)
+  schema_json        String
+  created_by_persona String?  @db.VarChar(100)
+  is_active          Boolean
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
 }
 
 model email_tracking {
-  id              String                   @id @default(uuid()) @db.Uuid
-  user_id         String?                  @db.Uuid
-  email_address   String                   @db.VarChar(255)
-  email_type      String                   @db.VarChar(50)
-  template_id     String?                  @db.VarChar(100)
-  message_id      String?                  @db.VarChar(200)
-  subject         String?                  @db.VarChar(500)
-  status          String                   @default("sent") @db.VarChar(20)
-  error_message   String?                  @db.Text
-  metadata_json   String?
-  sent_at         DateTime                 @default(now()) @db.Timestamptz(6)
-  opened_at       DateTime?                @db.Timestamptz(6)
-  clicked_at      DateTime?                @db.Timestamptz(6)
-  created_at      DateTime                 @default(now()) @db.Timestamptz(6)
-
-  @@index([user_id], map: "ix_email_tracking_user_id")
-  @@index([email_address], map: "ix_email_tracking_email_address")
-  @@index([email_type], map: "ix_email_tracking_email_type")
-  @@index([sent_at], map: "ix_email_tracking_sent_at")
-  @@schema("public")
-}
-
-model Version {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  doctype    String
-  docname    String
-  action     String
-  user       String?
-  old_values Json?
-  new_values Json?
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-
-  @@index([doctype, docname])
-  @@schema("public")
+  id             String    @id @default(uuid()) @db.Uuid
+  enquiry_id     String?   @db.Uuid
+  user_id        String?   @db.Uuid
+  email_address  String    @db.VarChar(255)
+  email_type     String    @db.VarChar(50)
+  template_id    String?   @db.VarChar(100)
+  message_id     String?   @db.VarChar(255)
+  subject        String?   @db.VarChar(500)
+  status         String    @default("pending") @db.VarChar(50)
+  error_message  String?
+  metadata_json  String?
+  sent_at        DateTime? @db.Timestamptz(6)
+  opened_at      DateTime? @db.Timestamptz(6)
+  clicked_at     DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
 }

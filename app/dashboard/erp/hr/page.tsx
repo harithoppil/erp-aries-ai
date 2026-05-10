@@ -1,8 +1,20 @@
-import { listPersonnel, type ClientSafePersonnel } from "@/app/dashboard/erp/hr/actions";
-import HRClient from "@/app/dashboard/erp/hr/hr-client";
+import { getSession } from '@/lib/frappe-auth';
+import { redirect } from 'next/navigation';
+import {
+  getHRDashboardData,
+  type HRDashboardData,
+} from './actions';
+import HRDashboardClient from './hr-dashboard-client';
 
-export default async function HRPage() {
-  const result = await listPersonnel();
-  const personnel = result.success ? result.personnel : [];
-  return <HRClient initialPersonnel={personnel} />;
+export default async function HRDashboardPage() {
+  const session = await getSession();
+  if (!session) return redirect('/auth');
+
+  const dashboardData = await getHRDashboardData();
+
+  return (
+    <HRDashboardClient
+      dashboardData={dashboardData}
+    />
+  );
 }

@@ -36,7 +36,7 @@ export interface EmailRecord {
   subject: string | null;
   status: string;
   errorMessage: string | null;
-  sentAt: Date;
+  sentAt: Date | null;
   openedAt: Date | null;
   clickedAt: Date | null;
   createdAt: Date;

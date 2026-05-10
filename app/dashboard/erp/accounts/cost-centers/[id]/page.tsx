@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import CostCenterDetailClient from './cost-center-detail-client';
 

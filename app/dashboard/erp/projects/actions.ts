@@ -4,7 +4,108 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// ── Dashboard Types ─────────────────────────────────────────────────────────
+
+export type ProjectsDashboardData = {
+  openProjects: number;
+  nonCompletedTasks: number;
+  workingHours: number;
+};
+
+export type ProjectTrendPoint = {
+  month: string;
+  completedCount: number;
+};
+
+// ── Dashboard KPI ──────────────────────────────────────────────────────────
+
+export async function getProjectsDashboardData(): Promise<ProjectsDashboardData> {
+  await requirePermission('Project', 'read');
+
+  const [openProjects, nonCompletedTasks, timesheets] = await Promise.all([
+    prisma.project.count({
+      where: {
+        status: { in: ['Open', 'In Progress', 'Planning'] },
+        docstatus: { lte: 1 },
+      },
+    }),
+    prisma.task.count({
+      where: {
+        status: { notIn: ['Completed', 'Cancelled'] },
+        docstatus: { lte: 1 },
+      },
+    }),
+    prisma.timesheet.findMany({
+      where: { docstatus: 1 },
+      select: { total_hours: true },
+    }),
+  ]);
+
+  const workingHours = timesheets.reduce(
+    (sum, ts) => sum + Number(ts.total_hours || 0),
+    0,
+  );
+
+  return {
+    openProjects,
+    nonCompletedTasks,
+    workingHours,
+  };
+}
+
+// ── Project Trends (last 12 months) ────────────────────────────────────────
+
+export async function getProjectTrends(): Promise<ProjectTrendPoint[]> {
+  await requirePermission('Project', 'read');
+
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+  twelveMonthsAgo.setDate(1);
+  twelveMonthsAgo.setHours(0, 0, 0, 0);
+
+  const completedProjects = await prisma.project.findMany({
+    where: {
+      status: 'Completed',
+      creation: { gte: twelveMonthsAgo },
+    },
+    select: {
+      creation: true,
+    },
+    orderBy: { creation: 'asc' },
+  });
+
+  // Group by month
+  const monthMap = new Map<string, number>();
+
+  // Initialize last 12 months with zeros
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthMap.set(key, 0);
+  }
+
+  for (const project of completedProjects) {
+    const date = project.creation ? new Date(project.creation) : null;
+    if (!date) continue;
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (monthMap.has(key)) {
+      monthMap.set(key, (monthMap.get(key) || 0) + 1);
+    }
+  }
+
+  return Array.from(monthMap.entries()).map(([key, completedCount]) => {
+    const [year, month] = key.split('-');
+    const d = new Date(Number(year), Number(month) - 1, 1);
+    const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    return {
+      month: label,
+      completedCount,
+    };
+  });
+}
+
+// ── List Types ─────────────────────────────────────────────────────────────
 
 export type ClientSafeProject = {
   id: string;

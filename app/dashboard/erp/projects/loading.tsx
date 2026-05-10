@@ -1,73 +1,76 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function ProjectsLoading() {
+export function ProjectsDashboardSkeleton() {
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)]">
       <div className="flex-1 min-h-0 overflow-auto pr-2">
-        <div className="space-y-4 pb-4">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <Skeleton className="h-8 w-52 mb-2" />
-              <Skeleton className="h-4 w-36" />
-            </div>
-            <div className="flex gap-2">
-              <Skeleton className="h-10 w-24 rounded-xl" />
-              <Skeleton className="h-10 w-28 rounded-xl" />
-            </div>
+        <div className="space-y-6 pb-4">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-4 w-4" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-4" />
+            <Skeleton className="h-4 w-20" />
           </div>
-          {/* Search */}
-          <Skeleton className="h-10 w-full rounded-xl" />
-          {/* Status Filter Chips */}
-          <div className="flex flex-wrap gap-2">
-            {Array(5).fill(0).map((_, i) => (
-              <Skeleton key={i} className="h-8 w-20 rounded-full" />
-            ))}
+
+          {/* Chart Card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <Skeleton className="h-5 w-40 mb-1" />
+                <Skeleton className="h-3 w-56" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-20 rounded-lg" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+              </div>
+            </div>
+            <Skeleton className="h-[260px] w-full rounded-xl" />
           </div>
-          {/* Stat cards - 4 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array(4).fill(0).map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Skeleton className="h-4 w-4 rounded" />
-                  <Skeleton className="h-3 w-16" />
+
+          {/* 3 KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-3 w-28" />
                 </div>
-                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-8 w-24 mb-1" />
+                <Skeleton className="h-3 w-20" />
               </div>
             ))}
           </div>
-          {/* Tab switcher pills */}
-          <div className="flex gap-2">
-            <Skeleton className="h-9 w-24 rounded-full" />
-            <Skeleton className="h-9 w-28 rounded-full" />
-          </div>
-          {/* Table - 7 cols */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  {['Project','Code','Type','Client','Location','Day Rate','Status'].map(h => (
-                    <th key={h} className="text-left px-4 py-3"><Skeleton className="h-4 w-14" /></th>
+
+          {/* Tabs skeleton */}
+          <Skeleton className="h-10 w-[260px] rounded-xl" />
+
+          {/* Reports Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4"
+              >
+                <Skeleton className="h-5 w-28 mb-3" />
+                <div className="space-y-2">
+                  {Array.from({ length: i === 2 ? 1 : i === 0 ? 5 : 3 }).map((_, j) => (
+                    <Skeleton key={j} className="h-10 w-full rounded-lg" />
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {Array(4).fill(0).map((_, i) => (
-                  <tr key={i}>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-5 w-24 rounded-full" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+export default function ProjectsLoading() {
+  return <ProjectsDashboardSkeleton />;
 }

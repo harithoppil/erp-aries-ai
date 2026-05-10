@@ -101,23 +101,20 @@ export default function ExportButton({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Button
-          variant="outline"
-          className="gap-2 rounded-xl"
-          disabled={disabled || isExporting}
-        >
-          {isExporting ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Download size={16} />
-          )}
-          {isExporting
-            ? exporting === "csv"
-              ? "Exporting CSV..."
-              : "Exporting Excel..."
-            : "Export"}
-        </Button>
+      <DropdownMenuTrigger
+        className="inline-flex items-center justify-center gap-2 rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        disabled={disabled || isExporting}
+      >
+        {isExporting ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : (
+          <Download size={16} />
+        )}
+        {isExporting
+          ? exporting === "csv"
+            ? "Exporting CSV..."
+            : "Exporting Excel..."
+          : "Export"}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={handleCSVExport}>

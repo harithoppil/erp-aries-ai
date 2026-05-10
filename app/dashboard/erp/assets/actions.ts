@@ -4,6 +4,103 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
 
+// ── Dashboard Types ─────────────────────────────────────────────────────────
+
+export type AssetsDashboardData = {
+  assetCount: number;
+  totalValue: number;
+  locationCount: number;
+};
+
+export type AssetTrendPoint = {
+  date: string;
+  count: number;
+  totalValue: number;
+};
+
+// ── Dashboard KPI ──────────────────────────────────────────────────────────
+
+export async function getAssetsDashboardData(): Promise<AssetsDashboardData> {
+  await requirePermission('Item', 'read');
+
+  const [assetCount, assets] = await Promise.all([
+    prisma.asset.count(),
+    prisma.asset.findMany({
+      select: {
+        value_after_depreciation: true,
+        location: true,
+      },
+    }),
+  ]);
+
+  const totalValue = assets.reduce(
+    (sum, a) => sum + Number(a.value_after_depreciation || 0),
+    0,
+  );
+
+  const locations = new Set(
+    assets.map((a) => a.location).filter(Boolean),
+  );
+
+  return {
+    assetCount,
+    totalValue,
+    locationCount: locations.size,
+  };
+}
+
+// ── Asset Trends (last 12 months) ─────────────────────────────────────────
+
+export async function getAssetTrends(): Promise<AssetTrendPoint[]> {
+  await requirePermission('Item', 'read');
+
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+  twelveMonthsAgo.setDate(1);
+  twelveMonthsAgo.setHours(0, 0, 0, 0);
+
+  const assets = await prisma.asset.findMany({
+    where: {
+      purchase_date: { gte: twelveMonthsAgo },
+    },
+    select: {
+      purchase_date: true,
+      value_after_depreciation: true,
+    },
+    orderBy: { purchase_date: 'asc' },
+  });
+
+  // Group by month
+  const monthMap = new Map<string, { count: number; totalValue: number }>();
+
+  // Initialize last 12 months with zeros
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthMap.set(key, { count: 0, totalValue: 0 });
+  }
+
+  for (const asset of assets) {
+    const date = asset.purchase_date
+      ? new Date(asset.purchase_date)
+      : null;
+    if (!date) continue;
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const existing = monthMap.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.totalValue += Number(asset.value_after_depreciation || 0);
+    }
+  }
+
+  return Array.from(monthMap.entries()).map(([date, data]) => ({
+    date,
+    count: data.count,
+    totalValue: data.totalValue,
+  }));
+}
+
 export type ClientSafeAsset = {
   id: string;
   asset_name: string;

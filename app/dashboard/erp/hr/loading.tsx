@@ -1,72 +1,74 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function HRLoading() {
+function HRDashboardSkeleton() {
   return (
-    <div className="flex flex-col h-[calc(100vh-5.5rem)]">
-      <div className="flex-1 min-h-0 overflow-auto pr-2">
-        <div className="space-y-4 pb-4">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <Skeleton className="h-8 w-44 mb-2" />
-              <Skeleton className="h-4 w-36" />
-            </div>
-            <Skeleton className="h-10 w-36 rounded-xl" />
+    <div className="space-y-6 p-1">
+      {/* Breadcrumb skeleton */}
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-14" />
+        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-10" />
+      </div>
+
+      {/* Chart card skeleton */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <Skeleton className="h-5 w-48 mb-1" />
+            <Skeleton className="h-3 w-52" />
           </div>
-          {/* Search */}
-          <Skeleton className="h-10 w-full rounded-xl" />
-          {/* Department Filter Chips */}
-          <div className="flex flex-wrap gap-2">
-            {Array(6).fill(0).map((_, i) => (
-              <Skeleton key={i} className="h-8 w-20 rounded-full" />
-            ))}
-          </div>
-          {/* Stat cards - 4 cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array(4).fill(0).map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Skeleton className="h-4 w-4 rounded-full" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-                <Skeleton className="h-7 w-16" />
-              </div>
-            ))}
-          </div>
-          {/* Personnel Table */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {['Name', 'Designation', 'Department', 'Status'].map(h => (
-                      <th key={h} className="text-left px-4 py-3"><Skeleton className="h-4 w-20" /></th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {Array(5).fill(0).map((_, i) => (
-                    <tr key={i}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <Skeleton className="h-8 w-8 rounded-full" />
-                          <div>
-                            <Skeleton className="h-4 w-24 mb-1" />
-                            <Skeleton className="h-3 w-28" />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-5 w-20 rounded-full" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-20 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
           </div>
         </div>
+        <Skeleton className="h-[260px] w-full rounded-xl" />
+      </div>
+
+      {/* KPI cards skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array(3)
+          .fill(0)
+          .map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <div>
+                  <Skeleton className="h-3 w-24 mb-1" />
+                  <Skeleton className="h-7 w-20" />
+                </div>
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {/* Reports & Masters grid skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array(4)
+          .fill(0)
+          .map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+            >
+              <Skeleton className="h-5 w-28 mb-4" />
+              <div className="space-y-3">
+                {Array(3)
+                  .fill(0)
+                  .map((_, j) => (
+                    <Skeleton key={j} className="h-4 w-full" />
+                  ))}
+              </div>
+            </div>
+          ))}
       </div>
     </div>
   );
+}
+
+export default function HRLoading() {
+  return <HRDashboardSkeleton />;
 }

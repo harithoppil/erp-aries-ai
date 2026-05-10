@@ -225,7 +225,7 @@ export async function verifyPasskeyRegistration(
     data: {
       user_id: userId,
       credential_id: credentialID,
-      public_key: Buffer.from(credentialPublicKey),
+      public_key: Buffer.from(credentialPublicKey).toString("base64"),
       counter,
       transports,
       device_name: deviceName,
@@ -319,7 +319,7 @@ export async function verifyPasskeyAuthentication(
   // Build the authenticator device object for verification (v10 API)
   const authenticator: AuthenticatorDevice = {
     credentialID: authenticatorRecord.credential_id,
-    credentialPublicKey: authenticatorRecord.public_key,
+    credentialPublicKey: Uint8Array.from(atob(authenticatorRecord.public_key), c => c.charCodeAt(0)),
     counter: authenticatorRecord.counter,
     transports: authenticatorRecord.transports
       ? (authenticatorRecord.transports.split(",") as AuthenticatorTransportFuture[])

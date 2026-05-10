@@ -1,53 +1,37 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import AssetDetailClient from '@/app/dashboard/erp/assets/[id]/asset-detail-client';
-
-interface MaintenanceRecord {
-  name: string;
-  maintenance_type?: string | null;
-  completion_date?: string | null;
-  maintenance_status?: string | null;
-}
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
-    const asset = await prisma.assets.findUnique({ where: { id } });
-
+    const asset = await prisma.asset.findUnique({ where: { name: id } });
     if (!asset) throw new Error('Asset not found');
 
-    const maintenance: MaintenanceRecord[] = [];
-
     const record = {
-      ...asset,
-      id: asset.id,
-      asset_name: asset.asset_name || asset.id,
-      asset_code: asset.asset_code,
+      id: asset.name,
+      asset_name: asset.asset_name || asset.name,
+      asset_code: asset.item_code || asset.name,
       asset_category: asset.asset_category || 'General',
-      status: asset.status || 'Draft',
+      status: asset.docstatus === 1 ? 'AVAILABLE' : 'DRAFT',
       location: asset.location || null,
-      warehouse_id: asset.warehouse_id || null,
-      purchase_date: asset.purchase_date || null,
-      purchase_cost: asset.purchase_cost || null,
-      current_value: asset.current_value || null,
-      depreciation_rate: asset.depreciation_rate || 0,
-      calibration_date: asset.calibration_date || null,
-      next_calibration_date: asset.next_calibration_date || null,
-      calibration_certificate: asset.calibration_certificate || null,
-      certification_body: asset.certification_body || null,
-      assigned_to_project: asset.assigned_to_project || null,
-      assigned_to_personnel: asset.assigned_to_personnel || null,
-      notes: asset.notes || null,
+      warehouse_id: null,
+      purchase_date: asset.purchase_date?.toISOString().slice(0, 10) ?? null,
+      purchase_cost: Number(asset.value_after_depreciation || 0),
+      current_value: Number(asset.value_after_depreciation || 0),
+      depreciation_rate: 0,
+      calibration_date: null,
+      next_calibration_date: asset.next_depreciation_date?.toISOString().slice(0, 10) ?? null,
+      calibration_certificate: null,
+      certification_body: null,
+      assigned_to_project: null,
+      assigned_to_personnel: asset.custodian || null,
+      notes: null,
       warehouses: null,
       personnel: null,
       projects: null,
-      maintenance_records: maintenance.map((m: MaintenanceRecord) => ({
-        id: m.name,
-        asset_id: id,
-        maintenance_type: m.maintenance_type || 'General',
-        performed_date: m.completion_date || new Date().toISOString(),
-        notes: m.maintenance_status || '',
-      })),
+      maintenance_records: [],
     };
 
     return <AssetDetailClient record={JSON.parse(JSON.stringify(record))} />;
