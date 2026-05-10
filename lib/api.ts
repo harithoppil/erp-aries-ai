@@ -38,7 +38,12 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
     const msg = typeof err.detail === "string"
       ? err.detail
       : Array.isArray(err.detail)
-        ? err.detail.map((e: any) => e.msg || JSON.stringify(e)).join("; ")
+        ? err.detail.map((e: unknown) => {
+            if (e && typeof e === "object" && "msg" in e && typeof (e as { msg: unknown }).msg === "string") {
+              return (e as { msg: string }).msg;
+            }
+            return JSON.stringify(e);
+          }).join("; ")
         : JSON.stringify(err.detail || err);
     throw new Error(msg || "API Error");
   }
