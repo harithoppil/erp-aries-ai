@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
 import type { StockBalanceRow, SalesAnalyticsRow } from '@/lib/erpnext/types';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -84,9 +85,9 @@ export async function getGeneralLedger(filters?: ReportFilters): Promise<
     const totalDebit = entries.reduce((s, e) => s + e.debit, 0);
     const totalCredit = entries.reduce((s, e) => s + e.credit, 0);
     return { success: true, entries, total: { debit: totalDebit, credit: totalCredit } };
-  } catch (error: any) {
-    console.error('[reports] General Ledger failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to run General Ledger' };
+  } catch (error) {
+    console.error('[reports] General Ledger failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to run General Ledger') };
   }
 }
 
@@ -134,9 +135,9 @@ export async function getProfitAndLoss(filters?: ReportFilters): Promise<
       is_profit: netProfit >= 0,
     };
     return { success: true, data };
-  } catch (error: any) {
-    console.error('[reports] P&L failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to run Profit and Loss' };
+  } catch (error) {
+    console.error('[reports] P&L failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to run Profit and Loss') };
   }
 }
 
@@ -178,9 +179,9 @@ export async function getReportsSummary(): Promise<
       items: items.map((i) => ({ id: i.name, item_name: i.item_name || i.name, stock_qty: 0 })),
     };
     return { success: true, data: empty };
-  } catch (error: any) {
-    console.error('[reports] Summary failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to load reports summary' };
+  } catch (error) {
+    console.error('[reports] Summary failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to load reports summary') };
   }
 }
 
@@ -205,9 +206,9 @@ export async function runBalanceSheet(filters?: ReportFilters): Promise<
       total_liabilities_and_equity: 0,
     };
     return { success: true, data };
-  } catch (error: any) {
-    console.error('[reports] Balance Sheet failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to run Balance Sheet' };
+  } catch (error) {
+    console.error('[reports] Balance Sheet failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to run Balance Sheet') };
   }
 }
 
@@ -267,9 +268,9 @@ export async function runTrialBalance(filters?: ReportFilters): Promise<
       }
     }
     return { success: true, data: Array.from(accountAgg.values()) };
-  } catch (error: any) {
-    console.error('[reports] Trial Balance failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to run Trial Balance' };
+  } catch (error) {
+    console.error('[reports] Trial Balance failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to run Trial Balance') };
   }
 }
 
@@ -297,9 +298,9 @@ export async function runStockBalance(filters?: ReportFilters): Promise<
         projected_qty: b.projected_qty || 0,
       })),
     };
-  } catch (error: any) {
-    console.error('[reports] Stock Balance failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to run Stock Balance' };
+  } catch (error) {
+    console.error('[reports] Stock Balance failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to run Stock Balance') };
   }
 }
 
@@ -321,9 +322,9 @@ export async function runSalesAnalytics(filters?: ReportFilters): Promise<
       monthly.set(key, (monthly.get(key) || 0) + Number(row.total || 0));
     }
     return { success: true, data: Array.from(monthly.entries()).map(([month, total]) => ({ month, total })) };
-  } catch (error: any) {
-    console.error('[reports] Sales Analytics failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to run Sales Analytics' };
+  } catch (error) {
+    console.error('[reports] Sales Analytics failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to run Sales Analytics') };
   }
 }
 

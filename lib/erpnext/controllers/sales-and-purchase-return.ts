@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ported from erpnext/controllers/sales_and_purchase_return.py
  * Pure business logic for sales & purchase return validation and creation.
@@ -5,7 +6,7 @@
  * RULES:
  * - No DB calls (Frappe or Prisma). All required data must be passed as params.
  * - Every function has explicit params and return types.
- * - No `any` types except `catch (error: any)`.
+ * - No `any` types except `catch (error)`.
  */
 
 import { TransactionDoc, TransactionItem, TaxRow } from "./taxes-and-totals";
@@ -681,8 +682,8 @@ export function makeReturnDoc(
     }
 
     return { success: true, doc };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 

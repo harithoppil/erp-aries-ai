@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * ERPNext Schema — Return DocType field metadata from the Prisma model
  *
@@ -245,10 +246,10 @@ export async function GET(
     const resp = NextResponse.json(success(schemaData));
     logRequestEnd(logCtx, 200);
     return withCors(resp);
-  } catch (e: any) {
-    console.error("[erpnext/schema] Error:", e?.message);
+  } catch (e) {
+    console.error("[erpnext/schema] Error:", errorMessage(e));
     const resp = NextResponse.json(
-      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
+      error(errorMessage(e, "Internal server error"), "INTERNAL_ERROR"),
       { status: 500 },
     );
     logRequestEnd(logCtx, 500);

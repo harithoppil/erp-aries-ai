@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -101,9 +102,9 @@ export async function listDeliveryNotes(
         creation: n.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[delivery-notes] listDeliveryNotes failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch delivery notes' };
+  } catch (error) {
+    console.error('[delivery-notes] listDeliveryNotes failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch delivery notes') };
   }
 }
 
@@ -155,9 +156,9 @@ export async function getDeliveryNote(
         })),
       },
     };
-  } catch (error: any) {
-    console.error('[delivery-notes] getDeliveryNote failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch delivery note' };
+  } catch (error) {
+    console.error('[delivery-notes] getDeliveryNote failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch delivery note') };
   }
 }
 
@@ -242,9 +243,9 @@ export async function createDeliveryNote(
         creation: note.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[delivery-notes] createDeliveryNote failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create delivery note' };
+  } catch (error) {
+    console.error('[delivery-notes] createDeliveryNote failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create delivery note') };
   }
 }
 

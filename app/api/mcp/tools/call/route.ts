@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { getMCPGateway } from '@/lib/mcp-gateway';
 
@@ -13,9 +14,9 @@ export async function POST(request: NextRequest) {
     const gateway = getMCPGateway();
     const result = await gateway.callTool(tool_name, kwargs || {});
     return NextResponse.json({ result });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error?.message || 'Tool call failed' },
+      { error: errorMessage(error, 'Tool call failed') },
       { status: 500 }
     );
   }

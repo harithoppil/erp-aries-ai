@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -115,9 +116,9 @@ export async function listSalesInvoices(
         creation: i.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[sales-invoices] listSalesInvoices failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch sales invoices' };
+  } catch (error) {
+    console.error('[sales-invoices] listSalesInvoices failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch sales invoices') };
   }
 }
 
@@ -177,9 +178,9 @@ export async function getSalesInvoice(
         shipping_address: invoice.shipping_address,
       },
     };
-  } catch (error: any) {
-    console.error('[sales-invoices] getSalesInvoice failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch sales invoice' };
+  } catch (error) {
+    console.error('[sales-invoices] getSalesInvoice failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch sales invoice') };
   }
 }
 
@@ -276,9 +277,9 @@ export async function createSalesInvoice(
         creation: invoice.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[sales-invoices] createSalesInvoice failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create sales invoice' };
+  } catch (error) {
+    console.error('[sales-invoices] createSalesInvoice failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create sales invoice') };
   }
 }
 

@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ported from erpnext/controllers/status_updater.py
  * Status transition and quantity-update logic for ERPNext documents.
@@ -499,8 +500,8 @@ export function setStatus(
       changed: newStatus !== previousStatus,
       updateModified,
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -584,8 +585,8 @@ export function updateQty(
     }
 
     return { success: true, result: { childUpdates, parentUpdates } };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -707,8 +708,8 @@ export function validateStatus(
     }
 
     return { success: true, doc };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -832,8 +833,8 @@ export function getAllowanceFor(
       globalQtyAllowance,
       globalAmountAllowance,
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 

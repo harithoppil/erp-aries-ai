@@ -8,7 +8,7 @@
  *   P1008 — Operations timed out
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - Exponential backoff: 1s, 2s, 4s (3 retries max).
  */

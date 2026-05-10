@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import type { OpportunityItemRow } from '@/lib/erpnext/types';
@@ -106,9 +107,9 @@ export async function listOpportunities(
         creation: o.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[opportunities] listOpportunities failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch opportunities' };
+  } catch (error) {
+    console.error('[opportunities] listOpportunities failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch opportunities') };
   }
 }
 
@@ -166,9 +167,9 @@ export async function getOpportunity(
         opportunity_owner: opp.opportunity_owner,
       },
     };
-  } catch (error: any) {
-    console.error('[opportunities] getOpportunity failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch opportunity' };
+  } catch (error) {
+    console.error('[opportunities] getOpportunity failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch opportunity') };
   }
 }
 
@@ -240,9 +241,9 @@ export async function createOpportunity(
         creation: opp.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[opportunities] createOpportunity failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create opportunity' };
+  } catch (error) {
+    console.error('[opportunities] createOpportunity failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create opportunity') };
   }
 }
 
@@ -264,7 +265,7 @@ export async function updateOpportunityStatus(
     });
     revalidatePath('/dashboard/erp/crm/opportunities');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to update status' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to update status') };
   }
 }

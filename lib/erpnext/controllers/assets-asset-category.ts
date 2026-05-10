@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * ERPNext Asset Category DocType — Pure Business Logic (ported from asset_category.py)
  *
@@ -81,26 +82,26 @@ export function validateAssetCategory(
 
   try {
     validateFinanceBooks(category, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateAccountTypes(category, accountMeta, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateAccountCurrency(category, companyDefaults, accountMeta, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateAccounts(category, companyDefaults, companiesWithAssets ?? [], pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   return { category, errors };

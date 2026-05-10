@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ported from erpnext/accounts/doctype/purchase_invoice/purchase_invoice.py
  * Pure business logic for Purchase Invoice validation, GL entries, and lifecycle.
@@ -5,7 +6,7 @@
  * RULES:
  * - No DB calls (Frappe or Prisma). All required data must be passed as params.
  * - Every function has explicit params and return types.
- * - No `any` types except `catch (error: any)`.
+ * - No `any` types except `catch (error)`.
  */
 
 import {
@@ -371,8 +372,8 @@ export function validatePurchaseInvoice(
     doc.status = getPurchaseInvoiceStatus(doc);
 
     return { success: true, warnings, doc };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -696,8 +697,8 @@ export function calculateTaxesAndTotalsForPI(
     }
 
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -1016,8 +1017,8 @@ export function onSubmitPurchaseInvoice(
       })),
       qtyUpdates,
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -1074,8 +1075,8 @@ export function onCancelPurchaseInvoice(
       stockReversed: stockEntries.length > 0,
       qtyUpdates,
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 

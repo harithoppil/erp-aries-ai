@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * ERPNext Task DocType — Pure Business Logic (ported from task.py)
  *
@@ -127,38 +128,38 @@ export function validateTask(
 
   try {
     validateDates(task, parentTask, project, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateProgress(task, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateStatus(task, dependentTaskStatuses, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateCompletedOn(task, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     setDefaultEndDateIfMissing(task);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateParentIsGroup(task, parentTask, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   const t = updateDependsOn(task);

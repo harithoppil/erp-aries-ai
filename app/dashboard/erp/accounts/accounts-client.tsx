@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from '@/lib/utils';
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -155,8 +156,8 @@ export default function AccountsClient({ initialAccounts, initialInvoices }: {
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Network error");
+    } catch (error) {
+      toast.error(errorMessage(error, "Network error"));
     } finally { setSaving(false); }
   };
 

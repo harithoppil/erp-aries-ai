@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ported from erpnext/accounts/doctype/bank_account/bank_account.py
  * Pure logic for Bank Account DocType.
@@ -5,7 +6,7 @@
  * RULES:
  * - No DB calls (Frappe or Prisma). All required data must be passed as params.
  * - Every function has explicit params and return types.
- * - No `any` types except `catch (error: any)`.
+ * - No `any` types except `catch (error)`.
  */
 
 /* ------------------------------------------------------------------ */
@@ -141,8 +142,8 @@ export function validateBankAccount(
     );
 
     return { success: true, clearDefaultFor };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 

@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ported from erpnext/controllers/taxes_and_totals.py
  * Tax calculation engine for Sales / Purchase transactions.
@@ -243,10 +244,10 @@ export function calculateTaxesAndTotals(doc: TransactionDoc): TaxResult {
       base_rounded_total: flt(doc.base_rounded_total),
       taxes: doc.taxes,
     };
-  } catch (error: any) {
+  } catch (error) {
     return {
       success: false,
-      error: error?.message ?? String(error),
+      error: errorMessage(error) ?? String(error),
       total_qty: 0,
       total: 0,
       base_total: 0,

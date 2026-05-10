@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * ERPNext Timesheet DocType — Pure Business Logic (ported from timesheet.py)
  *
@@ -148,26 +149,26 @@ export function validateTimesheet(
 
   try {
     validateDates(ts, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     ts = calculateHours(ts);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     ts = validateTimeLogs(ts, existingTimeLogs ?? [], settings ?? {}, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     ts = updateCost(ts);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   ts = calculateTotalAmounts(ts);
@@ -176,8 +177,8 @@ export function validateTimesheet(
 
   try {
     validateMandatoryFields(ts, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   return { timesheet: ts, errors };

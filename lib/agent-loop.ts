@@ -28,6 +28,7 @@
 
 import { MCPGateway, getMCPGateway, type MCPTool } from "@/lib/mcp-gateway";
 import { getGeminiToken } from "@/app/dashboard/ai/actions";
+import { errorMessage } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -218,8 +219,8 @@ export class AgentLoop {
           if (result.length > 10000) {
             result = result.slice(0, 10000) + "\n... (truncated)";
           }
-        } catch (e: any) {
-          result = `Error executing ${toolName}: ${e.message}`;
+        } catch (e) {
+          result = `Error executing ${toolName}: ${errorMessage(e)}`;
         }
 
         allToolCalls.push({ name: toolName, args: toolArgs, result, callId });
@@ -363,8 +364,8 @@ export class AgentLoop {
           if (result.length > 10000) {
             result = result.slice(0, 10000) + "\n... (truncated)";
           }
-        } catch (e: any) {
-          result = `Error executing ${toolName}: ${e.message}`;
+        } catch (e) {
+          result = `Error executing ${toolName}: ${errorMessage(e)}`;
         }
 
         allToolCalls.push({ name: toolName, args: toolArgs, result, callId });

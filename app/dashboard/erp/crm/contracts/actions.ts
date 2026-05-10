@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -91,9 +92,9 @@ export async function listContracts(
         creation: c.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[contracts] listContracts failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch contracts' };
+  } catch (error) {
+    console.error('[contracts] listContracts failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch contracts') };
   }
 }
 
@@ -133,9 +134,9 @@ export async function getContract(
         signed_by_company: c.signed_by_company,
       },
     };
-  } catch (error: any) {
-    console.error('[contracts] getContract failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch contract' };
+  } catch (error) {
+    console.error('[contracts] getContract failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch contract') };
   }
 }
 
@@ -180,9 +181,9 @@ export async function createContract(
         creation: c.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[contracts] createContract failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create contract' };
+  } catch (error) {
+    console.error('[contracts] createContract failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create contract') };
   }
 }
 
@@ -218,8 +219,8 @@ export async function deleteContract(
     await prisma.contract.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/crm/contracts');
     return { success: true };
-  } catch (error: any) {
-    console.error('[contracts] deleteContract failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete contract' };
+  } catch (error) {
+    console.error('[contracts] deleteContract failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to delete contract') };
   }
 }

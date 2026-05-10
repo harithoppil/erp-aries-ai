@@ -3,7 +3,7 @@
  * from Prisma DMMF field metadata for each DocType.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Uses Prisma DMMF for runtime model discovery — never hardcoded lists.
  * - Caches schemas after first generation (DMMF doesn't change at runtime).
  * - Unknown fields → null, never invented fallback values.

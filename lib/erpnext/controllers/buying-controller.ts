@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 // @ts-nocheck
 /**
  * Ported from erpnext/controllers/buying_controller.py
@@ -101,7 +102,7 @@ export async function validatePurchaseDoc(doc: PurchaseDoc): Promise<ValidationR
     // 1. Supplier name fallback
     if (doc.supplier && !doc.supplier_name) {
       try {
-        let sup = await prisma.supplier.findUnique({ where: { id: doc.supplier } });
+        let sup = await prisma.supplier.findUnique({ where: { name: doc.supplier } });
         if (!sup) sup = await prisma.supplier.findFirst({ where: { supplier_name: doc.supplier } });
         if (sup) doc.supplier_name = sup.supplier_name;
       } catch {
@@ -212,8 +213,8 @@ export async function validatePurchaseDoc(doc: PurchaseDoc): Promise<ValidationR
     }
 
     return { success: true, warnings };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 

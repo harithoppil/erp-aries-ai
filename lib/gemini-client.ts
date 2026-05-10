@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Raw Gemini / Vertex AI client for browser-side function calling.
  *
@@ -116,7 +117,7 @@ Decide which UI actions (if any) to execute immediately. Only call functions dir
       cachedToken = null;
       throw new Error("Token expired — will retry with fresh token");
     }
-    throw new Error(`Vertex AI error: ${err.error?.message || response.statusText}`);
+    throw new Error(`Vertex AI error: ${errorMessage(err, response.statusText)}`);
   }
 
   const data = await response.json();

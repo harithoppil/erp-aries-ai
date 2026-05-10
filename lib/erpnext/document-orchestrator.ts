@@ -15,7 +15,7 @@
  * docstatus-flip behavior (just updates docstatus without side effects).
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - Uses `prisma.$transaction()` for ALL multi-step operations.
  * - Uses PrismaDelegate from `lib/erpnext/prisma-delegate.ts` for dynamic access.

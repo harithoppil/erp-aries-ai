@@ -1,3 +1,4 @@
+import { errorMessage, errorName } from '@/lib/utils';
 import { NextRequest, NextResponse } from "next/server";
 import { createMarkItDown } from "@/lib/markitdown/markitdown";
 
@@ -46,14 +47,16 @@ export async function POST(request: NextRequest) {
       title: result.title,
       filename: file.name,
     });
-  } catch (error: any) {
-    console.error("[MarkItDown] Conversion failed:", error?.message || error);
+  } catch (error) {
+    console.error("[MarkItDown] Conversion failed:", errorMessage(error) || error);
 
-    const status = error?.name === "UnsupportedFormatError" ? 415 : 500;
+    const status = errorName(error) === "UnsupportedFormatError" ? 415 : 500;
     return NextResponse.json(
       {
-        error: error?.message || "Conversion failed",
-        details: error?.attempts || undefined,
+        error: errorMessage(error, "Conversion failed"),
+        details: (error && typeof error === "object" && "attempts" in error)
+          ? (error as { attempts?: unknown }).attempts
+          : undefined,
       },
       { status }
     );

@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -158,9 +159,9 @@ export async function listAssets(): Promise<
         updated_at: a.modified || new Date(),
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching assets:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch assets' };
+  } catch (error) {
+    console.error('Error fetching assets:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch assets') };
   }
 }
 
@@ -220,8 +221,8 @@ export async function createAsset(data: {
         updated_at: asset.modified || new Date(),
       } as ClientSafeAsset,
     };
-  } catch (error: any) {
-    return { success: false as const, error: error?.message || 'Failed to create asset' };
+  } catch (error) {
+    return { success: false as const, error: errorMessage(error, 'Failed to create asset') };
   }
 }
 
@@ -265,8 +266,8 @@ export async function listCalibrationDue(): Promise<
         updated_at: a.modified || new Date(),
       })),
     };
-  } catch (error: any) {
-    console.error('Error fetching calibration due:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch calibration alerts' };
+  } catch (error) {
+    console.error('Error fetching calibration due:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch calibration alerts') };
   }
 }

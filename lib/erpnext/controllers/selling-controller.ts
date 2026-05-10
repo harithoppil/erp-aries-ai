@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 // @ts-nocheck
 /**
  * Ported from erpnext/controllers/selling_controller.py
@@ -72,8 +73,12 @@ export interface ValidationResult {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function flt(value: number | string | null | undefined, precision = 2): number {
-  const v = typeof value === "string" ? parseFloat(value) : value ?? 0;
+function flt(value: number | string | { toString(): string } | null | undefined, precision = 2): number {
+  let v: number;
+  if (value === null || value === undefined) v = 0;
+  else if (typeof value === "number") v = value;
+  else if (typeof value === "string") v = parseFloat(value);
+  else v = parseFloat(value.toString());
   const factor = 10 ** precision;
   return Math.round(v * factor) / factor;
 }
@@ -162,7 +167,7 @@ export async function validateSalesDoc(doc: SalesDoc): Promise<ValidationResult>
         try {
           // No sales_person model — safe default
           sp = { enabled: true };
-        } catch (error: any) {
+        } catch (error) {
           sp = { enabled: true };
         }
         if (sp && !sp.enabled) {
@@ -182,8 +187,8 @@ export async function validateSalesDoc(doc: SalesDoc): Promise<ValidationResult>
     }
 
     return { success: true, warnings };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -211,7 +216,7 @@ async function validateSellingPrice(doc: SalesDoc): Promise<string | null> {
     try {
       // No selling_settings model — safe default
       settings = { validate_selling_price: false };
-    } catch (error: any) {
+    } catch (error) {
       settings = { validate_selling_price: false };
     }
     if (!settings?.validate_selling_price) return null;

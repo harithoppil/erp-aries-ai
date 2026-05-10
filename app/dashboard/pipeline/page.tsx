@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 import { listWorkflows, type WorkflowRead } from "@/app/dashboard/pipeline/actions";
 import WorkflowsClient from "@/app/dashboard/pipeline/workflows-client";
 
@@ -15,8 +16,8 @@ export default async function PipelinePage() {
     } else {
       initialError = result.error;
     }
-  } catch (error: any) {
-    initialError = error.message || "Failed to load workflows";
+  } catch (error) {
+    initialError = errorMessage(error, "Failed to load workflows");
   }
 
   return <WorkflowsClient initialWorkflows={initialWorkflows} initialError={initialError} />;

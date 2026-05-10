@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -80,9 +81,9 @@ export async function listWarehouses(
         creation: w.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[warehouses] listWarehouses failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch warehouses' };
+  } catch (error) {
+    console.error('[warehouses] listWarehouses failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch warehouses') };
   }
 }
 
@@ -118,9 +119,9 @@ export async function getWarehouse(
         is_rejected_warehouse: w.is_rejected_warehouse || false,
       },
     };
-  } catch (error: any) {
-    console.error('[warehouses] getWarehouse failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch warehouse' };
+  } catch (error) {
+    console.error('[warehouses] getWarehouse failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch warehouse') };
   }
 }
 
@@ -160,9 +161,9 @@ export async function createWarehouse(
         creation: w.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[warehouses] createWarehouse failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create warehouse' };
+  } catch (error) {
+    console.error('[warehouses] createWarehouse failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create warehouse') };
   }
 }
 
@@ -189,9 +190,9 @@ export async function updateWarehouse(
 
     revalidatePath('/dashboard/erp/stock/warehouses');
     return { success: true };
-  } catch (error: any) {
-    console.error('[warehouses] updateWarehouse failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update warehouse' };
+  } catch (error) {
+    console.error('[warehouses] updateWarehouse failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to update warehouse') };
   }
 }
 
@@ -208,8 +209,8 @@ export async function deleteWarehouse(
     await prisma.warehouse.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/stock/warehouses');
     return { success: true };
-  } catch (error: any) {
-    console.error('[warehouses] deleteWarehouse failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete warehouse' };
+  } catch (error) {
+    console.error('[warehouses] deleteWarehouse failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to delete warehouse') };
   }
 }

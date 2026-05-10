@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ported from erpnext/controllers/accounts_controller.py
  * Pure validation logic for accounting documents (Invoices, Orders, etc.)
@@ -5,7 +6,7 @@
  * RULES:
  * - No DB calls (Frappe or Prisma). All required data must be passed as params.
  * - Every function has explicit params and return types.
- * - No `any` types except `catch (error: any)`.
+ * - No `any` types except `catch (error)`.
  */
 
 /* ------------------------------------------------------------------ */
@@ -1280,8 +1281,8 @@ export function validateAccountDoc(
     }
 
     return { success: true, warnings };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -1353,7 +1354,7 @@ export function onSubmitAccountDoc(doc: AccountDoc): SubmitResult {
     }
 
     return { success: true, gl_entries: glEntries };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }

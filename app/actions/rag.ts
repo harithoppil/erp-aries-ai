@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 /**
  * RAG Server Actions — direct pgvector + Gemini embeddings.
  *
@@ -214,9 +215,9 @@ export async function ragSearch(
     // Sort by score descending
     const sorted = [...seen.values()].sort((a, b) => b.score - a.score);
     return { success: true, results: sorted.slice(0, limit) };
-  } catch (error: any) {
-    console.error('[rag] search failed:', error?.message);
-    return { success: false, error: error?.message || 'RAG search failed' };
+  } catch (error) {
+    console.error('[rag] search failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'RAG search failed') };
   }
 }
 
@@ -265,9 +266,9 @@ export async function indexWikiAll(route: string = 'v2'): Promise<RAGIndexRespon
         await insertChunks(rows);
         totalChunks += chunks.length;
         indexedPages++;
-      } catch (error: any) {
-        errors.push(`${pagePath}: ${error?.message}`);
-        console.error(`[rag] Failed to index wiki page ${pagePath}:`, error?.message);
+      } catch (error) {
+        errors.push(`${pagePath}: ${errorMessage(error)}`);
+        console.error(`[rag] Failed to index wiki page ${pagePath}:`, errorMessage(error));
       }
     }
 
@@ -276,9 +277,9 @@ export async function indexWikiAll(route: string = 'v2'): Promise<RAGIndexRespon
       success: true,
       info: { indexed_pages: indexedPages, total_chunks: totalChunks, errors },
     };
-  } catch (error: any) {
-    console.error('[rag] indexWikiAll failed:', error?.message);
-    return { success: false, error: error?.message || 'Wiki indexing failed' };
+  } catch (error) {
+    console.error('[rag] indexWikiAll failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Wiki indexing failed') };
   }
 }
 
@@ -322,9 +323,9 @@ export async function indexWikiPage(path: string, route: string = 'v2'): Promise
 
     revalidatePath('/wiki');
     return { success: true, info: { path, chunks_indexed: count, route } };
-  } catch (error: any) {
-    console.error('[rag] indexWikiPage failed:', error?.message);
-    return { success: false, error: error?.message || 'Page indexing failed' };
+  } catch (error) {
+    console.error('[rag] indexWikiPage failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Page indexing failed') };
   }
 }
 
@@ -345,8 +346,8 @@ export async function getRagStats(): Promise<RAGStatsResponse> {
     };
 
     return { success: true, stats: ragStats };
-  } catch (error: any) {
-    console.error('[rag] getRagStats failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to get RAG stats' };
+  } catch (error) {
+    console.error('[rag] getRagStats failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to get RAG stats') };
   }
 }

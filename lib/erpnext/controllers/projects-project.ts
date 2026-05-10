@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * ERPNext Project DocType — Pure Business Logic (ported from project.py)
  *
@@ -138,14 +139,14 @@ export function validateProject(
 
   try {
     validateFromToDates(project.expected_start_date, project.expected_end_date);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateFromToDates(project.actual_start_date, project.actual_end_date);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   const updated = updatePercentComplete({ ...project }, tasks);

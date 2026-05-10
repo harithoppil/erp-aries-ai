@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
 
 export type ClientSafeConnector = {
@@ -78,8 +79,8 @@ export async function createConnector(data: Partial<ClientSafeConnector>): Promi
         created_at: record.created_at,
       },
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to create connector' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to create connector') };
   }
 }
 
@@ -112,8 +113,8 @@ export async function updateConnector(
         created_at: record.created_at,
       },
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to update connector' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to update connector') };
   }
 }
 
@@ -123,7 +124,7 @@ export async function deleteConnector(id: string): Promise<
   try {
     await prisma.channel_connectors.delete({ where: { id } });
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to delete connector' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to delete connector') };
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from '@/lib/utils';
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -192,9 +193,9 @@ export default function NotebookEditorPage() {
           setAiResponse(accumulated || "No response received");
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("[notebook] AI assist failed:", error);
-      toast.error(error.message || "AI request failed — check network connection");
+      toast.error(errorMessage(error, "AI request failed — check network connection"));
     } finally {
       setAiLoading(false);
     }

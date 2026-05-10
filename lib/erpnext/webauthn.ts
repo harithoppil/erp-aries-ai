@@ -5,7 +5,7 @@
  * our `users` table, and our `webauthn_credentials` table.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - Multi-step DB operations use prisma.$transaction().
  * - Uses @simplewebauthn/server for WebAuthn protocol handling.

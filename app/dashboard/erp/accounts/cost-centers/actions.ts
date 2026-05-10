@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -76,9 +77,9 @@ export async function listCostCenters(
         creation: cc.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[cost-centers] listCostCenters failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch cost centers' };
+  } catch (error) {
+    console.error('[cost-centers] listCostCenters failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch cost centers') };
   }
 }
 
@@ -109,9 +110,9 @@ export async function getCostCenter(
         old_parent: cc.old_parent,
       },
     };
-  } catch (error: any) {
-    console.error('[cost-centers] getCostCenter failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch cost center' };
+  } catch (error) {
+    console.error('[cost-centers] getCostCenter failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch cost center') };
   }
 }
 
@@ -153,9 +154,9 @@ export async function createCostCenter(
         creation: cc.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[cost-centers] createCostCenter failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create cost center' };
+  } catch (error) {
+    console.error('[cost-centers] createCostCenter failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create cost center') };
   }
 }
 
@@ -172,8 +173,8 @@ export async function deleteCostCenter(
     await prisma.costCenter.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/accounts/cost-centers');
     return { success: true };
-  } catch (error: any) {
-    console.error('[cost-centers] deleteCostCenter failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete cost center' };
+  } catch (error) {
+    console.error('[cost-centers] deleteCostCenter failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to delete cost center') };
   }
 }

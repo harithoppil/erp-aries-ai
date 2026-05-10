@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -120,9 +121,9 @@ export async function listWorkOrders(
         creation: o.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[work-orders] listWorkOrders failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch work orders' };
+  } catch (error) {
+    console.error('[work-orders] listWorkOrders failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch work orders') };
   }
 }
 
@@ -188,9 +189,9 @@ export async function getWorkOrder(
         })),
       },
     };
-  } catch (error: any) {
-    console.error('[work-orders] getWorkOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch work order' };
+  } catch (error) {
+    console.error('[work-orders] getWorkOrder failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch work order') };
   }
 }
 
@@ -250,9 +251,9 @@ export async function createWorkOrder(
         creation: order.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[work-orders] createWorkOrder failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create work order' };
+  } catch (error) {
+    console.error('[work-orders] createWorkOrder failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create work order') };
   }
 }
 
@@ -267,8 +268,8 @@ export async function submitWorkOrder(id: string): Promise<{ success: true } | {
     await prisma.workOrder.update({ where: { name: id }, data: { docstatus: 1, status: 'Not Started' } });
     revalidatePath('/dashboard/erp/manufacturing/work-orders');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to submit' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to submit') };
   }
 }
 
@@ -281,7 +282,7 @@ export async function cancelWorkOrder(id: string): Promise<{ success: true } | {
     await prisma.workOrder.update({ where: { name: id }, data: { docstatus: 2, status: 'Cancelled' } });
     revalidatePath('/dashboard/erp/manufacturing/work-orders');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to cancel' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to cancel') };
   }
 }

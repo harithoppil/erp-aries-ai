@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * SSE Streaming Chat API Route.
  *
@@ -203,8 +204,8 @@ export async function POST(req: NextRequest) {
               break;
           }
         }
-      } catch (error: any) {
-        sendEvent("error", { error: error.message || "AgentLoop failed" });
+      } catch (error) {
+        sendEvent("error", { error: errorMessage(error, "AgentLoop failed") });
       }
 
       controller.close();

@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -104,9 +105,9 @@ export async function listLeads(
         creation: l.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[leads] listLeads failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch leads' };
+  } catch (error) {
+    console.error('[leads] listLeads failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch leads') };
   }
 }
 
@@ -155,9 +156,9 @@ export async function getLead(
         notes_html: lead.notes_html,
       },
     };
-  } catch (error: any) {
-    console.error('[leads] getLead failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch lead' };
+  } catch (error) {
+    console.error('[leads] getLead failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch lead') };
   }
 }
 
@@ -209,9 +210,9 @@ export async function createLead(
         creation: lead.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[leads] createLead failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create lead' };
+  } catch (error) {
+    console.error('[leads] createLead failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create lead') };
   }
 }
 
@@ -226,8 +227,8 @@ export async function updateLeadStatus(
     await prisma.lead.update({ where: { name: id }, data: { status } });
     revalidatePath('/dashboard/erp/crm/leads');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to update lead status' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to update lead status') };
   }
 }
 
@@ -250,7 +251,7 @@ export async function convertLeadToCustomer(
 
     revalidatePath('/dashboard/erp/crm/leads');
     return { success: true, customer_name: customerName };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to convert lead' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to convert lead') };
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from '@/lib/utils';
 import { useEffect, useState, useRef } from "react";
 import { listWikiPages, getWikiPage, searchWiki, createWikiPage, updateWikiPage, deleteWikiPage, type WikiPageRead, type WikiSearchResult } from "@/app/dashboard/wiki/actions";
 import { ragSearch, type RAGSearchResult } from "@/app/actions/rag";
@@ -62,8 +63,8 @@ export default function WikiPage() {
         if (result.success) setRagResults(result.results);
         setSearchResults([]);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Search failed");
+    } catch (error) {
+      toast.error(errorMessage(error, "Search failed"));
     } finally {
       setSearching(false);
     }
@@ -82,8 +83,8 @@ export default function WikiPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Network error");
+    } catch (error) {
+      toast.error(errorMessage(error, "Network error"));
     } finally { setSaving(false); }
   };
 
@@ -110,8 +111,8 @@ export default function WikiPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update page");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to update page"));
     } finally {
       setEditSaving(false);
     }
@@ -131,8 +132,8 @@ export default function WikiPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete page");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to delete page"));
     }
   };
 

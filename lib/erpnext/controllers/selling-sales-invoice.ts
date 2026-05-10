@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ported from erpnext/accounts/doctype/sales_invoice/sales_invoice.py
  * Pure business logic for Sales Invoice validation, GL entries, and lifecycle.
@@ -5,7 +6,7 @@
  * RULES:
  * - No DB calls (Frappe or Prisma). All required data must be passed as params.
  * - Every function has explicit params and return types.
- * - No `any` types except `catch (error: any)`.
+ * - No `any` types except `catch (error)`.
  */
 
 import {
@@ -340,8 +341,8 @@ export function validateSalesInvoice(
     doc.status = getSalesInvoiceStatus(doc);
 
     return { success: true, warnings, doc };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -603,8 +604,8 @@ export function calculateTaxesAndTotalsForSI(
     }
 
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -921,8 +922,8 @@ export function onSubmitSalesInvoice(
       })),
       qtyUpdates,
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 
@@ -979,8 +980,8 @@ export function onCancelSalesInvoice(
       stockReversed: stockEntries.length > 0,
       qtyUpdates,
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 

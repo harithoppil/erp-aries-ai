@@ -1,3 +1,4 @@
+import { errorMessage, errorCode, errorMeta } from '@/lib/utils';
 /**
  * ERPNext CRUD — List & Create
  *
@@ -244,10 +245,10 @@ export async function GET(
     );
     logRequestEnd(logCtx, 200);
     return withCors(resp);
-  } catch (e: any) {
-    console.error("[erpnext/list] Error:", e?.message);
+  } catch (e) {
+    console.error("[erpnext/list] Error:", errorMessage(e));
     const resp = NextResponse.json(
-      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
+      error(errorMessage(e, "Internal server error"), "INTERNAL_ERROR"),
       { status: 500 },
     );
     logRequestEnd(logCtx, 500);
@@ -397,11 +398,11 @@ export async function POST(
     const resp = NextResponse.json(success(result), { status: 201 });
     logRequestEnd(logCtx, 201);
     return withCors(resp);
-  } catch (e: any) {
-    console.error("[erpnext/create] Error:", e?.message);
+  } catch (e) {
+    console.error("[erpnext/create] Error:", errorMessage(e));
 
     // Prisma unique constraint violation
-    if (e?.code === "P2002") {
+    if (errorCode(e) === "P2002") {
       const doctype = (await params).doctype;
       const resp = NextResponse.json(
         error(`A ${doctype} with this name already exists`, "DUPLICATE"),
@@ -412,9 +413,9 @@ export async function POST(
     }
 
     // Prisma required-field violation
-    if (e?.code === "P2000" || e?.code === "P2012") {
+    if (errorCode(e) === "P2000" || errorCode(e) === "P2012") {
       const resp = NextResponse.json(
-        error(`Missing required field: ${e?.meta?.field_name || "unknown"}`, "MISSING_FIELD"),
+        error(`Missing required field: ${errorMeta(e, "field_name") ?? "unknown"}`, "MISSING_FIELD"),
         { status: 400 },
       );
       logRequestEnd(logCtx, 400);
@@ -422,7 +423,7 @@ export async function POST(
     }
 
     const resp = NextResponse.json(
-      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
+      error(errorMessage(e, "Internal server error"), "INTERNAL_ERROR"),
       { status: 500 },
     );
     logRequestEnd(logCtx, 500);

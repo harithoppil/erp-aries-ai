@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -103,9 +104,9 @@ export async function listStockEntries(
         creation: e.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[stock-entries] listStockEntries failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch stock entries' };
+  } catch (error) {
+    console.error('[stock-entries] listStockEntries failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch stock entries') };
   }
 }
 
@@ -155,9 +156,9 @@ export async function getStockEntry(
         })),
       },
     };
-  } catch (error: any) {
-    console.error('[stock-entries] getStockEntry failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch stock entry' };
+  } catch (error) {
+    console.error('[stock-entries] getStockEntry failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch stock entry') };
   }
 }
 
@@ -232,9 +233,9 @@ export async function createStockEntry(
         creation: entry.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[stock-entries] createStockEntry failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create stock entry' };
+  } catch (error) {
+    console.error('[stock-entries] createStockEntry failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create stock entry') };
   }
 }
 

@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * ERPNext Asset DocType — Pure Business Logic (ported from asset.py)
  *
@@ -199,56 +200,56 @@ export function validateAsset(
 
   try {
     validateCategory(asset, assetCategory, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validatePrecision(asset);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateLinkedPurchaseDocuments(asset, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateAssetValues(asset, itemDetails, isCwipEnabled ?? false, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateAssetAndReference(asset, purchaseDocCompany, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateItem(itemDetails, asset.item_code, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateCostCenter(asset, companyDefaults, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateGrossAndPurchaseAmount(asset, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   try {
     validateFinanceBooks(asset, pushError);
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e) {
+    errors.push(errorMessage(e));
   }
 
   let a = setMissingValues(asset, itemDetails, assetCategory);

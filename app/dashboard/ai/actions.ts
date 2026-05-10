@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage, errorCode } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { AgentLoop } from '@/lib/agent-loop';
@@ -87,9 +88,9 @@ export async function listPersonas(filters?: {
         greeting: p.greeting ? p.greeting.slice(0, 100) + (p.greeting.length > 100 ? '...' : '') : null,
       }))
     };
-  } catch (error: any) {
-    console.error('[ai] listPersonas failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch personas' };
+  } catch (error) {
+    console.error('[ai] listPersonas failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch personas') };
   }
 }
 
@@ -100,9 +101,9 @@ export async function getPersona(id: string): Promise<
     const persona = await prisma.ai_personas.findUnique({ where: { id } });
     if (!persona) return { success: false, error: 'Persona not found' };
     return { success: true, persona: parsePersona(persona) };
-  } catch (error: any) {
-    console.error('[ai] getPersona failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch persona' };
+  } catch (error) {
+    console.error('[ai] getPersona failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch persona') };
   }
 }
 
@@ -148,10 +149,10 @@ export async function createPersona(data: {
     revalidatePath('/ai');
     revalidatePath('/settings');
     return { success: true, persona: parsePersona(persona) };
-  } catch (error: any) {
-    console.error('[ai] createPersona failed:', error?.message);
-    if (error.code === 'P2002') return { success: false, error: 'Username already exists' };
-    return { success: false, error: error?.message || 'Failed to create persona' };
+  } catch (error) {
+    console.error('[ai] createPersona failed:', errorMessage(error));
+    if (errorCode(error) === 'P2002') return { success: false, error: 'Username already exists' };
+    return { success: false, error: errorMessage(error, 'Failed to create persona') };
   }
 }
 
@@ -195,9 +196,9 @@ export async function updatePersona(id: string, data: {
     revalidatePath('/ai');
     revalidatePath('/settings');
     return { success: true, persona: parsePersona(persona) };
-  } catch (error: any) {
-    console.error('[ai] updatePersona failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update persona' };
+  } catch (error) {
+    console.error('[ai] updatePersona failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to update persona') };
   }
 }
 
@@ -268,9 +269,9 @@ export async function seedPersonas(): Promise<
     revalidatePath('/ai');
     revalidatePath('/settings');
     return { success: true, seeded };
-  } catch (error: any) {
-    console.error('[ai] seedPersonas failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to seed personas' };
+  } catch (error) {
+    console.error('[ai] seedPersonas failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to seed personas') };
   }
 }
 
@@ -390,9 +391,9 @@ export async function chatWithPersona(
       conversation_id: conversation.id,
       model: result.model,
     };
-  } catch (error: any) {
-    console.error('[ai] chatWithPersona failed:', error?.message);
-    return { success: false, error: error?.message || 'Chat request failed' };
+  } catch (error) {
+    console.error('[ai] chatWithPersona failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Chat request failed') };
   }
 }
 
@@ -410,9 +411,9 @@ export async function listConversations(personaId?: string): Promise<
       take: 50,
     });
     return { success: true, conversations };
-  } catch (error: any) {
-    console.error('[ai] listConversations failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch conversations' };
+  } catch (error) {
+    console.error('[ai] listConversations failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch conversations') };
   }
 }
 
@@ -425,9 +426,9 @@ export async function getConversationMessages(conversationId: string): Promise<
       orderBy: { created_at: 'asc' },
     });
     return { success: true, messages };
-  } catch (error: any) {
-    console.error('[ai] getMessages failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch messages' };
+  } catch (error) {
+    console.error('[ai] getMessages failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch messages') };
   }
 }
 
@@ -467,8 +468,8 @@ export async function getGeminiToken(): Promise<
     };
 
     return { success: true, token };
-  } catch (error: any) {
-    console.error('[ai] getGeminiToken failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to get Gemini token' };
+  } catch (error) {
+    console.error('[ai] getGeminiToken failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to get Gemini token') };
   }
 }

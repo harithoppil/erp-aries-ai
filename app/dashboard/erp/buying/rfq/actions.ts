@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -93,9 +94,9 @@ export async function listRFQs(
         creation: r.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[rfq] listRFQs failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch RFQs' };
+  } catch (error) {
+    console.error('[rfq] listRFQs failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch RFQs') };
   }
 }
 
@@ -144,9 +145,9 @@ export async function getRFQ(
         })),
       },
     };
-  } catch (error: any) {
-    console.error('[rfq] getRFQ failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch RFQ' };
+  } catch (error) {
+    console.error('[rfq] getRFQ failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch RFQ') };
   }
 }
 
@@ -217,9 +218,9 @@ export async function createRFQ(
         creation: rfq.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[rfq] createRFQ failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create RFQ' };
+  } catch (error) {
+    console.error('[rfq] createRFQ failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create RFQ') };
   }
 }
 
@@ -234,8 +235,8 @@ export async function submitRFQ(id: string): Promise<{ success: true } | { succe
     await prisma.requestForQuotation.update({ where: { name: id }, data: { docstatus: 1 } });
     revalidatePath('/dashboard/erp/buying/rfq');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to submit' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to submit') };
   }
 }
 
@@ -248,7 +249,7 @@ export async function cancelRFQ(id: string): Promise<{ success: true } | { succe
     await prisma.requestForQuotation.update({ where: { name: id }, data: { docstatus: 2 } });
     revalidatePath('/dashboard/erp/buying/rfq');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to cancel' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to cancel') };
   }
 }

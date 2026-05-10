@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from '@/lib/utils';
 import { create } from "zustand";
 import { useActionDispatcher, parseActionMarkers } from "@/store/useActionDispatcher";
 import { planUIActions, executeFunctionCalls, type FunctionCall } from "@/lib/gemini-client";
@@ -112,9 +113,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else {
         set({ personaError: result.error });
       }
-    } catch (e: any) {
-      console.error("[loadPersonas] Failed:", e?.message || e);
-      set({ personaError: e?.message || "Network error" });
+    } catch (e) {
+      console.error("[loadPersonas] Failed:", errorMessage(e) || e);
+      set({ personaError: errorMessage(e, "Network error") });
     }
   },
 

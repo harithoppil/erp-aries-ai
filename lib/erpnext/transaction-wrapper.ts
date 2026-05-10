@@ -7,7 +7,7 @@
  * instead of an unhandled exception.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - Maps Prisma error codes to user-friendly messages.
  * - Uses the same TxClient type pattern from PrismaClient omit.

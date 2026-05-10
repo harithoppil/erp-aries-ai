@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * MCP Gateway — central tool registry for AI persona tool calling.
  *
@@ -190,8 +191,8 @@ function registerWikiServer(gw: MCPGateway): void {
         const path = strArg(args, 'path');
         const page = await wikiApiFetch<{ content: string; path: string }>(`/pages/${encodeURIComponent(path)}`);
         return page?.content || `Page not found: ${path}`;
-      } catch (e: any) {
-        return `Error reading page: ${e?.message}`;
+      } catch (e) {
+        return `Error reading page: ${errorMessage(e)}`;
       }
     },
   });
@@ -217,8 +218,8 @@ function registerWikiServer(gw: MCPGateway): void {
           }),
         });
         return `Written: ${strArg(args, 'path')}`;
-      } catch (e: any) {
-        return `Error writing page: ${e?.message}`;
+      } catch (e) {
+        return `Error writing page: ${errorMessage(e)}`;
       }
     },
   });
@@ -237,8 +238,8 @@ function registerWikiServer(gw: MCPGateway): void {
         );
         if (!results?.length) return 'No results';
         return results.map(r => `- [${r.title}] ${r.path}: ${r.snippet}`).join('\n');
-      } catch (e: any) {
-        return `Error searching: ${e?.message}`;
+      } catch (e) {
+        return `Error searching: ${errorMessage(e)}`;
       }
     },
   });
@@ -253,8 +254,8 @@ function registerWikiServer(gw: MCPGateway): void {
         const pages = await wikiApiFetch<string[]>('/pages');
         if (!pages?.length) return 'No pages';
         return pages.map(p => `- ${p}`).join('\n');
-      } catch (e: any) {
-        return `Error listing pages: ${e?.message}`;
+      } catch (e) {
+        return `Error listing pages: ${errorMessage(e)}`;
       }
     },
   });
@@ -277,8 +278,8 @@ function registerGeminiServer(gw: MCPGateway): void {
     handler: async (args) => {
       try {
         return await geminiQuery(strArg(args, 'question'), strArg(args, 'ctx'));
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -305,8 +306,8 @@ Description: ${desc}
 
 Return JSON with: scope_category, complexity (low/medium/high), estimated_value, key_requirements.`;
         return await geminiQuery(prompt);
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -336,8 +337,8 @@ ${ctx ? `Context: ${ctx}` : ''}
 
 Include: Executive summary, scope of work, methodology, timeline, pricing structure, terms and conditions.`;
         return await geminiQuery(prompt);
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -365,8 +366,8 @@ function registerERPServer(gw: MCPGateway): void {
         );
         if (!matches.length) return `No customers found matching "${name}"`;
         return matches.map(c => `${c.customer_name} (${c.industry || 'N/A'})`).join('\n');
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -390,8 +391,8 @@ function registerERPServer(gw: MCPGateway): void {
         return matches.slice(0, 10).map(i =>
           `${i.item_name} (${i.item_code}) — Rate: ${i.standard_rate || 'N/A'} ${i.item_group}`
         ).join('\n');
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -411,8 +412,8 @@ function registerERPServer(gw: MCPGateway): void {
         const item = result.items.find(i => i.item_code === sku);
         if (!item) return `Item not found: ${sku}`;
         return `${item.item_name} (${item.item_code}) — Safety stock: ${item.safety_stock || 'N/A'}, Rate: ${item.standard_rate || 'N/A'}`;
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -437,8 +438,8 @@ function registerERPServer(gw: MCPGateway): void {
         if (!item) return `Item not found: ${sku}`;
         const total = (item.standard_rate || 0) * qty;
         return `${item.item_name} — Unit rate: AED ${item.standard_rate || 0}, Qty: ${qty}, Total: AED ${total}`;
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -456,8 +457,8 @@ function registerERPServer(gw: MCPGateway): void {
       try {
         // Parse items and create a quotation (sales order creation needs customer)
         return `Sales order creation requires customer selection. Enquiry: ${strArg(args, 'eid')}, Items: ${strArg(args, 'items')}. Use the ERP UI to complete this action.`;
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -490,8 +491,8 @@ function registerSearchServer(gw: MCPGateway): void {
         return result.results.map(r =>
           `[${r.score.toFixed(3)}] ${r.source_path || '?'} — ${r.content.slice(0, 300)}...`
         ).join('\n');
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -526,8 +527,8 @@ function registerMutatorServer(gw: MCPGateway): void {
           },
         });
         return `Form created: ${dashboard.name} (id: ${dashboard.id})`;
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -556,8 +557,8 @@ function registerMutatorServer(gw: MCPGateway): void {
           },
         });
         return `Dashboard created: ${dashboard.name} (id: ${dashboard.id})`;
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -586,8 +587,8 @@ function registerMutatorServer(gw: MCPGateway): void {
           },
         });
         return `Report created: ${dashboard.name} (id: ${dashboard.id})`;
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -616,8 +617,8 @@ function registerMutatorServer(gw: MCPGateway): void {
           },
         });
         return `Kanban created: ${dashboard.name} (id: ${dashboard.id})`;
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -654,8 +655,8 @@ function registerMediaServer(gw: MCPGateway): void {
         if (!res.ok) return `Error: Image generation failed (${res.status})`;
         const data = await res.json();
         return data.url || data.message || 'Image generated';
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -683,8 +684,8 @@ function registerMediaServer(gw: MCPGateway): void {
         if (!res.ok) return `Error: Speech generation failed (${res.status})`;
         const data = await res.json();
         return data.url || data.message || 'Speech generated';
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -799,8 +800,8 @@ function registerDocumentOutputServer(gw: MCPGateway): void {
         if (!res.ok) return `Error: Document generation failed (${res.status})`;
         const data = await res.json();
         return data.url || data.message || 'Document generated';
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -828,8 +829,8 @@ function registerDocumentOutputServer(gw: MCPGateway): void {
         if (!res.ok) return `Error: Quote generation failed (${res.status})`;
         const data = await res.json();
         return data.url || data.message || 'Quote generated';
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });
@@ -857,8 +858,8 @@ function registerDocumentOutputServer(gw: MCPGateway): void {
         if (!res.ok) return `Error: Summary generation failed (${res.status})`;
         const data = await res.json();
         return data.url || data.message || 'Summary generated';
-      } catch (e: any) {
-        return `Error: ${e?.message}`;
+      } catch (e) {
+        return `Error: ${errorMessage(e)}`;
       }
     },
   });

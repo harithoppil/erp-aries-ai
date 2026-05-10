@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ported from erpnext/accounts/doctype/bank_transaction/bank_transaction.py
  * Pure logic for Bank Transaction DocType.
@@ -5,7 +6,7 @@
  * RULES:
  * - No DB calls (Frappe or Prisma). All required data must be passed as params.
  * - Every function has explicit params and return types.
- * - No `any` types except `catch (error: any)`.
+ * - No `any` types except `catch (error)`.
  */
 
 /* ------------------------------------------------------------------ */
@@ -729,8 +730,8 @@ export function validateBankTransaction(
           ? { party_type: updates.party_type, party: updates.party }
           : undefined,
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message ?? String(error) };
+  } catch (error) {
+    return { success: false, error: errorMessage(error) ?? String(error) };
   }
 }
 

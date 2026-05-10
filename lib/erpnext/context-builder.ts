@@ -6,7 +6,7 @@
  * (Prisma) and the pure-logic controller functions.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - All queries use the shared `prisma` singleton from `@/lib/prisma`.
  * - Handle missing data gracefully (return null for optional lookups).

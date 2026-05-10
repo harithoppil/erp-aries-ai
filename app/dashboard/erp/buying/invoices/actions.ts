@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -116,9 +117,9 @@ export async function listPurchaseInvoices(
         creation: i.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[purchase-invoices] listPurchaseInvoices failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch purchase invoices' };
+  } catch (error) {
+    console.error('[purchase-invoices] listPurchaseInvoices failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch purchase invoices') };
   }
 }
 
@@ -176,9 +177,9 @@ export async function getPurchaseInvoice(
         tax_id: invoice.tax_id,
       },
     };
-  } catch (error: any) {
-    console.error('[purchase-invoices] getPurchaseInvoice failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch purchase invoice' };
+  } catch (error) {
+    console.error('[purchase-invoices] getPurchaseInvoice failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch purchase invoice') };
   }
 }
 
@@ -277,9 +278,9 @@ export async function createPurchaseInvoice(
         creation: invoice.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[purchase-invoices] createPurchaseInvoice failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create purchase invoice' };
+  } catch (error) {
+    console.error('[purchase-invoices] createPurchaseInvoice failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create purchase invoice') };
   }
 }
 

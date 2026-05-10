@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -94,9 +95,9 @@ export async function listCompanies(
         creation: c.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[company] listCompanies failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch companies' };
+  } catch (error) {
+    console.error('[company] listCompanies failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch companies') };
   }
 }
 
@@ -141,9 +142,9 @@ export async function getCompany(
         date_of_establishment: company.date_of_establishment,
       },
     };
-  } catch (error: any) {
-    console.error('[company] getCompany failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch company' };
+  } catch (error) {
+    console.error('[company] getCompany failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch company') };
   }
 }
 
@@ -188,9 +189,9 @@ export async function createCompany(
         creation: company.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[company] createCompany failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create company' };
+  } catch (error) {
+    console.error('[company] createCompany failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create company') };
   }
 }
 
@@ -219,9 +220,9 @@ export async function updateCompany(
 
     revalidatePath('/dashboard/erp/setup/company');
     return { success: true };
-  } catch (error: any) {
-    console.error('[company] updateCompany failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update company' };
+  } catch (error) {
+    console.error('[company] updateCompany failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to update company') };
   }
 }
 
@@ -239,8 +240,8 @@ export async function deleteCompany(
     await prisma.company.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/setup/company');
     return { success: true };
-  } catch (error: any) {
-    console.error('[company] deleteCompany failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete company' };
+  } catch (error) {
+    console.error('[company] deleteCompany failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to delete company') };
   }
 }

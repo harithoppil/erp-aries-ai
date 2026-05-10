@@ -8,7 +8,7 @@
  * Prisma updates within the transaction.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - All functions receive a Prisma transaction client (`tx`) as the first
  *   parameter — they NEVER start their own transaction.

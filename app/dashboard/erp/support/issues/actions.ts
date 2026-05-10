@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -100,9 +101,9 @@ export async function listIssues(
         creation: i.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[issues] listIssues failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch issues' };
+  } catch (error) {
+    console.error('[issues] listIssues failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch issues') };
   }
 }
 
@@ -149,9 +150,9 @@ export async function getIssue(
         agreement_status: issue.agreement_status,
       },
     };
-  } catch (error: any) {
-    console.error('[issues] getIssue failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch issue' };
+  } catch (error) {
+    console.error('[issues] getIssue failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch issue') };
   }
 }
 
@@ -202,9 +203,9 @@ export async function createIssue(
         creation: issue.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[issues] createIssue failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create issue' };
+  } catch (error) {
+    console.error('[issues] createIssue failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create issue') };
   }
 }
 
@@ -230,7 +231,7 @@ export async function updateIssueStatus(
     });
     revalidatePath('/dashboard/erp/support/issues');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to update issue status' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to update issue status') };
   }
 }

@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -95,9 +96,9 @@ export async function listBudgets(
         creation: b.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[budgets] listBudgets failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch budgets' };
+  } catch (error) {
+    console.error('[budgets] listBudgets failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch budgets') };
   }
 }
 
@@ -137,9 +138,9 @@ export async function getBudget(
         budget_end_date: b.budget_end_date,
       },
     };
-  } catch (error: any) {
-    console.error('[budgets] getBudget failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch budget' };
+  } catch (error) {
+    console.error('[budgets] getBudget failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch budget') };
   }
 }
 
@@ -190,9 +191,9 @@ export async function createBudget(
         creation: b.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[budgets] createBudget failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create budget' };
+  } catch (error) {
+    console.error('[budgets] createBudget failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create budget') };
   }
 }
 
@@ -228,8 +229,8 @@ export async function deleteBudget(
     await prisma.budget.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/accounts/budgets');
     return { success: true };
-  } catch (error: any) {
-    console.error('[budgets] deleteBudget failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete budget' };
+  } catch (error) {
+    console.error('[budgets] deleteBudget failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to delete budget') };
   }
 }

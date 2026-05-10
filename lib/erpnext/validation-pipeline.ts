@@ -11,7 +11,7 @@
  * required fields are never hardcoded — they come from the Prisma schema.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - Uses DMMF for field discovery, never hardcoded field lists.
  * - Unknown fields → null, never invented fallback values.

@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from '@/lib/utils';
 import { useState, useCallback } from "react";
 import { useIsMobile } from "@/hooks/use-responsive";
 import { CheckCircle, FileText, Brain, Shield, Zap, Workflow, Play, Loader2, Plus, ChevronDown, ChevronUp, Clock, Layers, AlertCircle } from "lucide-react";
@@ -163,8 +164,8 @@ function WorkflowCard({
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load executions");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to load executions"));
     } finally {
       setLoadingExec(false);
     }
@@ -298,8 +299,8 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
       } else {
         setError(result.error);
       }
-    } catch (error: any) {
-      setError(error.message || "Failed to refresh workflows");
+    } catch (error) {
+      setError(errorMessage(error, "Failed to refresh workflows"));
     }
   }, []);
 
@@ -321,8 +322,8 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create workflow");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to create workflow"));
     } finally {
       setCreating(false);
     }
@@ -338,8 +339,8 @@ export default function WorkflowsClient({ initialWorkflows, initialError }: Work
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to execute workflow");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to execute workflow"));
     } finally {
       setExecuting(null);
     }

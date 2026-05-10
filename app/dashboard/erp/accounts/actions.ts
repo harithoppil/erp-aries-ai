@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -272,9 +273,9 @@ export async function listAccounts(): Promise<AccountListResponse> {
       created_at: a.creation || new Date(),
     }));
     return { success: true, accounts: clientSafe };
-  } catch (error: any) {
-    console.error('Error fetching accounts:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch accounts' };
+  } catch (error) {
+    console.error('Error fetching accounts:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch accounts') };
   }
 }
 
@@ -327,9 +328,9 @@ export async function getAccountTree(): Promise<
       });
     }
     return { success: true, accounts: result };
-  } catch (error: any) {
-    console.error('[accounts] getAccountTree failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch account tree' };
+  } catch (error) {
+    console.error('[accounts] getAccountTree failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch account tree') };
   }
 }
 
@@ -360,9 +361,9 @@ export async function listInvoices(): Promise<InvoiceListResponse> {
       created_at: inv.creation || new Date(),
     }));
     return { success: true, invoices: clientSafe };
-  } catch (error: any) {
-    console.error('Error fetching invoices:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch invoices' };
+  } catch (error) {
+    console.error('Error fetching invoices:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch invoices') };
   }
 }
 
@@ -437,9 +438,9 @@ export async function createInvoice(data: {
         created_at: invoice.creation || new Date(),
       },
     };
-  } catch (error: any) {
-    console.error('Error creating invoice:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create invoice' };
+  } catch (error) {
+    console.error('Error creating invoice:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create invoice') };
   }
 }
 
@@ -459,9 +460,9 @@ export async function updateInvoiceStatus(id: string, status: string): Promise<{
     await prisma.salesInvoice.update({ where: { name: id }, data: updateData });
     revalidatePath('/erp/accounts');
     return { success: true };
-  } catch (error: any) {
-    console.error('[accounts] updateInvoiceStatus failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update invoice status' };
+  } catch (error) {
+    console.error('[accounts] updateInvoiceStatus failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to update invoice status') };
   }
 }
 
@@ -480,9 +481,9 @@ export async function updateInvoice(
     await prisma.salesInvoice.update({ where: { name: id }, data: updateData });
     revalidatePath('/erp/accounts');
     return { success: true };
-  } catch (error: any) {
-    console.error('[accounts] updateInvoice failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to update invoice' };
+  } catch (error) {
+    console.error('[accounts] updateInvoice failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to update invoice') };
   }
 }
 
@@ -492,9 +493,9 @@ export async function deleteInvoice(id: string): Promise<{ success: true } | { s
     await prisma.salesInvoice.update({ where: { name: id }, data: { status: 'Cancelled' } });
     revalidatePath('/erp/accounts');
     return { success: true };
-  } catch (error: any) {
-    console.error('[accounts] deleteInvoice failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete invoice' };
+  } catch (error) {
+    console.error('[accounts] deleteInvoice failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to delete invoice') };
   }
 }
 
@@ -634,9 +635,9 @@ export async function getOutstandingBalance(customer: string): Promise<Outstandi
     });
     const outstandingBalance = invoices.reduce((sum, inv) => sum + Number(inv.outstanding_amount || 0), 0);
     return { success: true, customer, outstanding_balance: parseFloat(outstandingBalance.toFixed(2)) };
-  } catch (error: any) {
-    console.error('[accounts] getOutstandingBalance failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch outstanding balance' };
+  } catch (error) {
+    console.error('[accounts] getOutstandingBalance failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch outstanding balance') };
   }
 }
 
@@ -695,9 +696,9 @@ export async function createGLEntry(data: GLEntryData): Promise<
         created_at: entry.creation || new Date(),
       },
     };
-  } catch (error: any) {
-    console.error('[accounts] createGLEntry failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create GL Entry' };
+  } catch (error) {
+    console.error('[accounts] createGLEntry failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create GL Entry') };
   }
 }
 
@@ -807,8 +808,8 @@ export async function getAccountsReceivableAgeing(): Promise<AccountsAgeingData>
     }
 
     return { buckets, totalOutstanding };
-  } catch (error: any) {
-    console.error('[accounts] getAccountsReceivableAgeing failed:', error?.message);
+  } catch (error) {
+    console.error('[accounts] getAccountsReceivableAgeing failed:', errorMessage(error));
     return {
       buckets: [
         { label: '<0', count: 0, total: 0 },
@@ -883,8 +884,8 @@ export async function getAccountsPayableAgeing(): Promise<AccountsAgeingData> {
     }
 
     return { buckets, totalOutstanding };
-  } catch (error: any) {
-    console.error('[accounts] getAccountsPayableAgeing failed:', error?.message);
+  } catch (error) {
+    console.error('[accounts] getAccountsPayableAgeing failed:', errorMessage(error));
     return {
       buckets: [
         { label: '<0', count: 0, total: 0 },

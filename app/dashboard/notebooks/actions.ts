@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
 
 export type NotebookRead = {
@@ -30,8 +31,8 @@ export async function listNotebooks(): Promise<
         updated_at: n.updated_at.toISOString(),
       })),
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to load notebooks' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to load notebooks') };
   }
 }
 
@@ -52,8 +53,8 @@ export async function getNotebook(id: string): Promise<
         updated_at: note.updated_at.toISOString(),
       },
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to load notebook' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to load notebook') };
   }
 }
 
@@ -79,8 +80,8 @@ export async function createNotebook(data: { title: string; content?: string }):
         updated_at: note.updated_at.toISOString(),
       },
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to create notebook' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to create notebook') };
   }
 }
 
@@ -108,8 +109,8 @@ export async function updateNotebook(
         updated_at: note.updated_at.toISOString(),
       },
     };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to update notebook' };
+  } catch (error) {
+    return { success: false, error: errorMessage(error, 'Failed to update notebook') };
   }
 }
 

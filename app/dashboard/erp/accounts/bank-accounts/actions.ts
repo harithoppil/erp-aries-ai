@@ -1,5 +1,6 @@
 'use server';
 
+import { errorMessage } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from "@/lib/erpnext/rbac";
@@ -87,9 +88,9 @@ export async function listBankAccounts(
         creation: ba.creation,
       })),
     };
-  } catch (error: any) {
-    console.error('[bank-accounts] listBankAccounts failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch bank accounts' };
+  } catch (error) {
+    console.error('[bank-accounts] listBankAccounts failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch bank accounts') };
   }
 }
 
@@ -126,9 +127,9 @@ export async function getBankAccount(
         integration_id: ba.integration_id,
       },
     };
-  } catch (error: any) {
-    console.error('[bank-accounts] getBankAccount failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to fetch bank account' };
+  } catch (error) {
+    console.error('[bank-accounts] getBankAccount failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to fetch bank account') };
   }
 }
 
@@ -174,9 +175,9 @@ export async function createBankAccount(
         creation: ba.creation,
       },
     };
-  } catch (error: any) {
-    console.error('[bank-accounts] createBankAccount failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to create bank account' };
+  } catch (error) {
+    console.error('[bank-accounts] createBankAccount failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to create bank account') };
   }
 }
 
@@ -193,8 +194,8 @@ export async function deleteBankAccount(
     await prisma.bankAccount.delete({ where: { name: id } });
     revalidatePath('/dashboard/erp/accounts/bank-accounts');
     return { success: true };
-  } catch (error: any) {
-    console.error('[bank-accounts] deleteBankAccount failed:', error?.message);
-    return { success: false, error: error?.message || 'Failed to delete bank account' };
+  } catch (error) {
+    console.error('[bank-accounts] deleteBankAccount failed:', errorMessage(error));
+    return { success: false, error: errorMessage(error, 'Failed to delete bank account') };
   }
 }

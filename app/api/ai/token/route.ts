@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Ephemeral OAuth Token API Route.
  *
@@ -56,10 +57,10 @@ export async function GET() {
       expires_at: new Date(cachedToken.expiresAt).toISOString(),
       project_id: projectId,
     });
-  } catch (error: any) {
-    console.error("[api/ai/token] Failed:", error?.message);
+  } catch (error) {
+    console.error("[api/ai/token] Failed:", errorMessage(error));
     return NextResponse.json(
-      { error: error?.message || "Failed to mint token" },
+      { error: errorMessage(error, "Failed to mint token") },
       { status: 500 }
     );
   }

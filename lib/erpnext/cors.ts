@@ -2,7 +2,7 @@
  * CORS Configuration — Helper for adding CORS headers to all API route responses.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - All functions have explicit return types.
  * - Uses env vars for configuration, never hardcoded.
  */

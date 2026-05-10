@@ -4,7 +4,7 @@
  * Logs to console in structured JSON format and tracks request duration.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - All functions have explicit return types.
  * - Uses `unknown` for dynamic data, never `any`.
  */

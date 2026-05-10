@@ -6,7 +6,7 @@
  * using Prisma transactions to prevent concurrent name collisions.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - Use `prisma.$transaction()` for counter increments to guarantee atomicity.
  */
@@ -215,7 +215,7 @@ export async function incrementSeries(seriesId: string, newValue: number): Promi
       config.current = newValue;
       seriesStore.set(seriesId, config);
     });
-  } catch (e: any) {
+  } catch (e) {
     // Transaction failed — still update in-memory so the name is consumed
     config.current = newValue;
     seriesStore.set(seriesId, config);
@@ -273,7 +273,7 @@ export async function generateDocName(doctype: string, company?: string): Promis
       seriesStore.set(key, config);
       return incremented;
     });
-  } catch (e: any) {
+  } catch (e) {
     // Transaction failed — fall back to non-transactional increment
     nextCounter = config.current + 1;
     config.current = nextCounter;

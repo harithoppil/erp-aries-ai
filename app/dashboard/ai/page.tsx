@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from '@/lib/utils';
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
@@ -63,9 +64,9 @@ export default function AIChatPage() {
         } else {
           toast.error(result.error);
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error("Failed to load personas:", error);
-        toast.error(error.message || "Failed to load AI personas");
+        toast.error(errorMessage(error, "Failed to load AI personas"));
       } finally {
         setLoading(false);
       }

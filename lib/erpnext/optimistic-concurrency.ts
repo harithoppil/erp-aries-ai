@@ -18,7 +18,7 @@
  *   this module can be extended to use that instead for higher precision.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - Uses `getDelegateByAccessor` from prisma-delegate for dynamic model access.
  */

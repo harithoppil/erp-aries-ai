@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from '@/lib/utils';
 import { useState, useEffect, useCallback } from "react";
 import { getRagStats, ragSearch, indexWikiAll, indexWikiPage, type RAGStatsResponse } from "@/app/actions/rag";
 import type { RAGSearchResult, RAGStats } from "@/types/api";
@@ -56,8 +57,8 @@ export default function RAGSettingsPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Indexing failed");
+    } catch (error) {
+      toast.error(errorMessage(error, "Indexing failed"));
     } finally {
       setIndexingAll(false);
     }
@@ -76,8 +77,8 @@ export default function RAGSettingsPage() {
       } else {
         toast.error(result.error);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Indexing failed");
+    } catch (error) {
+      toast.error(errorMessage(error, "Indexing failed"));
     } finally {
       setIndexingPage(false);
     }
@@ -90,8 +91,8 @@ export default function RAGSettingsPage() {
       const result = await ragSearch(searchQuery, searchMethod);
       if (result.success) setSearchResults(result.results);
       else toast.error(result.error);
-    } catch (error: any) {
-      toast.error(error.message || "Search failed");
+    } catch (error) {
+      toast.error(errorMessage(error, "Search failed"));
     } finally {
       setSearching(false);
     }

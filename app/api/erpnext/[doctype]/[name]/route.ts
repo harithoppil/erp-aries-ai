@@ -1,3 +1,4 @@
+import { errorMessage, errorCode } from '@/lib/utils';
 /**
  * ERPNext CRUD — Read, Update, Delete
  *
@@ -130,10 +131,10 @@ export async function GET(
     );
     logRequestEnd(logCtx, 200);
     return withCors(resp);
-  } catch (e: any) {
-    console.error("[erpnext/read] Error:", e?.message);
+  } catch (e) {
+    console.error("[erpnext/read] Error:", errorMessage(e));
     const resp = NextResponse.json(
-      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
+      error(errorMessage(e, "Internal server error"), "INTERNAL_ERROR"),
       { status: 500 },
     );
     logRequestEnd(logCtx, 500);
@@ -306,10 +307,10 @@ export async function PUT(
     const resp = NextResponse.json(success(result));
     logRequestEnd(logCtx, 200);
     return withCors(resp);
-  } catch (e: any) {
-    console.error("[erpnext/update] Error:", e?.message);
+  } catch (e) {
+    console.error("[erpnext/update] Error:", errorMessage(e));
 
-    if (e?.code === "P2025") {
+    if (errorCode(e) === "P2025") {
       const resp = NextResponse.json(
         error("Record not found", "NOT_FOUND"),
         { status: 404 },
@@ -319,7 +320,7 @@ export async function PUT(
     }
 
     const resp = NextResponse.json(
-      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
+      error(errorMessage(e, "Internal server error"), "INTERNAL_ERROR"),
       { status: 500 },
     );
     logRequestEnd(logCtx, 500);
@@ -432,11 +433,11 @@ export async function DELETE(
     );
     logRequestEnd(logCtx, 200);
     return withCors(resp);
-  } catch (e: any) {
-    console.error("[erpnext/delete] Error:", e?.message);
+  } catch (e) {
+    console.error("[erpnext/delete] Error:", errorMessage(e));
 
     // Foreign-key constraint violation
-    if (e?.code === "P2003") {
+    if (errorCode(e) === "P2003") {
       const resp = NextResponse.json(
         error("Cannot delete: other documents reference this record", "FK_CONSTRAINT"),
         { status: 409 },
@@ -445,7 +446,7 @@ export async function DELETE(
       return withCors(resp);
     }
 
-    if (e?.code === "P2025") {
+    if (errorCode(e) === "P2025") {
       const resp = NextResponse.json(
         error("Record not found", "NOT_FOUND"),
         { status: 404 },
@@ -455,7 +456,7 @@ export async function DELETE(
     }
 
     const resp = NextResponse.json(
-      error(e?.message || "Internal server error", "INTERNAL_ERROR"),
+      error(errorMessage(e, "Internal server error"), "INTERNAL_ERROR"),
       { status: 500 },
     );
     logRequestEnd(logCtx, 500);

@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * UI Action Planning API Route.
  *
@@ -96,8 +97,8 @@ Decide which UI actions (if any) to execute immediately. Only call functions dir
     }));
 
     return NextResponse.json({ function_calls: functionCalls });
-  } catch (error: any) {
-    console.error("[api/ai/ui-plan] Failed:", error?.message);
+  } catch (error) {
+    console.error("[api/ai/ui-plan] Failed:", errorMessage(error));
     return NextResponse.json({ function_calls: [] });
   }
 }

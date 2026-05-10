@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/utils';
 /**
  * Gemini Embedding helper for RAG — calls Vertex AI directly from Node.js.
  *
@@ -102,8 +103,8 @@ export async function embedDocuments(
       } else {
         embeddings.push(values);
       }
-    } catch (e: any) {
-      console.error(`[rag-embed] Embedding failed for doc ${i}:`, e?.message);
+    } catch (e) {
+      console.error(`[rag-embed] Embedding failed for doc ${i}:`, errorMessage(e));
       embeddings.push(new Array(EMBEDDING_DIM).fill(0));
     }
   }
@@ -151,8 +152,8 @@ export async function embedQuery(
       return norm > 0 ? values.map(v => v / norm) : values;
     }
     return values;
-  } catch (e: any) {
-    console.error('[rag-embed] Query embedding failed:', e?.message);
+  } catch (e) {
+    console.error('[rag-embed] Query embedding failed:', errorMessage(e));
     return new Array(EMBEDDING_DIM).fill(0);
   }
 }
@@ -184,8 +185,8 @@ export async function embedImage(
     });
 
     return result.embeddings?.[0]?.values || new Array(EMBEDDING_DIM).fill(0);
-  } catch (e: any) {
-    console.error('[rag-embed] Image embedding failed:', e?.message);
+  } catch (e) {
+    console.error('[rag-embed] Image embedding failed:', errorMessage(e));
     return new Array(EMBEDDING_DIM).fill(0);
   }
 }

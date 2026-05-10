@@ -3,7 +3,7 @@
  * ERPNext API routes.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - All functions have explicit return types.
  * - `unknown` for dynamic data, never `any`.
  */

@@ -5,7 +5,7 @@
  * submit, cancel, amend, print, email) across core DocTypes based on user roles.
  *
  * RULES:
- * - No `any` types except `catch (e: any)`.
+ * - No `any` types except `catch (e)`.
  * - Every function has explicit params and return types.
  * - Use the shared `prisma` singleton for user/session lookups.
  */
