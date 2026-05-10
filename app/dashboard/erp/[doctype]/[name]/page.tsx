@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 // Pattern 3: Async server component fetches data, transforms to client-safe
 // props, then renders a client component. No 'use client' here.
 
-import { fetchDoctypeRecord } from './actions';
+import { fetchDoctypeRecord, fetchDoctypeSchema } from './actions';
 import GenericDetailClient from './GenericDetailClient';
 import { notFound } from 'next/navigation';
 
@@ -74,6 +74,28 @@ export default async function GenericDetailPage({
   params: Promise<{ doctype: string; name: string }>;
 }) {
   const { doctype, name } = await params;
+
+  // "new" route — render create form with schema fields
+  if (name === 'new') {
+    const schemaResult = await fetchDoctypeSchema(doctype);
+    const schemaFields = schemaResult.success ? schemaResult.data : [];
+
+    // Build empty record with defaults
+    const emptyRecord: Record<string, unknown> = {};
+    for (const field of schemaFields) {
+      emptyRecord[field.name] = field.default ?? '';
+    }
+
+    return (
+      <GenericDetailClient
+        doctype={doctype}
+        record={emptyRecord}
+        childTables={{}}
+        schemaFields={schemaFields}
+        isNew
+      />
+    );
+  }
 
   // Fetch the record via server action
   const result = await fetchDoctypeRecord(doctype, name);

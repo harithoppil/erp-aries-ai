@@ -14,6 +14,7 @@ import {
   Trash2,
   FileText,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import GenericListSkeleton from './GenericListSkeleton';
 import { fetchDoctypeList, deleteDoctypeRecord, type ListMeta } from './actions';
+import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
+import { usePageContext } from '@/hooks/usePageContext';
+import { useActionDispatcher, defineAction } from '@/store/useActionDispatcher';
+import { useAppStore } from '@/store/useAppStore';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -168,6 +173,13 @@ export default function GenericListClient({
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  // ── AI: Page context ────────────────────────────────────────────────────
+  const doctypeLabel = toDisplayLabel(doctype);
+  const uiActionActive = useAppStore((s) => s.uiActionActive);
+
+  const contextSummary = `${doctypeLabel} list: ${currentMeta.total} records total. Page ${page}. ${records.slice(0, 3).map((r) => r.name).join(', ')}`;
+  usePageContext(contextSummary);
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -244,6 +256,72 @@ export default function GenericListClient({
     [doctype],
   );
 
+  // ── AI: Action registration (after handleDelete) ────────────────────────
+  const { registerActions, unregisterActions } = useActionDispatcher();
+  useEffect(() => {
+    const actionPrefix = doctype.replace(/[-_]/g, '_');
+
+    registerActions(
+      [
+        defineAction({
+          name: `${actionPrefix}_search`,
+          description: `Filter the ${doctypeLabel} list by search term`,
+          parameters: {
+            type: 'object',
+            required: ['term'],
+            properties: {
+              term: { type: 'string', description: 'Search term to filter by' },
+            },
+          },
+        }),
+        defineAction({
+          name: `${actionPrefix}_create`,
+          description: `Navigate to create a new ${doctypeLabel} record`,
+          parameters: { type: 'object', properties: {} },
+        }),
+        defineAction({
+          name: `${actionPrefix}_navigate`,
+          description: `Navigate to a specific ${doctypeLabel} record's detail page`,
+          parameters: {
+            type: 'object',
+            required: ['record_name'],
+            properties: {
+              record_name: { type: 'string', description: 'Record name/ID to navigate to' },
+            },
+          },
+        }),
+        defineAction({
+          name: `${actionPrefix}_delete`,
+          description: `Delete a ${doctypeLabel} record by name`,
+          parameters: {
+            type: 'object',
+            required: ['record_name'],
+            properties: {
+              record_name: { type: 'string', description: 'Record name to delete' },
+            },
+          },
+        }),
+      ],
+      {
+        [`${actionPrefix}_search`]: (args: Record<string, unknown>) => {
+          setSearchTerm(String(args.term));
+          toast.info(`AI filtered ${doctypeLabel} by "${args.term}"`);
+        },
+        [`${actionPrefix}_create`]: () => {
+          router.push(`/dashboard/erp/${doctype}/new`);
+          toast.info(`AI opened new ${doctypeLabel} form`);
+        },
+        [`${actionPrefix}_navigate`]: (args: Record<string, unknown>) => {
+          router.push(`/dashboard/erp/${doctype}/${encodeURIComponent(String(args.record_name))}`);
+        },
+        [`${actionPrefix}_delete`]: (args: Record<string, unknown>) => {
+          handleDelete(String(args.record_name));
+        },
+      },
+    );
+    return () => unregisterActions();
+  }, [doctype, doctypeLabel, router, registerActions, unregisterActions, handleDelete]);
+
   const totalPages = Math.max(
     1,
     Math.ceil(currentMeta.total / currentMeta.pageSize),
@@ -264,11 +342,6 @@ export default function GenericListClient({
   }
 
   // ── RENDER: Error / Empty ───────────────────────────────────────────────
-
-  const doctypeLabel = doctype
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/_/g, ' ')
-    .trim();
 
   // ── RENDER ──────────────────────────────────────────────────────────────
 
@@ -294,6 +367,12 @@ export default function GenericListClient({
           </Breadcrumb>
 
           {/* Header */}
+          {uiActionActive && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 text-sm animate-pulse">
+              <Sparkles size={14} className="animate-spin" />
+              <span>AI is controlling the interface...</span>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-[#0f172a]">{doctypeLabel}</h2>

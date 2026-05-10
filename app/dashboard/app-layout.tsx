@@ -13,25 +13,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { MessageSquare, Menu } from "lucide-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { isDesktop, isMobile, isTablet, mounted } = useResponsive();
+  const { isDesktop, isMobile, isTablet } = useResponsive();
   const [collapsed, setCollapsed] = useState(false);
   const { chatOpen, toggleChat } = useAppStore();
-
-  // SSR-safe
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 animate-pulse rounded-lg bg-primary" />
-            <span className="text-sm font-medium text-muted-foreground">
-              Loading Aries...
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const sidebarWidth = isDesktop ? (collapsed ? 64 : 256) : 64;
   const chatWidth = chatOpen ? 320 : 0;

@@ -6,7 +6,7 @@
 // Pattern 2: Skeleton loading.
 // Pattern 4: Settings-style tabs at bottom.
 
-import { useState, useMemo, useCallback, type JSX } from 'react';
+import { useState, useMemo, useCallback, useEffect, type JSX } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { toast } from 'sonner';
@@ -60,6 +60,7 @@ import {
   Paperclip,
   Activity,
   Copy,
+  Sparkles,
 } from 'lucide-react';
 
 // Actions
@@ -68,7 +69,13 @@ import {
   deleteDoctypeRecord,
   submitDoctypeRecord,
   cancelDoctypeRecord,
+  createDoctypeRecord,
 } from './actions';
+import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
+import type { SchemaField } from './actions';
+import { usePageContext } from '@/hooks/usePageContext';
+import { useActionDispatcher, defineAction } from '@/store/useActionDispatcher';
+import { useAppStore } from '@/store/useAppStore';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -76,6 +83,8 @@ export interface GenericDetailClientProps {
   doctype: string;
   record: Record<string, unknown>;
   childTables: Record<string, Record<string, unknown>[]>;
+  isNew?: boolean;
+  schemaFields?: SchemaField[];
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -117,11 +126,22 @@ function isNumericLike(value: unknown): boolean {
 
 type FieldType = 'date' | 'boolean' | 'number' | 'text' | 'textarea' | 'string';
 
-function detectFieldType(key: string, value: unknown): FieldType {
+/** Map Prisma DMMF type strings to our FieldType */
+function prismaTypeToFieldType(prismaType: string): FieldType {
+  const t = prismaType.toLowerCase();
+  if (t === 'datetime' || t === 'date') return 'date';
+  if (t === 'boolean') return 'boolean';
+  if (['int', 'float', 'decimal', 'double', 'bigdecimal', 'bigint'].includes(t)) return 'number';
+  if (t === 'text' || t === 'json') return 'textarea';
+  return 'string';
+}
+
+function detectFieldType(key: string, value: unknown, prismaType?: string): FieldType {
+  // Prefer Prisma schema type when available (especially for /new forms where values are empty)
+  if (prismaType) return prismaTypeToFieldType(prismaType);
   if (isDateLike(value)) return 'date';
   if (isBooleanLike(value)) return 'boolean';
   if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)) && value !== '')) {
-    // If key contains common amount/qty/rate patterns, treat as number
     return 'number';
   }
   if (typeof value === 'string' && value.length > 100) return 'textarea';
@@ -165,6 +185,8 @@ export default function GenericDetailClient({
   doctype,
   record: initialRecord,
   childTables: initialChildTables,
+  isNew = false,
+  schemaFields = [],
 }: GenericDetailClientProps) {
   const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -172,8 +194,8 @@ export default function GenericDetailClient({
   // ── State ─────────────────────────────────────────────────────────────
   const [record, setRecord] = useState<Record<string, unknown>>(initialRecord);
   const [childTables, setChildTables] = useState<Record<string, Record<string, unknown>[]>>(initialChildTables);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState<Record<string, unknown>>({});
+  const [isEditing, setIsEditing] = useState(isNew);
+  const [editData, setEditData] = useState<Record<string, unknown>>(isNew ? { ...initialRecord } : {});
   const [editChildTables, setEditChildTables] = useState<Record<string, Record<string, unknown>[]>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -182,24 +204,47 @@ export default function GenericDetailClient({
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState('activity');
   const [commentText, setCommentText] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const docstatus = getDocStatus(record);
   const statusBadge = getStatusBadge(docstatus);
   const recordName = (record.name as string) || '';
-  const displayTitle = `${doctype} / ${recordName}`;
+  const doctypeLabel = toDisplayLabel(doctype);
+  const displayTitle = isNew ? `New ${doctypeLabel}` : `${doctypeLabel} / ${recordName}`;
 
   // ── Scalar fields ─────────────────────────────────────────────────────
+  // Build a Prisma type lookup from schemaFields so we get correct input types
+  const schemaTypeMap = useMemo(() => {
+    const map = new Map<string, { type: string; required: boolean }>();
+    for (const f of schemaFields) {
+      map.set(f.name, { type: f.type, required: f.required });
+    }
+    return map;
+  }, [schemaFields]);
+
   const scalarFields = useMemo(() => {
-    const fields: Array<{ key: string; value: unknown; type: FieldType }> = [];
+    const fields: Array<{ key: string; value: unknown; type: FieldType; required: boolean }> = [];
     for (const [key, value] of Object.entries(record)) {
       if (SYSTEM_FIELDS.has(key)) continue;
       if (Array.isArray(value)) continue;
       if (value !== null && value !== undefined && typeof value === 'object' && !(value instanceof Date)) continue;
-      const type = detectFieldType(key, value);
-      fields.push({ key, value, type });
+      const schemaInfo = schemaTypeMap.get(key);
+      const type = detectFieldType(key, value, schemaInfo?.type);
+      const required = schemaInfo?.required ?? false;
+      fields.push({ key, value, type, required });
     }
     return fields;
   }, [record]);
+
+  // ── AI: Page context ───────────────────────────────────────────────────
+  const uiActionActive = useAppStore((s) => s.uiActionActive);
+
+  const fieldSummary = scalarFields.slice(0, 8).map((f) => `${f.key}: ${String(f.value ?? '').slice(0, 50)}`).join(', ');
+  const childSummary = Object.entries(childTables).map(([k, v]) => `${k}: ${v.length} rows`).join(', ');
+  const contextSummary = isNew
+    ? `New ${doctypeLabel} form. Fields: ${schemaFields.map((f) => f.name).join(', ') || 'none'}`
+    : `${doctypeLabel} detail: ${recordName}. Status: ${['Draft', 'Submitted', 'Cancelled'][docstatus]}. Fields: ${fieldSummary}.${childSummary ? ` Child tables: ${childSummary}.` : ''}`;
+  usePageContext(contextSummary);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -210,6 +255,7 @@ export default function GenericDetailClient({
     }
     setEditData(editableData);
     setEditChildTables(JSON.parse(JSON.stringify(childTables)));
+    setFieldErrors({});
     setIsEditing(true);
   }, [scalarFields, childTables]);
 
@@ -217,10 +263,17 @@ export default function GenericDetailClient({
     setIsEditing(false);
     setEditData({});
     setEditChildTables({});
+    setFieldErrors({});
   }, []);
 
   const handleFieldChange = useCallback((key: string, value: unknown) => {
     setEditData((prev) => ({ ...prev, [key]: value }));
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }, []);
 
   const handleChildCellChange = useCallback(
@@ -272,15 +325,50 @@ export default function GenericDetailClient({
     [],
   );
 
+  const validateForm = useCallback((): boolean => {
+    const errors: Record<string, string> = {};
+    const data = isNew ? editData : editData;
+
+    for (const { key, required, type } of scalarFields) {
+      if (!required) continue;
+      const val = data[key];
+      if (val === undefined || val === null || val === '') {
+        errors[key] = `${formatFieldName(key)} is required`;
+      }
+      // Date validation: ensure it's a valid date string
+      if (type === 'date' && val && typeof val === 'string') {
+        const parsed = new Date(val);
+        if (isNaN(parsed.getTime())) {
+          errors[key] = `${formatFieldName(key)} must be a valid date`;
+        }
+      }
+      // Number validation
+      if (type === 'number' && val !== undefined && val !== null && val !== '') {
+        if (isNaN(Number(val))) {
+          errors[key] = `${formatFieldName(key)} must be a valid number`;
+        }
+      }
+    }
+
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error('Please fix the errors below');
+      return false;
+    }
+    return true;
+  }, [scalarFields, editData, isNew]);
+
   const handleSave = useCallback(async () => {
+    if (!validateForm()) return;
+
     setIsSaving(true);
     try {
-      // Build the payload — only changed scalar fields + child tables
       const payload: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(editData)) {
-        payload[key] = value;
+        if (value !== '' && value !== null && value !== undefined) {
+          payload[key] = value;
+        }
       }
-      // Include child tables in the payload
       for (const [tableKey, rows] of Object.entries(editChildTables)) {
         payload[tableKey] = rows.map((row, i) => ({
           ...row,
@@ -288,14 +376,28 @@ export default function GenericDetailClient({
         }));
       }
 
-      const result = await updateDoctypeRecord(doctype, recordName, payload);
-      if (result.success) {
-        toast.success(`${doctype} updated successfully`);
-        // Re-fetch by reloading
-        router.refresh();
-        setIsEditing(false);
+      if (isNew) {
+        const result = await createDoctypeRecord(doctype, payload);
+        if (result.success) {
+          toast.success(`${doctypeLabel} created successfully`);
+          const createdName = (result.data as Record<string, unknown>)?.name;
+          if (createdName) {
+            router.push(`/dashboard/erp/${doctype}/${encodeURIComponent(String(createdName))}`);
+          } else {
+            router.push(`/dashboard/erp/${doctype}`);
+          }
+        } else {
+          toast.error(result.error || 'Failed to create record');
+        }
       } else {
-        toast.error(!result.success ? result.error : 'Failed to update record');
+        const result = await updateDoctypeRecord(doctype, recordName, payload);
+        if (result.success) {
+          toast.success(`${doctypeLabel} updated successfully`);
+          router.refresh();
+          setIsEditing(false);
+        } else {
+          toast.error(result.error || 'Failed to update record');
+        }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -303,7 +405,7 @@ export default function GenericDetailClient({
     } finally {
       setIsSaving(false);
     }
-  }, [editData, editChildTables, doctype, recordName, router]);
+  }, [validateForm, editData, editChildTables, doctype, doctypeLabel, recordName, isNew, router]);
 
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
@@ -367,6 +469,82 @@ export default function GenericDetailClient({
     toast.success('Name copied to clipboard');
   }, [recordName]);
 
+  // ── AI: Action registration (must be after all handlers) ───────────────
+  const { registerActions, unregisterActions } = useActionDispatcher();
+  useEffect(() => {
+    const actionPrefix = doctype.replace(/[-_]/g, '_');
+    const fieldProps: Record<string, { type: string; description: string }> = {};
+    const fields = isNew ? schemaFields : scalarFields;
+    for (const f of fields) {
+      const name = 'name' in f ? (f as { name: string }).name : (f as { key: string }).key;
+      if (name && name !== 'name') {
+        fieldProps[name] = { type: 'string', description: `${name} field` };
+      }
+    }
+
+    const actions = [
+      defineAction({
+        name: `${actionPrefix}_set_field`,
+        description: `Set field values on the ${doctypeLabel} ${isNew ? 'form' : 'record'}. Opens edit mode if not already editing.`,
+        parameters: { type: 'object', properties: fieldProps },
+      }),
+      defineAction({
+        name: `${actionPrefix}_save`,
+        description: `Save the ${doctypeLabel} ${isNew ? 'record' : 'changes'}`,
+        parameters: { type: 'object', properties: {} },
+      }),
+    ];
+
+    if (!isNew) {
+      actions.push(
+        defineAction({
+          name: `${actionPrefix}_submit`,
+          description: `Submit the ${doctypeLabel} record (changes status from Draft to Submitted)`,
+          parameters: { type: 'object', properties: {} },
+        }),
+        defineAction({
+          name: `${actionPrefix}_cancel`,
+          description: `Cancel the ${doctypeLabel} record (changes status from Submitted to Cancelled)`,
+          parameters: { type: 'object', properties: {} },
+        }),
+        defineAction({
+          name: `${actionPrefix}_delete`,
+          description: `Delete the ${doctypeLabel} record`,
+          parameters: { type: 'object', properties: {} },
+        }),
+      );
+    }
+
+    const handlerMap: Record<string, (args: Record<string, unknown>) => void> = {
+      [`${actionPrefix}_set_field`]: (args) => {
+        if (!isEditing) {
+          setIsEditing(true);
+          const editableData: Record<string, unknown> = {};
+          for (const { key, value } of scalarFields) {
+            editableData[key] = value instanceof Date ? value.toISOString().slice(0, 10) : value;
+          }
+          setEditData(editableData);
+          setEditChildTables(JSON.parse(JSON.stringify(childTables)));
+        }
+        setEditData((prev) => ({ ...prev, ...args }));
+        const filledFields = Object.keys(args);
+        if (filledFields.length > 0) {
+          toast.info(`AI filled: ${filledFields.join(', ')}`);
+        }
+      },
+      [`${actionPrefix}_save`]: () => handleSave(),
+    };
+
+    if (!isNew) {
+      handlerMap[`${actionPrefix}_submit`] = () => handleSubmit();
+      handlerMap[`${actionPrefix}_cancel`] = () => handleCancel();
+      handlerMap[`${actionPrefix}_delete`] = () => setDeleteDialogOpen(true);
+    }
+
+    registerActions(actions, handlerMap);
+    return () => unregisterActions();
+  }, [doctype, doctypeLabel, isNew, isEditing, scalarFields, childTables, schemaFields, recordName, registerActions, unregisterActions, handleSave, handleSubmit, handleCancel]);
+
   // ── Render Field ──────────────────────────────────────────────────────
 
   const renderField = (
@@ -376,11 +554,15 @@ export default function GenericDetailClient({
     editable: boolean,
     onChange?: (val: unknown) => void,
   ): JSX.Element => {
+    const error = fieldErrors[key];
+
     if (editable && onChange) {
+      const errorClass = error ? 'border-red-500 focus-visible:ring-red-500/50' : '';
+
       switch (type) {
         case 'boolean':
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 h-8">
               <Switch
                 checked={Boolean(value)}
                 onCheckedChange={(checked) => onChange(checked)}
@@ -392,55 +574,74 @@ export default function GenericDetailClient({
           );
         case 'date':
           return (
-            <Input
-              type="date"
-              value={typeof value === 'string' ? value.slice(0, 10) : ''}
-              onChange={(e) => onChange(e.target.value)}
-              className="h-10 rounded-xl border-gray-200"
-            />
+            <>
+              <Input
+                id={key}
+                type="date"
+                value={typeof value === 'string' ? value.slice(0, 10) : ''}
+                onChange={(e) => onChange(e.target.value)}
+                className={`w-full ${errorClass}`}
+              />
+              {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+            </>
           );
         case 'number':
           return (
-            <Input
-              type="number"
-              value={value === null || value === undefined ? '' : String(value)}
-              onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-              className="h-10 rounded-xl border-gray-200"
-            />
+            <>
+              <Input
+                id={key}
+                type="number"
+                placeholder={`Enter ${formatFieldName(key).toLowerCase()}`}
+                value={value === null || value === undefined ? '' : String(value)}
+                onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+                className={`w-full ${errorClass}`}
+              />
+              {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+            </>
           );
         case 'textarea':
           return (
-            <Textarea
-              value={typeof value === 'string' ? value : ''}
-              onChange={(e) => onChange(e.target.value)}
-              rows={3}
-              className="rounded-xl border-gray-200"
-            />
+            <>
+              <Textarea
+                id={key}
+                placeholder={`Enter ${formatFieldName(key).toLowerCase()}`}
+                value={typeof value === 'string' ? value : ''}
+                onChange={(e) => onChange(e.target.value)}
+                rows={3}
+                className={`w-full ${errorClass}`}
+              />
+              {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+            </>
           );
         default:
           return (
-            <Input
-              type="text"
-              value={typeof value === 'string' ? value : String(value ?? '')}
-              onChange={(e) => onChange(e.target.value)}
-              className="h-10 rounded-xl border-gray-200"
-            />
+            <>
+              <Input
+                id={key}
+                type="text"
+                placeholder={`Enter ${formatFieldName(key).toLowerCase()}`}
+                value={typeof value === 'string' ? value : String(value ?? '')}
+                onChange={(e) => onChange(e.target.value)}
+                className={`w-full ${errorClass}`}
+              />
+              {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+            </>
           );
       }
     }
 
     // Read-only display
     return (
-      <div className="min-h-[40px] flex items-center">
-        <span className="text-sm">
-          {type === 'boolean' ? (
-            <Badge variant={value ? 'default' : 'outline'} className="text-xs">
-              {value ? 'Yes' : 'No'}
-            </Badge>
-          ) : (
-            formatValue(value)
-          )}
-        </span>
+      <div className="min-h-[32px] flex items-center">
+        {type === 'boolean' ? (
+          <Badge variant={value ? 'default' : 'outline'} className="text-xs">
+            {value ? 'Yes' : 'No'}
+          </Badge>
+        ) : (
+          <span className="text-sm text-gray-700">
+            {formatValue(value)}
+          </span>
+        )}
       </div>
     );
   };
@@ -983,13 +1184,9 @@ export default function GenericDetailClient({
     </div>
   );
 
-  // ── Render: Fields Section ────────────────────────────────────────────
+  // ── Render: Fields Section (Revolyzz-style dynamic form) ─────────────
 
   const renderFields = (): JSX.Element => {
-    const gridCols = isMobile
-      ? 'grid-cols-1'
-      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
-
     return (
       <Card>
         <CardHeader>
@@ -998,20 +1195,23 @@ export default function GenericDetailClient({
             {scalarFields.length} field{scalarFields.length !== 1 ? 's' : ''}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className={`grid ${gridCols} gap-4`}>
-            {scalarFields.map(({ key, value, type }) => (
-              <div key={key} className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  {formatFieldName(key)}
-                </Label>
-                {renderField(
-                  key,
-                  isEditing ? editData[key] : value,
-                  type,
-                  isEditing,
-                  isEditing ? (val: unknown) => handleFieldChange(key, val) : undefined,
-                )}
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {scalarFields.map(({ key, value, type, required }) => (
+              <div key={key} className={type === 'textarea' ? 'md:col-span-2' : ''}>
+                <div className="space-y-1">
+                  <label htmlFor={key} className="block font-medium text-sm">
+                    {formatFieldName(key)}
+                    {required && <span className="text-red-500"> *</span>}
+                  </label>
+                  {renderField(
+                    key,
+                    isEditing ? editData[key] : value,
+                    type,
+                    isEditing,
+                    isEditing ? (val: unknown) => handleFieldChange(key, val) : undefined,
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -1065,7 +1265,15 @@ export default function GenericDetailClient({
   // ── Main Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="flex flex-col h-[calc(100vh-5.5rem)]">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <div className="space-y-6 p-4 sm:p-6">
+      {uiActionActive && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 text-sm animate-pulse">
+          <Sparkles size={14} className="animate-spin" />
+          <span>AI is controlling the interface...</span>
+        </div>
+      )}
       {/* Sticky top bar */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 -mt-4 sm:-mt-6 pt-4 sm:pt-6">
         {renderTopBar()}
@@ -1116,6 +1324,8 @@ export default function GenericDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </div>
+      </div>
     </div>
   );
 }

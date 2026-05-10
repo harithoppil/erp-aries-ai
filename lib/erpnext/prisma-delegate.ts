@@ -50,6 +50,16 @@ export interface PrismaDelegate {
 
 // ── Helper functions ──────────────────────────────────────────────────────────
 
+const ACRONYMS = new Set(['bom', 'uom', 'gst', 'pos', 'gl', 'hrm', 'crm', 'erp', 'hsm', 'sku', 'qty', 'amt']);
+
+/** Convert a kebab-case/camelCase/PascalCase doctype to a human-readable label. */
+export function toDisplayLabel(doctype: string): string {
+  return doctype
+    .split(/[-_]/)
+    .map((part) => ACRONYMS.has(part.toLowerCase()) ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
 /** Convert any doctype string (PascalCase, kebab-case, snake_case) to the camelCase Prisma accessor. */
 export function toAccessor(doctype: string): string {
   // If it's already PascalCase or camelCase (no hyphens/underscores), use directly

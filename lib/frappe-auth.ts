@@ -114,7 +114,9 @@ export async function loginAction({
   password: string;
 }): Promise<ActionResult<SessionPayload>> {
   // ── Dev bypass: any email/password logs in as admin ───────────────────────
-  if (process.env.NODE_ENV !== "production") {
+  // Enabled when AUTH_DEV_BYPASS=true OR when NODE_ENV is not production
+  const devBypass = process.env.AUTH_DEV_BYPASS === "true" || process.env.NODE_ENV !== "production";
+  if (devBypass) {
     let user = await prisma.users.findUnique({ where: { email } });
 
     if (!user) {

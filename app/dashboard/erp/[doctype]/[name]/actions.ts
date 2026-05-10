@@ -1,7 +1,18 @@
 'use server';
 
 // ── Server Actions for Generic Detail Page ────────────────────────────────────
-// All CRUD operations for ANY ERPNext doctype via the REST API routes.
+// All CRUD operations go directly to Prisma — no internal HTTP fetch.
+
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/prisma/client';
+import {
+  PrismaDelegate,
+  DmmfField,
+  DmmfModel,
+  toAccessor,
+  getDelegate,
+  getDelegateByAccessor,
+} from '@/lib/erpnext/prisma-delegate';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -11,16 +22,58 @@ export type ActionResult<T = unknown> =
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function baseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+function getModel(doctype: string): { model: PrismaDelegate; accessor: string } | null {
+  const accessor = toAccessor(doctype);
+  const model = getDelegate(prisma, doctype);
+  if (!model) return null;
+  return { model, accessor };
 }
 
-function normalizeDoctype(doctype: string): string {
-  // Convert "Sales Invoice" or "sales-invoice" or "sales%20invoice" to the proper API slug
-  return doctype
-    .replace(/%20/g, '-')
-    .replace(/ /g, '-')
-    .replace(/_/g, '-');
+function findChildAccessors(doctype: string): string[] {
+  const results: string[] = [];
+  const dmmfModels = Prisma.dmmf.datamodel.models as unknown as DmmfModel[];
+
+  for (const m of dmmfModels) {
+    const hasParentType = m.fields.some((f: DmmfField) => f.name === 'parenttype');
+    const hasParent = m.fields.some((f: DmmfField) => f.name === 'parent');
+    if (hasParentType && hasParent) {
+      const defaultMatchesParent = m.fields.some(
+        (f: DmmfField) =>
+          f.name === 'parenttype' &&
+          f.default != null &&
+          (String(f.default) === doctype ||
+            (typeof f.default === 'object' && f.default !== null && String((f.default as { value: string }).value) === doctype)),
+      );
+      if (defaultMatchesParent || m.name.startsWith(doctype)) {
+        results.push(toAccessor(m.name));
+      }
+    }
+  }
+  return results;
+}
+
+function serializeDates(obj: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value instanceof Date) {
+      out[key] = value.toISOString();
+    } else if (value && typeof value === 'object' && 'toJSON' in value) {
+      out[key] = String(value);
+    } else if (Array.isArray(value)) {
+      out[key] = value.map((item) =>
+        item && typeof item === 'object' && !(item instanceof Date)
+          ? serializeDates(item as Record<string, unknown>)
+          : item instanceof Date
+            ? item.toISOString()
+            : item,
+      );
+    } else if (value && typeof value === 'object') {
+      out[key] = serializeDates(value as Record<string, unknown>);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
 }
 
 // ── Fetch Single Record ──────────────────────────────────────────────────────
@@ -30,26 +83,37 @@ export async function fetchDoctypeRecord(
   name: string,
 ): Promise<ActionResult<Record<string, unknown>>> {
   try {
-    const slug = normalizeDoctype(doctype);
-    const res = await fetch(`${baseUrl()}/api/erpnext/${slug}/${encodeURIComponent(name)}`, {
-      cache: 'no-store',
-    });
+    const resolved = getModel(doctype);
+    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
 
-    if (!res.ok) {
-      if (res.status === 404) {
-        return { success: false, error: 'NOT_FOUND' };
-      }
-      const body = await res.json().catch(() => ({}));
-      return { success: false, error: body?.error || `HTTP ${res.status}` };
-    }
+    const { model } = resolved;
+    const record = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
+    if (!record) return { success: false, error: 'NOT_FOUND' };
 
-    const json = await res.json();
-    if (json.success && json.data) {
-      return { success: true, data: json.data as Record<string, unknown> };
-    }
-    return { success: false, error: json?.error || 'Unexpected response format' };
+    // Fetch child tables
+    const childAccessors = findChildAccessors(doctype);
+    const children: Record<string, unknown[]> = {};
+
+    await Promise.all(
+      childAccessors.map(async (accessor) => {
+        const childModel = getDelegateByAccessor(prisma as unknown as Record<string, unknown>, accessor);
+        if (childModel) {
+          const rows = await childModel.findMany({
+            where: { parent: name },
+            orderBy: { idx: 'asc' },
+          });
+          for (const row of rows as Record<string, unknown>[]) {
+            const field = (row.parentfield as string) || 'items';
+            if (!children[field]) children[field] = [];
+            children[field].push(serializeDates(row));
+          }
+        }
+      }),
+    );
+
+    return { success: true, data: { ...serializeDates(record), ...children } };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Network error';
+    const message = err instanceof Error ? err.message : String(err);
     console.error('[fetchDoctypeRecord]', message);
     return { success: false, error: message };
   }
@@ -63,25 +127,68 @@ export async function updateDoctypeRecord(
   data: Record<string, unknown>,
 ): Promise<ActionResult<Record<string, unknown>>> {
   try {
-    const slug = normalizeDoctype(doctype);
-    const res = await fetch(`${baseUrl()}/api/erpnext/${slug}/${encodeURIComponent(name)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+    const resolved = getModel(doctype);
+    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
+    const { model, accessor } = resolved;
+
+    const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
+    if (!existing) return { success: false, error: 'NOT_FOUND' };
+    if (existing.docstatus === 1) return { success: false, error: 'Cannot update submitted record' };
+    if (existing.docstatus === 2) return { success: false, error: 'Cannot update cancelled record' };
+
+    // Separate child tables from parent fields
+    const childTables: Record<string, unknown[]> = {};
+    const parentFields: Record<string, unknown> = {};
+
+    for (const [key, val] of Object.entries(data)) {
+      if (Array.isArray(val)) {
+        childTables[key] = val;
+      } else if (key !== 'name' && key !== 'creation' && key !== 'owner' && key !== 'docstatus') {
+        parentFields[key] = val;
+      }
+    }
+
+    parentFields.modified = new Date();
+    parentFields.modified_by = 'Administrator';
+
+    const result = await prisma.$transaction(async (tx) => {
+      const txRecord = tx as unknown as Record<string, PrismaDelegate>;
+      await txRecord[accessor].update({ where: { name }, data: parentFields });
+
+      // Update child tables
+      const childAccessors = findChildAccessors(doctype);
+      for (const [field, rows] of Object.entries(childTables)) {
+        let childAccessor: string | null = null;
+        for (const ca of childAccessors) {
+          const childDelegate = txRecord[ca];
+          if (childDelegate) {
+            const sample = await childDelegate.findFirst({ where: { parent: name, parentfield: field } });
+            if (sample) { childAccessor = ca; break; }
+          }
+        }
+
+        if (childAccessor) {
+          const childModel = txRecord[childAccessor];
+          await childModel.deleteMany({ where: { parent: name, parentfield: field } });
+          if (rows.length > 0) {
+            const childRows = (rows as Record<string, unknown>[]).map((row, i) => ({
+              ...row,
+              parent: name,
+              parentfield: field,
+              parenttype: doctype,
+              idx: row.idx ?? i + 1,
+            }));
+            await childModel.createMany({ data: childRows });
+          }
+        }
+      }
+
+      return await txRecord[accessor].findUnique({ where: { name } });
     });
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      return { success: false, error: body?.error || `HTTP ${res.status}` };
-    }
-
-    const json = await res.json();
-    if (json.success) {
-      return { success: true, data: json.data as Record<string, unknown> };
-    }
-    return { success: false, error: json?.error || 'Update failed' };
+    return { success: true, data: serializeDates(result as Record<string, unknown>) };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Network error';
+    const message = err instanceof Error ? err.message : String(err);
     console.error('[updateDoctypeRecord]', message);
     return { success: false, error: message };
   }
@@ -94,29 +201,37 @@ export async function deleteDoctypeRecord(
   name: string,
 ): Promise<ActionResult<{ message: string; deleted_children: number }>> {
   try {
-    const slug = normalizeDoctype(doctype);
-    const res = await fetch(`${baseUrl()}/api/erpnext/${slug}/${encodeURIComponent(name)}`, {
-      method: 'DELETE',
+    const resolved = getModel(doctype);
+    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
+    const { model, accessor } = resolved;
+
+    const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
+    if (!existing) return { success: false, error: 'NOT_FOUND' };
+    if (existing.docstatus !== 0) {
+      return { success: false, error: existing.docstatus === 1 ? 'Cannot delete submitted record. Cancel it first.' : 'Cannot delete cancelled record' };
+    }
+
+    const childAccessors = findChildAccessors(doctype);
+    let childCount = 0;
+    for (const childAccessor of childAccessors) {
+      const childModel = getDelegateByAccessor(prisma as unknown as Record<string, unknown>, childAccessor);
+      if (childModel) {
+        childCount += await childModel.count({ where: { parent: name } });
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const txRecord = tx as unknown as Record<string, PrismaDelegate>;
+      for (const childAccessor of childAccessors) {
+        const childDelegate = txRecord[childAccessor];
+        if (childDelegate) await childDelegate.deleteMany({ where: { parent: name } });
+      }
+      await txRecord[accessor].delete({ where: { name } });
     });
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      return { success: false, error: body?.error || `HTTP ${res.status}` };
-    }
-
-    const json = await res.json();
-    if (json.success) {
-      return {
-        success: true,
-        data: {
-          message: json.data?.message || `${doctype} deleted`,
-          deleted_children: json.data?.deleted_children ?? 0,
-        },
-      };
-    }
-    return { success: false, error: json?.error || 'Delete failed' };
+    return { success: true, data: { message: `${doctype} "${name}" deleted`, deleted_children: childCount } };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Network error';
+    const message = err instanceof Error ? err.message : String(err);
     console.error('[deleteDoctypeRecord]', message);
     return { success: false, error: message };
   }
@@ -129,24 +244,22 @@ export async function submitDoctypeRecord(
   name: string,
 ): Promise<ActionResult<Record<string, unknown>>> {
   try {
-    const slug = normalizeDoctype(doctype);
-    const res = await fetch(
-      `${baseUrl()}/api/erpnext/${slug}/${encodeURIComponent(name)}/submit`,
-      { method: 'POST' },
-    );
+    const resolved = getModel(doctype);
+    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
+    const { model, accessor } = resolved;
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      return { success: false, error: body?.error || `HTTP ${res.status}` };
-    }
+    const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
+    if (!existing) return { success: false, error: 'NOT_FOUND' };
+    if (existing.docstatus !== 0) return { success: false, error: 'Only Draft records can be submitted' };
 
-    const json = await res.json();
-    if (json.success) {
-      return { success: true, data: json.data as Record<string, unknown> };
-    }
-    return { success: false, error: json?.error || 'Submit failed' };
+    const result = await (prisma as unknown as Record<string, PrismaDelegate>)[accessor].update({
+      where: { name },
+      data: { docstatus: 1, modified: new Date(), modified_by: 'Administrator' },
+    });
+
+    return { success: true, data: serializeDates(result as Record<string, unknown>) };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Network error';
+    const message = err instanceof Error ? err.message : String(err);
     console.error('[submitDoctypeRecord]', message);
     return { success: false, error: message };
   }
@@ -159,25 +272,91 @@ export async function cancelDoctypeRecord(
   name: string,
 ): Promise<ActionResult<Record<string, unknown>>> {
   try {
-    const slug = normalizeDoctype(doctype);
-    const res = await fetch(
-      `${baseUrl()}/api/erpnext/${slug}/${encodeURIComponent(name)}/cancel`,
-      { method: 'POST' },
-    );
+    const resolved = getModel(doctype);
+    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
+    const { model, accessor } = resolved;
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      return { success: false, error: body?.error || `HTTP ${res.status}` };
-    }
+    const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
+    if (!existing) return { success: false, error: 'NOT_FOUND' };
+    if (existing.docstatus !== 1) return { success: false, error: 'Only Submitted records can be cancelled' };
 
-    const json = await res.json();
-    if (json.success) {
-      return { success: true, data: json.data as Record<string, unknown> };
-    }
-    return { success: false, error: json?.error || 'Cancel failed' };
+    const result = await (prisma as unknown as Record<string, PrismaDelegate>)[accessor].update({
+      where: { name },
+      data: { docstatus: 2, modified: new Date(), modified_by: 'Administrator' },
+    });
+
+    return { success: true, data: serializeDates(result as Record<string, unknown>) };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Network error';
+    const message = err instanceof Error ? err.message : String(err);
     console.error('[cancelDoctypeRecord]', message);
+    return { success: false, error: message };
+  }
+}
+
+// ── Fetch Schema (for New Record form) ────────────────────────────────────────
+
+export interface SchemaField {
+  name: string;
+  type: string;
+  required: boolean;
+  default: unknown;
+}
+
+export async function fetchDoctypeSchema(
+  doctype: string,
+): Promise<ActionResult<SchemaField[]>> {
+  try {
+    const dmmfModels = Prisma.dmmf.datamodel.models as unknown as DmmfModel[];
+    const model = dmmfModels.find((m) => m.name.toLowerCase() === toAccessor(doctype).toLowerCase());
+    if (!model) return { success: false, error: `Unknown DocType: ${doctype}` };
+
+    const systemFields = new Set([
+      'creation', 'modified', 'owner', 'modified_by', 'docstatus', 'idx',
+      'parent', 'parentfield', 'parenttype', '_user_tags', '_comments', '_assign', '_liked_by',
+    ]);
+
+    const fields = model.fields
+      .filter((f) => f.kind === 'scalar' && !systemFields.has(f.name) && f.name !== 'name')
+      .map((f) => ({
+        name: f.name,
+        type: f.type,
+        required: f.isRequired && !f.hasDefaultValue,
+        default: f.default ?? null,
+      }));
+
+    return { success: true, data: fields };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[fetchDoctypeSchema]', message);
+    return { success: false, error: message };
+  }
+}
+
+// ── Create Record ─────────────────────────────────────────────────────────────
+
+export async function createDoctypeRecord(
+  doctype: string,
+  data: Record<string, unknown>,
+): Promise<ActionResult<Record<string, unknown>>> {
+  try {
+    const resolved = getModel(doctype);
+    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
+    const { accessor } = resolved;
+
+    data.docstatus = 0;
+    data.creation = new Date();
+    data.modified = new Date();
+    data.owner = 'Administrator';
+    data.modified_by = 'Administrator';
+
+    const result = await (prisma as unknown as Record<string, PrismaDelegate>)[accessor].create({
+      data,
+    });
+
+    return { success: true, data: serializeDates(result as Record<string, unknown>) };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[createDoctypeRecord]', message);
     return { success: false, error: message };
   }
 }
