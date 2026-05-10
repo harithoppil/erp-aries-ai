@@ -1312,6 +1312,124 @@ function woOnCancel(_doc: unknown, _children: Record<string, unknown[]>): Cancel
   return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
 }
 
+/* ================================================================== */
+/*  Generic adapter helper for status-only DocTypes                    */
+/* ================================================================== */
+
+/**
+ * Build a (validate, onSubmit, onCancel) trio for a DocType whose submit/
+ * cancel lifecycle has no GL or stock side effects yet — only basic field
+ * validation + the docstatus flip the orchestrator does anyway. This shifts
+ * the doctype from the generic fallback path (just flips docstatus) onto the
+ * registered path (validation + transaction-wrapped + side-effect hook ready).
+ *
+ * Real GL/stock posting can be added incrementally per doctype later by
+ * replacing the generated onSubmit with a custom one.
+ */
+interface StatusOnlySpec {
+  /** Field names the document MUST have to submit (e.g. ["company", "posting_date"]). */
+  required: string[];
+  /** If set, items table must be non-empty AND each row needs these fields. */
+  itemsTable?: { field: string; rowRequired: string[] };
+}
+
+function makeStatusOnlyAdapter(spec: StatusOnlySpec): {
+  validate: (doc: unknown, ctx: ValidationContext) => ValidationResult;
+  onSubmit: (doc: unknown, children: Record<string, unknown[]>) => SubmitSideEffects;
+  onCancel: (doc: unknown, children: Record<string, unknown[]>) => CancelSideEffects;
+} {
+  return {
+    validate: (doc, _ctx) => {
+      const d = doc as Record<string, unknown>;
+      const errors: string[] = [];
+      for (const f of spec.required) {
+        const v = d[f];
+        if (v === undefined || v === null || v === '') {
+          errors.push(`${f.replace(/_/g, ' ')} is mandatory`);
+        }
+      }
+      if (spec.itemsTable) {
+        const rows = d[spec.itemsTable.field] as Array<Record<string, unknown>> | undefined;
+        if (!rows || rows.length === 0) {
+          errors.push(`${spec.itemsTable.field} table cannot be empty`);
+        } else {
+          rows.forEach((row, i) => {
+            for (const rf of spec.itemsTable!.rowRequired) {
+              const v = row[rf];
+              if (v === undefined || v === null || v === '') {
+                errors.push(`Row ${row.idx ?? i + 1}: ${rf.replace(/_/g, ' ')} is mandatory`);
+              }
+            }
+          });
+        }
+      }
+      return errors.length > 0
+        ? { valid: false, errors, warnings: [] }
+        : { valid: true, errors: [], warnings: [] };
+    },
+    onSubmit: () => ({ glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] }),
+    onCancel: () => ({ reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] }),
+  };
+}
+
+// Pre-built adapters for the 15 transactional doctypes in this batch.
+// Each is status-only for now (validation + transaction-wrapped docstatus flip);
+// GL/stock posting will be added incrementally per doctype later.
+const stockReconciliationAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'posting_date'],
+  itemsTable: { field: 'items', rowRequired: ['item_code', 'warehouse'] },
+});
+const posInvoiceAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'customer', 'posting_date'],
+  itemsTable: { field: 'items', rowRequired: ['item_code', 'qty'] },
+});
+const paymentReconciliationAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'party_type', 'party'],
+});
+const assetMovementAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'transaction_date', 'purpose'],
+  itemsTable: { field: 'assets', rowRequired: ['asset'] },
+});
+const assetRepairAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'asset', 'repair_status'],
+});
+const bankTransactionAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'date', 'bank_account'],
+});
+const timesheetAdapter = makeStatusOnlyAdapter({
+  required: ['company'],
+  itemsTable: { field: 'time_logs', rowRequired: ['from_time', 'to_time'] },
+});
+const pickListAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'purpose'],
+  itemsTable: { field: 'locations', rowRequired: ['item_code', 'qty'] },
+});
+const subcontractingReceiptAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'supplier', 'posting_date'],
+  itemsTable: { field: 'items', rowRequired: ['item_code', 'qty'] },
+});
+const projectAdapter = makeStatusOnlyAdapter({
+  required: ['project_name', 'company'],
+});
+const taskAdapter = makeStatusOnlyAdapter({
+  required: ['subject'],
+});
+const subscriptionAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'party_type', 'party'],
+  itemsTable: { field: 'plans', rowRequired: ['plan'] },
+});
+const deliveryTripAdapter = makeStatusOnlyAdapter({
+  required: ['company'],
+  itemsTable: { field: 'delivery_stops', rowRequired: ['address'] },
+});
+const landedCostVoucherAdapter = makeStatusOnlyAdapter({
+  required: ['company', 'posting_date'],
+  itemsTable: { field: 'purchase_receipts', rowRequired: ['receipt_document_type', 'receipt_document'] },
+});
+const productionPlanAdapter = makeStatusOnlyAdapter({
+  required: ['company'],
+});
+
 /* ------------------------------------------------------------------ */
 /*  DOCTYPE REGISTRY                                                   */
 /* ------------------------------------------------------------------ */
@@ -1496,6 +1614,111 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     childModels: [
       { accessor: "workOrderItem", parentField: "items" },
     ],
+    submittable: true,
+  }],
+
+  // ── Status-only doctypes wired from generic adapters ─────────────────────
+  // Validation + transaction-wrapped docstatus flip. GL/stock posting can be
+  // added incrementally per doctype by replacing onSubmit with a custom impl.
+
+  ["Stock Reconciliation", {
+    controller: stockReconciliationAdapter,
+    prismaModel: "stockReconciliation",
+    childModels: [{ accessor: "stockReconciliationItem", parentField: "items" }],
+    submittable: true,
+  }],
+  ["POS Invoice", {
+    controller: posInvoiceAdapter,
+    prismaModel: "posInvoice",
+    childModels: [
+      { accessor: "posInvoiceItem", parentField: "items" },
+      { accessor: "salesTaxesAndCharges", parentField: "taxes" },
+    ],
+    submittable: true,
+  }],
+  ["Payment Reconciliation", {
+    controller: paymentReconciliationAdapter,
+    prismaModel: "paymentReconciliation",
+    childModels: [
+      { accessor: "paymentReconciliationInvoice", parentField: "invoices" },
+      { accessor: "paymentReconciliationPayment", parentField: "payments" },
+    ],
+    submittable: true,
+  }],
+  ["Asset Movement", {
+    controller: assetMovementAdapter,
+    prismaModel: "assetMovement",
+    childModels: [{ accessor: "assetMovementItem", parentField: "assets" }],
+    submittable: true,
+  }],
+  ["Asset Repair", {
+    controller: assetRepairAdapter,
+    prismaModel: "assetRepair",
+    childModels: [],
+    submittable: true,
+  }],
+  ["Bank Transaction", {
+    controller: bankTransactionAdapter,
+    prismaModel: "bankTransaction",
+    childModels: [{ accessor: "bankTransactionPayments", parentField: "payment_entries" }],
+    submittable: true,
+  }],
+  ["Timesheet", {
+    controller: timesheetAdapter,
+    prismaModel: "timesheet",
+    childModels: [{ accessor: "timesheetDetail", parentField: "time_logs" }],
+    submittable: true,
+  }],
+  ["Pick List", {
+    controller: pickListAdapter,
+    prismaModel: "pickList",
+    childModels: [{ accessor: "pickListItem", parentField: "locations" }],
+    submittable: true,
+  }],
+  ["Subcontracting Receipt", {
+    controller: subcontractingReceiptAdapter,
+    prismaModel: "subcontractingReceipt",
+    childModels: [{ accessor: "subcontractingReceiptItem", parentField: "items" }],
+    submittable: true,
+  }],
+  ["Project", {
+    controller: projectAdapter,
+    prismaModel: "project",
+    childModels: [],
+    submittable: true,
+  }],
+  ["Task", {
+    controller: taskAdapter,
+    prismaModel: "task",
+    childModels: [],
+    submittable: true,
+  }],
+  ["Subscription", {
+    controller: subscriptionAdapter,
+    prismaModel: "subscription",
+    childModels: [{ accessor: "subscriptionPlanDetail", parentField: "plans" }],
+    submittable: true,
+  }],
+  ["Delivery Trip", {
+    controller: deliveryTripAdapter,
+    prismaModel: "deliveryTrip",
+    childModels: [{ accessor: "deliveryStop", parentField: "delivery_stops" }],
+    submittable: true,
+  }],
+  ["Landed Cost Voucher", {
+    controller: landedCostVoucherAdapter,
+    prismaModel: "landedCostVoucher",
+    childModels: [
+      { accessor: "landedCostPurchaseReceipt", parentField: "purchase_receipts" },
+      { accessor: "landedCostItem", parentField: "items" },
+      { accessor: "landedCostTaxesAndCharges", parentField: "taxes" },
+    ],
+    submittable: true,
+  }],
+  ["Production Plan", {
+    controller: productionPlanAdapter,
+    prismaModel: "productionPlan",
+    childModels: [],
     submittable: true,
   }],
 ]);
