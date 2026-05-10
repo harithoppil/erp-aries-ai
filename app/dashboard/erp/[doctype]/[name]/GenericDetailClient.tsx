@@ -77,6 +77,7 @@ export interface GenericDetailClientProps {
   doctype: string;
   record: Record<string, unknown>;
   childTables: Record<string, Record<string, unknown>[]>;
+  isNew?: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -166,6 +167,7 @@ export default function GenericDetailClient({
   doctype,
   record: initialRecord,
   childTables: initialChildTables,
+  isNew = false,
 }: GenericDetailClientProps) {
   const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -173,8 +175,8 @@ export default function GenericDetailClient({
   // ── State ─────────────────────────────────────────────────────────────
   const [record, setRecord] = useState<Record<string, unknown>>(initialRecord);
   const [childTables, setChildTables] = useState<Record<string, Record<string, unknown>[]>>(initialChildTables);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState<Record<string, unknown>>({});
+  const [isEditing, setIsEditing] = useState(isNew);
+  const [editData, setEditData] = useState<Record<string, unknown>>(isNew ? {} : {});
   const [editChildTables, setEditChildTables] = useState<Record<string, Record<string, unknown>[]>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -187,7 +189,7 @@ export default function GenericDetailClient({
   const docstatus = getDocStatus(record);
   const statusBadge = getStatusBadge(docstatus);
   const recordName = (record.name as string) || '';
-  const displayTitle = `${toDisplayLabel(doctype)} / ${recordName}`;
+  const displayTitle = isNew ? `New ${toDisplayLabel(doctype)}` : `${toDisplayLabel(doctype)} / ${recordName}`;
 
   // ── Scalar fields ─────────────────────────────────────────────────────
   const scalarFields = useMemo(() => {

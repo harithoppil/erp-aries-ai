@@ -75,6 +75,18 @@ export default async function GenericDetailPage({
 }) {
   const { doctype, name } = await params;
 
+  // "new" route — render empty create form
+  if (name === 'new') {
+    return (
+      <GenericDetailClient
+        doctype={doctype}
+        record={{}}
+        childTables={{}}
+        isNew
+      />
+    );
+  }
+
   // Fetch the record via server action
   const result = await fetchDoctypeRecord(doctype, name);
 
