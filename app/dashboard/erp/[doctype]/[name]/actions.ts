@@ -3,6 +3,7 @@
 // ── Server Actions for Generic Detail Page ────────────────────────────────────
 // All CRUD operations go directly to Prisma — no internal HTTP fetch.
 
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/prisma/client';
 import {
@@ -10,9 +11,18 @@ import {
   DmmfField,
   DmmfModel,
   toAccessor,
+  toDisplayLabel,
   getDelegate,
   getDelegateByAccessor,
 } from '@/lib/erpnext/prisma-delegate';
+import {
+  submitDocument as orchestratorSubmit,
+  cancelDocument as orchestratorCancel,
+} from '@/lib/erpnext/document-orchestrator';
+
+async function getAuthToken(): Promise<string | undefined> {
+  return (await cookies()).get('token')?.value;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -244,20 +254,18 @@ export async function submitDoctypeRecord(
   name: string,
 ): Promise<ActionResult<Record<string, unknown>>> {
   try {
-    const resolved = getModel(doctype);
-    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
-    const { model, accessor } = resolved;
-
-    const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
-    if (!existing) return { success: false, error: 'NOT_FOUND' };
-    if (existing.docstatus !== 0) return { success: false, error: 'Only Draft records can be submitted' };
-
-    const result = await (prisma as unknown as Record<string, PrismaDelegate>)[accessor].update({
-      where: { name },
-      data: { docstatus: 1, modified: new Date(), modified_by: 'Administrator' },
-    });
-
-    return { success: true, data: serializeDates(result as Record<string, unknown>) };
+    // Route through the document orchestrator so registered doctypes (Sales
+    // Invoice, Purchase Invoice, Journal Entry, Payment Entry, Stock Entry,
+    // Delivery Note, Purchase Receipt, ...) actually post their GL/stock
+    // ledger entries on submit. The orchestrator falls back to a simple
+    // docstatus flip for unregistered doctypes — same as the old behaviour.
+    const registryKey = toDisplayLabel(doctype);
+    const token = await getAuthToken();
+    const result = await orchestratorSubmit(registryKey, name, { token });
+    if (!result.success) {
+      return { success: false, error: result.error ?? 'Submit failed' };
+    }
+    return { success: true, data: serializeDates(result.data as Record<string, unknown>) };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[submitDoctypeRecord]', message);
@@ -272,20 +280,13 @@ export async function cancelDoctypeRecord(
   name: string,
 ): Promise<ActionResult<Record<string, unknown>>> {
   try {
-    const resolved = getModel(doctype);
-    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
-    const { model, accessor } = resolved;
-
-    const existing = await model.findUnique({ where: { name } }) as Record<string, unknown> | null;
-    if (!existing) return { success: false, error: 'NOT_FOUND' };
-    if (existing.docstatus !== 1) return { success: false, error: 'Only Submitted records can be cancelled' };
-
-    const result = await (prisma as unknown as Record<string, PrismaDelegate>)[accessor].update({
-      where: { name },
-      data: { docstatus: 2, modified: new Date(), modified_by: 'Administrator' },
-    });
-
-    return { success: true, data: serializeDates(result as Record<string, unknown>) };
+    const registryKey = toDisplayLabel(doctype);
+    const token = await getAuthToken();
+    const result = await orchestratorCancel(registryKey, name, { token });
+    if (!result.success) {
+      return { success: false, error: result.error ?? 'Cancel failed' };
+    }
+    return { success: true, data: serializeDates(result.data as Record<string, unknown>) };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[cancelDoctypeRecord]', message);
