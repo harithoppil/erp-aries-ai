@@ -1,4 +1,6 @@
 import { listCostCenters, type ClientSafeCostCenter } from './actions';
+
+export const dynamic = 'force-dynamic';
 import CostCentersClient from './cost-centers-client';
 
 export default async function CostCentersPage() {

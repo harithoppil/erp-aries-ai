@@ -1,4 +1,6 @@
 import { listAssets, type ClientSafeAsset } from "@/app/dashboard/erp/assets/actions";
+
+export const dynamic = 'force-dynamic';
 import AssetsClient from "@/app/dashboard/erp/assets/assets-client";
 
 export default async function AssetsListPage() {

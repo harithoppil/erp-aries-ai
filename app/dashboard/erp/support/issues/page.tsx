@@ -1,4 +1,6 @@
 import { listIssues, type ClientSafeIssue } from '@/app/dashboard/erp/support/issues/actions';
+
+export const dynamic = 'force-dynamic';
 import IssuesClient from './issues-client';
 
 export default async function IssuesPage() {

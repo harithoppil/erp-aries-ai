@@ -1,4 +1,6 @@
 import { getSession } from '@/lib/frappe-auth';
+
+export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import {
   getCRMDashboardData,

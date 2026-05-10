@@ -1,4 +1,6 @@
 import { listContracts, type ClientSafeContract } from './actions';
+
+export const dynamic = 'force-dynamic';
 import ContractsClient from './contracts-client';
 
 export default async function ContractsPage() {

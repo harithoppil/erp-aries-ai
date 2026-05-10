@@ -1,4 +1,6 @@
 import { listCompanies, type ClientSafeCompany } from './actions';
+
+export const dynamic = 'force-dynamic';
 import CompanyClient from './company-client';
 
 export default async function CompanyPage() {

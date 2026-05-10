@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 import { getSession } from '@/lib/frappe-auth';
 import { getStockDashboardData, type StockDashboardData } from './actions';
 import StockDashboardClient from './stock-dashboard-client';

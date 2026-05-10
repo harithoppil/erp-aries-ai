@@ -1,4 +1,6 @@
 import { listOpportunities, type ClientSafeOpportunity } from '@/app/dashboard/erp/crm/opportunities/actions';
+
+export const dynamic = 'force-dynamic';
 import OpportunitiesClient from './opportunities-client';
 
 export default async function OpportunitiesPage() {

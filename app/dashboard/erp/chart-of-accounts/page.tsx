@@ -1,4 +1,6 @@
 import { getAccountTree, type AccountTreeNode } from "@/app/dashboard/erp/accounts/actions";
+
+export const dynamic = 'force-dynamic';
 import ChartOfAccountsClient from "@/app/dashboard/erp/chart-of-accounts/chart-of-accounts-client";
 
 export default async function ChartOfAccountsPage() {

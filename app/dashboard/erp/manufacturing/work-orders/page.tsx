@@ -1,4 +1,6 @@
 import { listWorkOrders, type ClientSafeWorkOrder } from '@/app/dashboard/erp/manufacturing/work-orders/actions';
+
+export const dynamic = 'force-dynamic';
 import WorkOrdersClient from './work-orders-client';
 
 export default async function WorkOrdersPage() {

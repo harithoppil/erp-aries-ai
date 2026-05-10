@@ -1,4 +1,6 @@
 import { listJobCards, type ClientSafeJobCard } from './actions';
+
+export const dynamic = 'force-dynamic';
 import JobCardsClient from './job-cards-client';
 
 export default async function JobCardsPage() {

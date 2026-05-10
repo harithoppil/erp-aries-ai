@@ -1,4 +1,6 @@
 import { listBankAccounts, type ClientSafeBankAccount } from './actions';
+
+export const dynamic = 'force-dynamic';
 import BankAccountsClient from './bank-accounts-client';
 
 export default async function BankAccountsPage() {

@@ -1,4 +1,6 @@
 import { listPersonnel, type ClientSafePersonnel } from "@/app/dashboard/erp/hr/actions";
+
+export const dynamic = 'force-dynamic';
 import HRClient from "@/app/dashboard/erp/hr/hr-client";
 
 export default async function PersonnelListPage() {

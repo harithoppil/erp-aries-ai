@@ -1,4 +1,6 @@
 import { getGeneralLedger, type GLEntry } from "@/app/dashboard/erp/reports/actions";
+
+export const dynamic = 'force-dynamic';
 import GeneralLedgerClient from "@/app/dashboard/erp/reports/general-ledger/general-ledger-client";
 
 export default async function GeneralLedgerPage() {

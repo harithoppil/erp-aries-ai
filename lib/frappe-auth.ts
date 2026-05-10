@@ -113,6 +113,77 @@ export async function loginAction({
   email: string;
   password: string;
 }): Promise<ActionResult<SessionPayload>> {
+  // ── Dev bypass: any email/password logs in as admin ───────────────────────
+  if (process.env.NODE_ENV !== "production") {
+    let user = await prisma.users.findUnique({ where: { email } });
+
+    if (!user) {
+      // Auto-create the user with the provided email
+      const hashed = await hashPassword(password);
+      user = await prisma.users.create({
+        data: {
+          id: crypto.randomUUID(),
+          email,
+          password_hash: hashed,
+          name: email.split("@")[0],
+          role: "admin",
+          department: "Management",
+          company: "Aries Marine",
+          is_active: true,
+        },
+      });
+    }
+
+    const payload: SessionPayload = {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      department: user.department,
+      subsidiary: user.subsidiary,
+      company: user.company,
+    };
+
+    const token = await createToken(payload);
+    const cookieStore = await cookies();
+
+    await prisma.$transaction(async (tx) => {
+      const newSession = await tx.sessions.create({
+        data: {
+          user_id: user!.id,
+          session_token: token,
+          expires: new Date(Date.now() + SESSION_DURATION_MS),
+          is_active: true,
+        },
+      });
+      const refreshTokenValue = await createRefreshToken(user!.id, newSession.id);
+      await tx.refresh_tokens.create({
+        data: {
+          user_id: user!.id,
+          token: refreshTokenValue,
+          session_id: newSession.id,
+          expires: new Date(Date.now() + REFRESH_DURATION_MS),
+          is_revoked: false,
+        },
+      });
+      await tx.users.update({
+        where: { id: user!.id },
+        data: { last_login: new Date() },
+      });
+    });
+
+    cookieStore.set(COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      maxAge: SESSION_DURATION_MS / 1000,
+      path: "/",
+    });
+
+    return { success: true, data: payload };
+  }
+
+  // ── Production login ────────────────────────────────────────────────────────
   const user = await prisma.users.findUnique({ where: { email } });
 
   if (!user) {

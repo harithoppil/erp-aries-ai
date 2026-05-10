@@ -1,4 +1,6 @@
 import { getProfitAndLoss, type PLData } from "@/app/dashboard/erp/reports/actions";
+
+export const dynamic = 'force-dynamic';
 import ProfitAndLossClient from "@/app/dashboard/erp/reports/profit-and-loss/profit-and-loss-client";
 
 export default async function ProfitAndLossPage() {

@@ -1,4 +1,6 @@
 import { listBudgets, type ClientSafeBudget } from './actions';
+
+export const dynamic = 'force-dynamic';
 import BudgetsClient from './budgets-client';
 
 export default async function BudgetsPage() {

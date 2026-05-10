@@ -1,4 +1,6 @@
 import { listWarehouses, type ClientSafeWarehouse } from './actions';
+
+export const dynamic = 'force-dynamic';
 import WarehousesClient from './warehouses-client';
 
 export default async function WarehousesPage() {

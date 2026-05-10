@@ -1,4 +1,6 @@
 import { listPurchaseInvoices, type ClientSafePurchaseInvoice } from '@/app/dashboard/erp/buying/invoices/actions';
+
+export const dynamic = 'force-dynamic';
 import PurchaseInvoicesClient from './purchase-invoices-client';
 
 export default async function PurchaseInvoicesPage() {

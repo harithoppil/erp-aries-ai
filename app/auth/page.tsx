@@ -175,6 +175,11 @@ export default function AuthPage() {
               >
                 {loading ? "Signing in..." : "Sign In"}
               </button>
+              {process.env.NODE_ENV !== "production" && (
+                <p className="text-center text-xs text-slate-500 mt-3">
+                  Dev mode — any email/password works &nbsp;|&nbsp; try <span className="text-slate-400">admin@ariesmarine.com</span> / <span className="text-slate-400">admin123</span>
+                </p>
+              )}
             </form>
           ) : (
             /* Signup Form */

@@ -1,4 +1,6 @@
 import { listAccounts, listInvoices, type ClientSafeAccount, type ClientSafeInvoice } from "@/app/dashboard/erp/accounts/actions";
+
+export const dynamic = 'force-dynamic';
 import AccountsClient from "@/app/dashboard/erp/accounts/accounts-client";
 
 export default async function AccountsListPage() {

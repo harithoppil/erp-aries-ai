@@ -1,4 +1,6 @@
 import { listRFQs, type ClientSafeRFQ } from '@/app/dashboard/erp/buying/rfq/actions';
+
+export const dynamic = 'force-dynamic';
 import RfqClient from './rfq-client';
 
 export default async function RFQPage() {

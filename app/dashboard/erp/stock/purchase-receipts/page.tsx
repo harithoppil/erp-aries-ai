@@ -1,4 +1,6 @@
 import { listPurchaseReceipts, type ClientSafePurchaseReceipt } from '@/app/dashboard/erp/stock/purchase-receipts/actions';
+
+export const dynamic = 'force-dynamic';
 import PurchaseReceiptsClient from './purchase-receipts-client';
 
 export default async function PurchaseReceiptsPage() {

@@ -1,4 +1,6 @@
 import { listDeliveryNotes, type ClientSafeDeliveryNote } from '@/app/dashboard/erp/stock/delivery-notes/actions';
+
+export const dynamic = 'force-dynamic';
 import DeliveryNotesClient from './delivery-notes-client';
 
 export default async function DeliveryNotesPage() {

@@ -1,4 +1,6 @@
 import { listBOMs, type ClientSafeBOM } from './actions';
+
+export const dynamic = 'force-dynamic';
 import BOMClient from './bom-client';
 
 export default async function BOMPage() {

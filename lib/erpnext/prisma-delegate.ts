@@ -50,9 +50,18 @@ export interface PrismaDelegate {
 
 // ── Helper functions ──────────────────────────────────────────────────────────
 
-/** Convert PascalCase DocType name to the camelCase Prisma accessor. */
+/** Convert any doctype string (PascalCase, kebab-case, snake_case) to the camelCase Prisma accessor. */
 export function toAccessor(doctype: string): string {
-  return doctype.charAt(0).toLowerCase() + doctype.slice(1);
+  // If it's already PascalCase or camelCase (no hyphens/underscores), use directly
+  if (!/[-_]/.test(doctype)) {
+    return doctype.charAt(0).toLowerCase() + doctype.slice(1);
+  }
+  // Normalize: kebab-case / snake_case → PascalCase → camelCase
+  const pascal = doctype
+    .split(/[-_]/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join("");
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
 /** Safely resolve a Prisma model delegate from a DocType name. */

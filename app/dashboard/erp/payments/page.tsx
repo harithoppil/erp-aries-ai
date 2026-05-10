@@ -1,4 +1,6 @@
 import { listPayments, type ClientSafePayment } from "@/app/dashboard/erp/payments/actions";
+
+export const dynamic = 'force-dynamic';
 import { listInvoices, type ClientSafeInvoice } from "@/app/dashboard/erp/accounts/actions";
 import PaymentsClient from "@/app/dashboard/erp/payments/payments-client";
 

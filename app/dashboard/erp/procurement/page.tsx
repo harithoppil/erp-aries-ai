@@ -1,4 +1,6 @@
 import { listSuppliers, listPurchaseOrders, type ClientSafeSupplier, type ClientSafePurchaseOrder } from "@/app/dashboard/erp/procurement/actions";
+
+export const dynamic = 'force-dynamic';
 import ProcurementClient from "@/app/dashboard/erp/procurement/procurement-client";
 
 export default async function ProcurementPage() {
