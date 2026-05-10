@@ -292,3 +292,71 @@ export async function cancelDoctypeRecord(
     return { success: false, error: message };
   }
 }
+
+// ── Fetch Schema (for New Record form) ────────────────────────────────────────
+
+export interface SchemaField {
+  name: string;
+  type: string;
+  required: boolean;
+  default: unknown;
+}
+
+export async function fetchDoctypeSchema(
+  doctype: string,
+): Promise<ActionResult<SchemaField[]>> {
+  try {
+    const dmmfModels = Prisma.dmmf.datamodel.models as unknown as DmmfModel[];
+    const model = dmmfModels.find((m) => m.name.toLowerCase() === toAccessor(doctype).toLowerCase());
+    if (!model) return { success: false, error: `Unknown DocType: ${doctype}` };
+
+    const systemFields = new Set([
+      'creation', 'modified', 'owner', 'modified_by', 'docstatus', 'idx',
+      'parent', 'parentfield', 'parenttype', '_user_tags', '_comments', '_assign', '_liked_by',
+    ]);
+
+    const fields = model.fields
+      .filter((f) => f.kind === 'scalar' && !systemFields.has(f.name) && f.name !== 'name')
+      .map((f) => ({
+        name: f.name,
+        type: f.type,
+        required: f.isRequired && !f.hasDefaultValue,
+        default: f.default ?? null,
+      }));
+
+    return { success: true, data: fields };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[fetchDoctypeSchema]', message);
+    return { success: false, error: message };
+  }
+}
+
+// ── Create Record ─────────────────────────────────────────────────────────────
+
+export async function createDoctypeRecord(
+  doctype: string,
+  data: Record<string, unknown>,
+): Promise<ActionResult<Record<string, unknown>>> {
+  try {
+    const resolved = getModel(doctype);
+    if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
+    const { accessor } = resolved;
+
+    data.docstatus = 0;
+    data.creation = new Date();
+    data.modified = new Date();
+    data.owner = 'Administrator';
+    data.modified_by = 'Administrator';
+
+    const result = await (prisma as unknown as Record<string, PrismaDelegate>)[accessor].create({
+      data,
+    });
+
+    return { success: true, data: serializeDates(result as Record<string, unknown>) };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[createDoctypeRecord]', message);
+    return { success: false, error: message };
+  }
+}

@@ -68,8 +68,10 @@ import {
   deleteDoctypeRecord,
   submitDoctypeRecord,
   cancelDoctypeRecord,
+  createDoctypeRecord,
 } from './actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
+import type { SchemaField } from './actions';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -78,6 +80,7 @@ export interface GenericDetailClientProps {
   record: Record<string, unknown>;
   childTables: Record<string, Record<string, unknown>[]>;
   isNew?: boolean;
+  schemaFields?: SchemaField[];
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -168,6 +171,7 @@ export default function GenericDetailClient({
   record: initialRecord,
   childTables: initialChildTables,
   isNew = false,
+  schemaFields = [],
 }: GenericDetailClientProps) {
   const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -281,7 +285,9 @@ export default function GenericDetailClient({
       // Build the payload — only changed scalar fields + child tables
       const payload: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(editData)) {
-        payload[key] = value;
+        if (value !== '' && value !== null && value !== undefined) {
+          payload[key] = value;
+        }
       }
       // Include child tables in the payload
       for (const [tableKey, rows] of Object.entries(editChildTables)) {
@@ -291,14 +297,28 @@ export default function GenericDetailClient({
         }));
       }
 
-      const result = await updateDoctypeRecord(doctype, recordName, payload);
-      if (result.success) {
-        toast.success(`${doctype} updated successfully`);
-        // Re-fetch by reloading
-        router.refresh();
-        setIsEditing(false);
+      if (isNew) {
+        const result = await createDoctypeRecord(doctype, payload);
+        if (result.success) {
+          toast.success(`${toDisplayLabel(doctype)} created successfully`);
+          const createdName = (result.data as Record<string, unknown>)?.name;
+          if (createdName) {
+            router.push(`/dashboard/erp/${doctype}/${encodeURIComponent(String(createdName))}`);
+          } else {
+            router.push(`/dashboard/erp/${doctype}`);
+          }
+        } else {
+          toast.error(result.error || 'Failed to create record');
+        }
       } else {
-        toast.error(!result.success ? result.error : 'Failed to update record');
+        const result = await updateDoctypeRecord(doctype, recordName, payload);
+        if (result.success) {
+          toast.success(`${toDisplayLabel(doctype)} updated successfully`);
+          router.refresh();
+          setIsEditing(false);
+        } else {
+          toast.error(result.error || 'Failed to update record');
+        }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
