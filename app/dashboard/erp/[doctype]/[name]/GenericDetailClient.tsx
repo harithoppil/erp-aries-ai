@@ -69,6 +69,7 @@ import {
   submitDoctypeRecord,
   cancelDoctypeRecord,
 } from './actions';
+import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -186,7 +187,7 @@ export default function GenericDetailClient({
   const docstatus = getDocStatus(record);
   const statusBadge = getStatusBadge(docstatus);
   const recordName = (record.name as string) || '';
-  const displayTitle = `${doctype} / ${recordName}`;
+  const displayTitle = `${toDisplayLabel(doctype)} / ${recordName}`;
 
   // ── Scalar fields ─────────────────────────────────────────────────────
   const scalarFields = useMemo(() => {

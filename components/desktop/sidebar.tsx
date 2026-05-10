@@ -488,7 +488,7 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { dark, toggle: toggleDark } = useDarkMode();
-  const { user } = useSession();
+  const { user, loading: sessionLoading } = useSession();
   const isCollapsed = mode === "tablet" || collapsed;
   const showToggle = mode === "desktop";
 
@@ -707,7 +707,19 @@ export function Sidebar({ collapsed, onToggle, mode }: SidebarProps) {
 
       {/* User Card — fixed bottom */}
       <div className="shrink-0 border-t border-slate-800 bg-[#0f172a]">
-        {user ? (
+        {sessionLoading ? (
+          !isCollapsed && (
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-slate-700" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-24 animate-pulse rounded bg-slate-700" />
+                  <div className="h-3 w-32 animate-pulse rounded bg-slate-700" />
+                </div>
+              </div>
+            </div>
+          )
+        ) : user ? (
           <div
             className={`px-4 py-3 ${isCollapsed ? "flex flex-col items-center" : ""}`}
           >

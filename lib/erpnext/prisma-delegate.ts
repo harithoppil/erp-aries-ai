@@ -50,6 +50,16 @@ export interface PrismaDelegate {
 
 // ── Helper functions ──────────────────────────────────────────────────────────
 
+/** Convert a kebab-case/camelCase/PascalCase doctype to a human-readable label. */
+export function toDisplayLabel(doctype: string): string {
+  return doctype
+    .replace(/[-_]/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /** Convert any doctype string (PascalCase, kebab-case, snake_case) to the camelCase Prisma accessor. */
 export function toAccessor(doctype: string): string {
   // If it's already PascalCase or camelCase (no hyphens/underscores), use directly

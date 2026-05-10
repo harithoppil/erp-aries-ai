@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import GenericListSkeleton from './GenericListSkeleton';
 import { fetchDoctypeList, deleteDoctypeRecord, type ListMeta } from './actions';
+import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -265,10 +266,7 @@ export default function GenericListClient({
 
   // ── RENDER: Error / Empty ───────────────────────────────────────────────
 
-  const doctypeLabel = doctype
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/_/g, ' ')
-    .trim();
+  const doctypeLabel = toDisplayLabel(doctype);
 
   // ── RENDER ──────────────────────────────────────────────────────────────
 
