@@ -425,10 +425,17 @@ export async function fetchDoctypeSchema(
       'parent', 'parentfield', 'parenttype', '_user_tags', '_comments', '_assign', '_liked_by',
     ]);
 
+    // Self-referential link detection guard: on the Item form, item_code maps
+    // to KNOWN_LINK_FIELDS["item_code"] = "Item" — but item_code is the NEW
+    // item's PK, not a reference to another item. Skip links pointing at the
+    // current doctype.
+    const currentDoctype = model.name;
+
     const fields = model.fields
       .filter((f) => f.kind === 'scalar' && !systemFields.has(f.name) && f.name !== 'name')
       .map((f) => {
-        const linkTo = f.type === 'String' ? detectLinkTarget(f.name, dmmfModels) : undefined;
+        let linkTo = f.type === 'String' ? detectLinkTarget(f.name, dmmfModels) : undefined;
+        if (linkTo === currentDoctype) linkTo = undefined;
         return {
           name: f.name,
           type: f.type,
@@ -509,6 +516,27 @@ export async function createDoctypeRecord(
     const resolved = getModel(doctype);
     if (!resolved) return { success: false, error: `Unknown DocType: ${doctype}` };
     const { accessor } = resolved;
+
+    // Derive PK (`name`) when caller hasn't supplied one. Frappe convention:
+    // many doctypes' `name` mirrors a key field (Customer.customer_name,
+    // Item.item_code, etc.). Fall back to a unique sortable string so the
+    // create still succeeds even when no label field is present.
+    if (!data.name || (typeof data.name === 'string' && !data.name.trim())) {
+      const pascal = toAccessor(doctype).charAt(0).toUpperCase() + toAccessor(doctype).slice(1);
+      const labelField = LINK_LABEL_FIELD[pascal];
+      const pkCandidates = [
+        labelField ? data[labelField] : undefined,
+        data.item_code,
+        data.customer_name,
+        data.supplier_name,
+        data.account_name,
+        data.project_name,
+      ];
+      const fromLabel = pkCandidates.find(
+        (v) => typeof v === 'string' && v.trim().length > 0,
+      ) as string | undefined;
+      data.name = fromLabel?.trim() || `${pascal}-${Date.now().toString(36).toUpperCase()}`;
+    }
 
     data.docstatus = 0;
     data.creation = new Date();

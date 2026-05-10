@@ -94,3 +94,6 @@ convo_*.txt
 
 # Prisma generated client
 prisma/client/
+
+# E2E test artifacts (screenshots + JSON report)
+test-output/
