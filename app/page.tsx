@@ -97,20 +97,20 @@ function LandingHeader() {
                   <LogOut className="mr-1 h-4 w-4" />
                   Sign Out
                 </Button>
-                <Button size="default" className="gap-1.5 bg-[#1e3a5f] hover:bg-[#2a4f7f]">
-                  <Link href="/dashboard">
+                <Link href="/dashboard">
+                  <Button size="default" className="gap-1.5 bg-[#1e3a5f] hover:bg-[#2a4f7f]">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
-                  </Link>
-                </Button>
+                  </Button>
+                </Link>
               </div>
             : <div className="flex items-center gap-3">
-                <Button size="default" className="gap-1.5 bg-[#1e3a5f] hover:bg-[#2a4f7f]">
-                  <Link href="/auth">Sign In</Link>
-                </Button>
-                <Button size="default" className="gap-1.5 bg-[#1e3a5f] hover:bg-[#2a4f7f]">
-                  <Link href="/auth">Get Started</Link>
-                </Button>
+                <Link href="/auth">
+                  <Button size="default" className="gap-1.5 bg-[#1e3a5f] hover:bg-[#2a4f7f]">Sign In</Button>
+                </Link>
+                <Link href="/auth">
+                  <Button size="default" className="gap-1.5 bg-[#1e3a5f] hover:bg-[#2a4f7f]">Get Started</Button>
+                </Link>
               </div>)}
         </nav>
 

@@ -51,7 +51,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           )}
         </div>
-        <Toaster position="top-center" richColors closeButton theme="system" />
       </TooltipProvider>
     );
   }
@@ -105,7 +104,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main Content — shifts between sidebar and chat panel */}
         <motion.main
-          className="min-h-screen p-4 pt-16"
+          className="min-h-screen p-2 pt-16"
           animate={{
             marginLeft: sidebarWidth,
             marginRight: chatWidth,

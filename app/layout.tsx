@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import '@/app/globals.css';
 import { AppLayout } from '@/app/dashboard/app-layout';
 import { cn } from '@/lib/utils';
-import { Toaster } from '@/components/ui/sonner';
+
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 /*
@@ -139,7 +139,6 @@ export default function RootLayout({
     >
       <body className="font-sans antialiased">
         {children}
-        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   );

@@ -414,6 +414,8 @@ export default function GenericDetailClient({
         const result = await updateDoctypeRecord(doctype, recordName, payload);
         if (result.success) {
           toast.success(`${doctypeLabel} updated successfully`);
+          // Update local record state so the UI reflects changes immediately
+          setRecord((prev) => ({ ...prev, ...payload, ...(result.data as Record<string, unknown>) }));
           router.refresh();
           setIsEditing(false);
         } else {
