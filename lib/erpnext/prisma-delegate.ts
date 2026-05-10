@@ -50,14 +50,14 @@ export interface PrismaDelegate {
 
 // ── Helper functions ──────────────────────────────────────────────────────────
 
+const ACRONYMS = new Set(['bom', 'uom', 'gst', 'pos', 'gl', 'hrm', 'crm', 'erp', 'hsm', 'sku', 'qty', 'amt']);
+
 /** Convert a kebab-case/camelCase/PascalCase doctype to a human-readable label. */
 export function toDisplayLabel(doctype: string): string {
   return doctype
-    .replace(/[-_]/g, ' ')
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .split(/[-_]/)
+    .map((part) => ACRONYMS.has(part.toLowerCase()) ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
 }
 
 /** Convert any doctype string (PascalCase, kebab-case, snake_case) to the camelCase Prisma accessor. */

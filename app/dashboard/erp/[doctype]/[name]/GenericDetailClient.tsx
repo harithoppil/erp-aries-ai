@@ -1066,7 +1066,9 @@ export default function GenericDetailClient({
   // ── Main Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="flex flex-col h-[calc(100vh-5.5rem)]">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <div className="space-y-6 p-4 sm:p-6">
       {/* Sticky top bar */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 -mt-4 sm:-mt-6 pt-4 sm:pt-6">
         {renderTopBar()}
@@ -1117,6 +1119,8 @@ export default function GenericDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </div>
+      </div>
     </div>
   );
 }
