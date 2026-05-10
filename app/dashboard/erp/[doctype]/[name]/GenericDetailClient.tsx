@@ -87,6 +87,12 @@ export interface GenericDetailClientProps {
   schemaFields?: SchemaField[];
 }
 
+// Stable empty default — declaring `schemaFields = []` inline creates a new
+// array on every render, which makes the AI-action useEffect deps see a
+// different identity each time and re-run, thrashing the Zustand store and
+// triggering React error #185 (max update depth).
+const EMPTY_SCHEMA_FIELDS: SchemaField[] = [];
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SYSTEM_FIELDS = new Set([
@@ -186,7 +192,7 @@ export default function GenericDetailClient({
   record: initialRecord,
   childTables: initialChildTables,
   isNew = false,
-  schemaFields = [],
+  schemaFields = EMPTY_SCHEMA_FIELDS,
 }: GenericDetailClientProps) {
   const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -470,7 +476,10 @@ export default function GenericDetailClient({
   }, [recordName]);
 
   // ── AI: Action registration (must be after all handlers) ───────────────
-  const { registerActions, unregisterActions } = useActionDispatcher();
+  // Select only the methods (stable refs) — subscribing to the whole store
+  // would re-render this component on every registerActions() call.
+  const registerActions = useActionDispatcher((s) => s.registerActions);
+  const unregisterActions = useActionDispatcher((s) => s.unregisterActions);
   useEffect(() => {
     const actionPrefix = doctype.replace(/[-_]/g, '_');
     const fieldProps: Record<string, { type: string; description: string }> = {};
