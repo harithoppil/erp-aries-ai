@@ -73,6 +73,7 @@ import {
 } from './actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 import type { SchemaField } from './actions';
+import { LinkFieldCombobox } from './LinkFieldCombobox';
 import { usePageContext } from '@/hooks/usePageContext';
 import { useActionDispatcher, defineAction } from '@/store/useActionDispatcher';
 import { useAppStore } from '@/store/useAppStore';
@@ -221,15 +222,15 @@ export default function GenericDetailClient({
   // ── Scalar fields ─────────────────────────────────────────────────────
   // Build a Prisma type lookup from schemaFields so we get correct input types
   const schemaTypeMap = useMemo(() => {
-    const map = new Map<string, { type: string; required: boolean }>();
+    const map = new Map<string, { type: string; required: boolean; linkTo?: string }>();
     for (const f of schemaFields) {
-      map.set(f.name, { type: f.type, required: f.required });
+      map.set(f.name, { type: f.type, required: f.required, linkTo: f.linkTo });
     }
     return map;
   }, [schemaFields]);
 
   const scalarFields = useMemo(() => {
-    const fields: Array<{ key: string; value: unknown; type: FieldType; required: boolean }> = [];
+    const fields: Array<{ key: string; value: unknown; type: FieldType; required: boolean; linkTo?: string }> = [];
     for (const [key, value] of Object.entries(record)) {
       if (SYSTEM_FIELDS.has(key)) continue;
       if (Array.isArray(value)) continue;
@@ -237,10 +238,10 @@ export default function GenericDetailClient({
       const schemaInfo = schemaTypeMap.get(key);
       const type = detectFieldType(key, value, schemaInfo?.type);
       const required = schemaInfo?.required ?? false;
-      fields.push({ key, value, type, required });
+      fields.push({ key, value, type, required, linkTo: schemaInfo?.linkTo });
     }
     return fields;
-  }, [record]);
+  }, [record, schemaTypeMap]);
 
   // ── AI: Page context ───────────────────────────────────────────────────
   const uiActionActive = useAppStore((s) => s.uiActionActive);
@@ -562,11 +563,27 @@ export default function GenericDetailClient({
     type: FieldType,
     editable: boolean,
     onChange?: (val: unknown) => void,
+    linkTo?: string,
   ): JSX.Element => {
     const error = fieldErrors[key];
 
     if (editable && onChange) {
       const errorClass = error ? 'border-red-500 focus-visible:ring-red-500/50' : '';
+
+      // FK / Link field: searchable combobox over the target doctype
+      if (linkTo) {
+        return (
+          <>
+            <LinkFieldCombobox
+              linkTo={linkTo}
+              value={typeof value === 'string' ? value : String(value ?? '')}
+              onChange={(v) => onChange(v)}
+              hasError={Boolean(error)}
+            />
+            {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+          </>
+        );
+      }
 
       switch (type) {
         case 'boolean':
@@ -1206,7 +1223,7 @@ export default function GenericDetailClient({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {scalarFields.map(({ key, value, type, required }) => (
+            {scalarFields.map(({ key, value, type, required, linkTo }) => (
               <div key={key} className={type === 'textarea' ? 'md:col-span-2' : ''}>
                 <div className="space-y-1">
                   <label htmlFor={key} className="block font-medium text-sm">
@@ -1219,6 +1236,7 @@ export default function GenericDetailClient({
                     type,
                     isEditing,
                     isEditing ? (val: unknown) => handleFieldChange(key, val) : undefined,
+                    linkTo,
                   )}
                 </div>
               </div>

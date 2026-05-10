@@ -130,11 +130,16 @@ export default async function GenericDetailPage({
     }
   }
 
+  // Always fetch schema so the client can detect FK fields for the autocomplete.
+  const schemaResult = await fetchDoctypeSchema(doctype);
+  const schemaFields = schemaResult.success ? schemaResult.data : [];
+
   return (
     <GenericDetailClient
       doctype={doctype}
       record={scalarRecord}
       childTables={childTables}
+      schemaFields={schemaFields}
     />
   );
 }

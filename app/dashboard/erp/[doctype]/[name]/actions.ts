@@ -300,6 +300,116 @@ export interface SchemaField {
   type: string;
   required: boolean;
   default: unknown;
+  /** Doctype name this field links to (FK), if any. */
+  linkTo?: string;
+  /** Display field on the linked doctype to show alongside the PK. */
+  linkLabelField?: string;
+}
+
+// Field-name → doctype map for fields where the FK target name differs from the
+// field's own name (the most common ERPNext convention). Fields not listed here
+// are auto-detected by trying field-name → PascalCase and matching DMMF.
+const KNOWN_LINK_FIELDS: Record<string, string> = {
+  customer: 'Customer',
+  supplier: 'Supplier',
+  item_code: 'Item',
+  warehouse: 'Warehouse',
+  account: 'Account',
+  expense_account: 'Account',
+  income_account: 'Account',
+  debit_to: 'Account',
+  credit_to: 'Account',
+  cost_center: 'CostCenter',
+  company: 'Company',
+  currency: 'Currency',
+  uom: 'Uom',
+  stock_uom: 'Uom',
+  project: 'Project',
+  employee: 'Employee',
+  department: 'Department',
+  branch: 'Branch',
+  designation: 'Designation',
+  fiscal_year: 'FiscalYear',
+  payment_terms_template: 'PaymentTermsTemplate',
+  price_list: 'PriceList',
+  selling_price_list: 'PriceList',
+  buying_price_list: 'PriceList',
+  territory: 'Territory',
+  customer_group: 'CustomerGroup',
+  supplier_group: 'SupplierGroup',
+  item_group: 'ItemGroup',
+  brand: 'Brand',
+  tax_category: 'TaxCategory',
+  payment_method: 'ModeOfPayment',
+  mode_of_payment: 'ModeOfPayment',
+  asset_category: 'AssetCategory',
+  asset: 'Asset',
+  task: 'Task',
+  lead: 'Lead',
+  opportunity: 'Opportunity',
+  quotation: 'Quotation',
+  sales_order: 'SalesOrder',
+  purchase_order: 'PurchaseOrder',
+  delivery_note: 'DeliveryNote',
+  purchase_receipt: 'PurchaseReceipt',
+  sales_invoice: 'SalesInvoice',
+  purchase_invoice: 'PurchaseInvoice',
+};
+
+// Doctypes whose primary "label" field is something other than the convention
+// `<doctype>_name` (e.g. Item uses item_name, but Account uses account_name).
+const LINK_LABEL_FIELD: Record<string, string> = {
+  Customer: 'customer_name',
+  Supplier: 'supplier_name',
+  Item: 'item_name',
+  Warehouse: 'warehouse_name',
+  Account: 'account_name',
+  CostCenter: 'cost_center_name',
+  Company: 'company_name',
+  Project: 'project_name',
+  Employee: 'employee_name',
+  Department: 'department_name',
+  Branch: 'branch',
+  Designation: 'designation_name',
+  CustomerGroup: 'customer_group_name',
+  SupplierGroup: 'supplier_group_name',
+  ItemGroup: 'item_group_name',
+  Brand: 'brand',
+  Territory: 'territory_name',
+  Currency: 'currency_name',
+  Uom: 'uom_name',
+  ModeOfPayment: 'mode_of_payment',
+  AssetCategory: 'asset_category_name',
+  PriceList: 'price_list_name',
+  TaxCategory: 'title',
+  PaymentTermsTemplate: 'template_name',
+  FiscalYear: 'year',
+  Lead: 'lead_name',
+  Opportunity: 'customer_name',
+  Quotation: 'customer_name',
+  SalesOrder: 'customer_name',
+  PurchaseOrder: 'supplier_name',
+  DeliveryNote: 'customer_name',
+  PurchaseReceipt: 'supplier_name',
+  SalesInvoice: 'customer_name',
+  PurchaseInvoice: 'supplier_name',
+  Task: 'subject',
+  Asset: 'asset_name',
+};
+
+function detectLinkTarget(fieldName: string, dmmfModels: DmmfModel[]): string | undefined {
+  // 1. Explicit known mapping
+  if (KNOWN_LINK_FIELDS[fieldName]) {
+    const target = KNOWN_LINK_FIELDS[fieldName];
+    if (dmmfModels.some((m) => m.name === target)) return target;
+  }
+  // 2. Auto: snake_case fieldName → PascalCase, look up DMMF
+  const pascal = fieldName
+    .split('_')
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join('');
+  if (dmmfModels.some((m) => m.name === pascal)) return pascal;
+  return undefined;
 }
 
 export async function fetchDoctypeSchema(
@@ -317,17 +427,74 @@ export async function fetchDoctypeSchema(
 
     const fields = model.fields
       .filter((f) => f.kind === 'scalar' && !systemFields.has(f.name) && f.name !== 'name')
-      .map((f) => ({
-        name: f.name,
-        type: f.type,
-        required: f.isRequired && !f.hasDefaultValue,
-        default: f.default ?? null,
-      }));
+      .map((f) => {
+        const linkTo = f.type === 'String' ? detectLinkTarget(f.name, dmmfModels) : undefined;
+        return {
+          name: f.name,
+          type: f.type,
+          required: f.isRequired && !f.hasDefaultValue,
+          default: f.default ?? null,
+          linkTo,
+          linkLabelField: linkTo ? LINK_LABEL_FIELD[linkTo] : undefined,
+        };
+      });
 
     return { success: true, data: fields };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[fetchDoctypeSchema]', message);
+    return { success: false, error: message };
+  }
+}
+
+// ── Search records by name + label field (for Link-field autocomplete) ───────
+
+export interface LinkSearchResult {
+  name: string;
+  label: string;
+}
+
+export async function searchDoctypeNames(
+  linkTo: string,
+  query: string,
+  limit = 20,
+): Promise<ActionResult<LinkSearchResult[]>> {
+  try {
+    const delegate = getDelegate(prisma, linkTo);
+    if (!delegate) return { success: false, error: `Unknown DocType: ${linkTo}` };
+
+    const labelField = LINK_LABEL_FIELD[linkTo];
+    const trimmed = query.trim();
+
+    const where: Record<string, unknown> = trimmed
+      ? labelField
+        ? {
+            OR: [
+              { name: { contains: trimmed, mode: 'insensitive' } },
+              { [labelField]: { contains: trimmed, mode: 'insensitive' } },
+            ],
+          }
+        : { name: { contains: trimmed, mode: 'insensitive' } }
+      : {};
+
+    const select = labelField ? { name: true, [labelField]: true } : { name: true };
+
+    const rows = (await delegate.findMany({
+      where,
+      select,
+      take: limit,
+      orderBy: { name: 'asc' },
+    })) as Record<string, unknown>[];
+
+    const results: LinkSearchResult[] = rows.map((row) => ({
+      name: String(row.name),
+      label: labelField ? String(row[labelField] ?? '') : '',
+    }));
+
+    return { success: true, data: results };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[searchDoctypeNames]', message);
     return { success: false, error: message };
   }
 }
