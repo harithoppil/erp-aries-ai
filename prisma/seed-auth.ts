@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/prisma/client";
 import { hashPassword } from "@/lib/password";
 
 const prisma = new PrismaClient();
@@ -13,10 +13,9 @@ async function main() {
   });
 
   if (existing) {
-    console.log("Admin user already exists, skipping.");
+    console.log(`  Admin user ${adminEmail} already exists, skipping`);
   } else {
     const passwordHash = await hashPassword("admin123");
-
     await prisma.users.create({
       data: {
         email: adminEmail,
@@ -27,36 +26,10 @@ async function main() {
         is_active: true,
       },
     });
-
-    console.log("Created admin user: admin@ariesmarine.com / admin123");
+    console.log(`  Created admin: ${adminEmail} / admin123`);
   }
 
-  // Optional: Demo manager user
-  const managerEmail = "manager@ariesmarine.com";
-  const existingManager = await prisma.users.findUnique({
-    where: { email: managerEmail },
-  });
-
-  if (!existingManager) {
-    const passwordHash = await hashPassword("manager123");
-
-    await prisma.users.create({
-      data: {
-        email: managerEmail,
-        password_hash: passwordHash,
-        name: "Operations Manager",
-        role: "manager",
-        department: "Operations",
-        subsidiary: "Aries Marine LLC",
-        company: "Aries Marine",
-        is_active: true,
-      },
-    });
-
-    console.log("Created manager user: manager@ariesmarine.com / manager123");
-  }
-
-  console.log("Auth seed complete.");
+  console.log("Auth seeding complete.");
 }
 
 main()
@@ -64,6 +37,4 @@ main()
     console.error(e);
     process.exit(1);
   })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .finally(() => prisma.$disconnect());
