@@ -61,6 +61,7 @@ import {
   Activity,
   Copy,
   Sparkles,
+  Printer,
 } from 'lucide-react';
 
 // Actions
@@ -93,6 +94,19 @@ export interface GenericDetailClientProps {
 // different identity each time and re-run, thrashing the Zustand store and
 // triggering React error #185 (max update depth).
 const EMPTY_SCHEMA_FIELDS: SchemaField[] = [];
+
+// Doctypes that have a printable invoice/order/quotation layout. The Print PDF
+// button only shows for these — generic master data (Customer, Item, …) has no
+// useful "document" layout to print.
+const PRINTABLE_DOCTYPES = new Set([
+  'sales-invoice', 'salesinvoice', 'SalesInvoice',
+  'purchase-invoice', 'purchaseinvoice', 'PurchaseInvoice',
+  'sales-order', 'salesorder', 'SalesOrder',
+  'purchase-order', 'purchaseorder', 'PurchaseOrder',
+  'quotation', 'Quotation',
+  'delivery-note', 'deliverynote', 'DeliveryNote',
+  'purchase-receipt', 'purchasereceipt', 'PurchaseReceipt',
+]);
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -475,6 +489,14 @@ export default function GenericDetailClient({
     navigator.clipboard.writeText(recordName);
     toast.success('Name copied to clipboard');
   }, [recordName]);
+
+  const isPrintable = PRINTABLE_DOCTYPES.has(doctype) || PRINTABLE_DOCTYPES.has(doctype.toLowerCase());
+
+  const handlePrintPdf = useCallback(() => {
+    if (!recordName) return;
+    const url = `/api/erp-pdf/${encodeURIComponent(doctype)}/${encodeURIComponent(recordName)}`;
+    window.open(url, '_blank', 'noopener');
+  }, [doctype, recordName]);
 
   // ── AI: Action registration (must be after all handlers) ───────────────
   // Select only the methods (stable refs) — subscribing to the whole store
@@ -1084,6 +1106,11 @@ export default function GenericDetailClient({
                 <DropdownMenuItem onClick={handleCopyName}>
                   <Copy className="h-4 w-4 mr-2" /> Copy Name
                 </DropdownMenuItem>
+                {isPrintable && !isNew && (
+                  <DropdownMenuItem onClick={handlePrintPdf}>
+                    <Printer className="h-4 w-4 mr-2" /> Print PDF
+                  </DropdownMenuItem>
+                )}
                 {docstatus === 0 && (
                   <>
                     <DropdownMenuSeparator />
@@ -1191,6 +1218,11 @@ export default function GenericDetailClient({
                 <DropdownMenuItem onClick={handleCopyName}>
                   <Copy className="h-4 w-4 mr-2" /> Copy Name
                 </DropdownMenuItem>
+                {isPrintable && !isNew && (
+                  <DropdownMenuItem onClick={handlePrintPdf}>
+                    <Printer className="h-4 w-4 mr-2" /> Print PDF
+                  </DropdownMenuItem>
+                )}
                 {docstatus === 0 && (
                   <>
                     <DropdownMenuSeparator />
