@@ -31,12 +31,20 @@ export interface DeleteResult {
   error?: string;
 }
 
+export type FilterValue =
+  | string
+  | number
+  | boolean
+  | { from: string; to: string }
+  | null;
+
 export interface FetchParams {
   page?: number;
   pageSize?: number;
   search?: string;
   orderby?: string;
   order?: 'asc' | 'desc';
+  filters?: Record<string, FilterValue>;
 }
 
 // ── List ────────────────────────────────────────────────────────────────────
@@ -60,6 +68,24 @@ export async function fetchDoctypeList(
     const where: Record<string, unknown> = {};
     if (params?.search && params.search.trim()) {
       where['name'] = { contains: params.search.trim(), mode: 'insensitive' };
+    }
+
+    // Apply filter values to the where clause
+    if (params?.filters) {
+      for (const [k, v] of Object.entries(params.filters)) {
+        if (v == null || v === '') continue;
+        if (typeof v === 'object' && 'from' in v) {
+          const rangeVal = v as { from: string; to: string };
+          const rangeClause: Record<string, unknown> = {};
+          if (rangeVal.from) rangeClause.gte = rangeVal.from;
+          if (rangeVal.to) rangeClause.lte = rangeVal.to;
+          if (Object.keys(rangeClause).length > 0) where[k] = rangeClause;
+        } else if (typeof v === 'string' && /[*%]/.test(v)) {
+          where[k] = { contains: v.replace(/[*%]/g, ''), mode: 'insensitive' };
+        } else {
+          where[k] = v;
+        }
+      }
     }
 
     const [records, total] = await Promise.all([

@@ -12,8 +12,9 @@ import { useCallback, useMemo, useState, type JSX } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, Pencil, Save, X, Send, Ban, Trash2, MoreHorizontal, Copy, Printer,
+  ArrowLeft, Pencil, Save, X, Send, Ban, Trash2, MoreHorizontal, Copy, Printer, LucideIcon,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -35,7 +36,26 @@ import { errorMessage } from '@/lib/utils';
 
 import { useDocTypeMeta } from './useDocTypeMeta';
 import { ERPTabLayout } from './ERPTabLayout';
-import type { DocFieldMeta } from '@/lib/erpnext/doctype-meta';
+import type { DocFieldMeta, DocTypeInfo } from '@/lib/erpnext/doctype-meta';
+
+/**
+ * Resolve a Frappe icon string (e.g. "building", "file-text") to a Lucide React
+ * icon component. Returns null when no match is found.
+ */
+function resolveIcon(iconName: string | null): LucideIcon | null {
+  if (!iconName) return null;
+  // Frappe icon names may use hyphens; Lucide uses PascalCase or kebab-case.
+  // Normalize: strip "fa fa-" prefix, replace hyphens, then PascalCase.
+  const cleaned = iconName.replace(/^fa\s+fa-/, '').replace(/-/g, ' ');
+  const pascal = cleaned
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic icon lookup
+  const icon = (LucideIcons as Record<string, unknown>)[pascal];
+  if (typeof icon === 'function') return icon as LucideIcon;
+  return null;
+}
 
 interface ERPFormClientProps {
   doctype: string;                         // url slug, e.g. "supplier"
@@ -83,6 +103,20 @@ export default function ERPFormClient({
   const recordName = (record.name as string) || '';
   const doctypeLabel = toDisplayLabel(doctype);
   const isPrintable = PRINTABLE.has(doctype);
+
+  // ── DocTypeInfo-derived values ──────────────────────────────────────────────
+  const doctypeInfo: DocTypeInfo | null = meta?.doctype_info ?? null;
+  const isSubmittable = doctypeInfo?.is_submittable ?? false;
+  const isSingle = doctypeInfo?.issingle ?? false;
+
+  /** Resolve the display title using title_field when available. */
+  const displayTitle = useMemo(() => {
+    if (!doctypeInfo?.title_field) return recordName;
+    return (record[doctypeInfo.title_field] as string) || recordName;
+  }, [doctypeInfo, record, recordName]);
+
+  /** Resolve the doctype icon from DocTypeInfo.icon (e.g. "building"). */
+  const DoctypeIcon = useMemo(() => resolveIcon(doctypeInfo?.icon ?? null), [doctypeInfo]);
 
   // Merge record + editData so the layout shows the in-progress edit values
   // while remaining a single source of truth.
@@ -137,10 +171,15 @@ export default function ERPFormClient({
     try {
       // Drop child arrays from the scalar payload — the orchestrator handles
       // children separately via dedicated grid components.
+      // Also exclude is_virtual fields — they are computed, not stored.
+      const virtualFieldNames = new Set(
+        meta ? meta.fields.filter((f) => f.is_virtual).map((f) => f.fieldname) : [],
+      );
       const payload: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(editData)) {
         if (k === 'creation' || k === 'modified') continue;
         if (Array.isArray(v)) continue;
+        if (virtualFieldNames.has(k)) continue;
         payload[k] = v;
       }
       if (isNew) {
@@ -168,7 +207,7 @@ export default function ERPFormClient({
     } finally {
       setIsSaving(false);
     }
-  }, [validate, editData, isNew, doctype, doctypeLabel, recordName, router]);
+  }, [validate, editData, isNew, doctype, doctypeLabel, recordName, router, meta]);
 
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
@@ -260,7 +299,8 @@ export default function ERPFormClient({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold">
-              {doctypeLabel} {!isNew && <span className="text-muted-foreground">/ {recordName}</span>}
+              {DoctypeIcon && <DoctypeIcon className="mr-1 inline h-4 w-4" />}
+              {doctypeLabel}{!isNew && !isSingle && <span className="text-muted-foreground"> / {displayTitle}</span>}
             </h1>
             <Badge variant={badge.variant}>{badge.label}</Badge>
           </div>
@@ -285,12 +325,12 @@ export default function ERPFormClient({
                 <Pencil className="mr-1 h-4 w-4" /> Edit
               </Button>
             )}
-            {docstatus === 0 && (
+            {docstatus === 0 && isSubmittable && (
               <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
                 <Send className="mr-1 h-4 w-4" /> {isSubmitting ? 'Submitting…' : 'Submit'}
               </Button>
             )}
-            {docstatus === 1 && (
+            {docstatus === 1 && isSubmittable && (
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isCancelling}>
                 <Ban className="mr-1 h-4 w-4" /> {isCancelling ? 'Cancelling…' : 'Cancel'}
               </Button>
@@ -349,6 +389,9 @@ export default function ERPFormClient({
           errors={fieldErrors}
           onFieldChange={handleFieldChange}
           renderTable={renderTable}
+          isNew={isNew}
+          docstatus={docstatus}
+          isSubmittable={isSubmittable}
         />
       )}
 
@@ -357,7 +400,7 @@ export default function ERPFormClient({
           <DialogHeader>
             <DialogTitle>Delete {doctypeLabel}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{recordName}&quot;? This action cannot be undone.
+              Are you sure you want to delete &quot;{displayTitle}&quot;? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

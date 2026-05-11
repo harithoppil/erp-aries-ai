@@ -1,6 +1,6 @@
 'use client';
 
-import { type JSX, useState } from 'react';
+import { type JSX, useMemo, useState } from 'react';
 import {
   Tabs,
   TabsContent,
@@ -24,6 +24,12 @@ interface ERPTabLayoutProps {
   onFieldChange: (fieldname: string, value: unknown) => void;
   /** Render slot for Table-type fields. Caller controls the grid. */
   renderTable?: (field: DocFieldMeta) => JSX.Element;
+  /** Whether this is a new (unsaved) record. */
+  isNew?: boolean;
+  /** Current docstatus: 0=Draft, 1=Submitted, 2=Cancelled. */
+  docstatus?: number;
+  /** Whether the doctype is submittable (controls allow_on_submit field gating). */
+  isSubmittable?: boolean;
 }
 
 function nodeFields(node: LayoutNode): DocFieldMeta[] {
@@ -38,8 +44,17 @@ function FieldRow(props: {
   errors: Record<string, string>;
   onFieldChange: (f: string, v: unknown) => void;
   renderTable?: (field: DocFieldMeta) => JSX.Element;
+  /** True when editing an existing record (not new). Used for set_only_once. */
+  isExistingRecord?: boolean;
+  /** Current docstatus. Used for allow_on_submit gating. */
+  docstatus?: number;
+  /** Whether the doctype is submittable. */
+  isSubmittable?: boolean;
 }): JSX.Element | null {
-  const { field, record, editable, errors, onFieldChange, renderTable } = props;
+  const {
+    field, record, editable, errors, onFieldChange, renderTable,
+    isExistingRecord, docstatus, isSubmittable,
+  } = props;
   if (field.hidden) return null;
 
   // Table-type fields: defer to caller-provided grid renderer
@@ -55,16 +70,28 @@ function FieldRow(props: {
     );
   }
 
+  // set_only_once: field is read-only when editing an existing record
+  const setOnlyOnce = field.set_only_once && isExistingRecord;
+
+  // allow_on_submit: when docstatus=1 (Submitted) and doctype is submittable,
+  // all fields are read-only EXCEPT those with allow_on_submit=true
+  const submittedReadonly = isSubmittable && docstatus === 1 && !field.allow_on_submit;
+
+  const fieldEditable = editable && !setOnlyOnce && !submittedReadonly;
+
   return (
     <div className="space-y-1">
-      <label htmlFor={field.fieldname} className="block text-sm font-medium">
+      <label
+        htmlFor={field.fieldname}
+        className={cn('block text-sm', field.bold ? 'font-semibold' : 'font-medium')}
+      >
         {field.label || field.fieldname}
         {field.reqd && <span className="text-red-500"> *</span>}
       </label>
       <ERPFieldRenderer
         field={field}
         value={record[field.fieldname]}
-        editable={editable}
+        editable={fieldEditable}
         onChange={(v) => onFieldChange(field.fieldname, v)}
         error={errors[field.fieldname]}
       />
@@ -82,13 +109,39 @@ function SectionBlock(props: {
   errors: Record<string, string>;
   onFieldChange: (f: string, v: unknown) => void;
   renderTable?: (field: DocFieldMeta) => JSX.Element;
+  isExistingRecord?: boolean;
+  docstatus?: number;
+  isSubmittable?: boolean;
 }): JSX.Element | null {
-  const { section, record, editable, errors, onFieldChange, renderTable } = props;
+  const {
+    section, record, editable, errors, onFieldChange, renderTable,
+    isExistingRecord, docstatus, isSubmittable,
+  } = props;
   const allFields = nodeFields(section);
   if (allFields.length === 0) return null;
 
-  const [open, setOpen] = useState(true);
+  // ── collapsible_depends_on ──────────────────────────────────────────────
+  // Evaluate the expression to determine initial expand/collapse state.
+  // Simple fieldname check: if record[fieldname] is truthy, start expanded.
+  // eval: expressions are logged and default to collapsed.
+  const collapsibleDependsOn = allFields.find((f) => f.collapsible_depends_on)?.collapsible_depends_on ?? null;
+  const initialOpen = useMemo(() => {
+    if (!collapsibleDependsOn) return true;
+    if (collapsibleDependsOn.startsWith('eval:')) {
+      // Complex eval expressions not yet supported — default collapsed
+      console.warn(`[ERPTabLayout] collapsible_depends_on eval not supported: ${collapsibleDependsOn}`);
+      return false;
+    }
+    // Simple fieldname: truthy = expanded
+    return Boolean(record[collapsibleDependsOn]);
+  }, [collapsibleDependsOn, record]);
+
+  const [open, setOpen] = useState(initialOpen);
   const collapsibleHeader = section.collapsible && section.label;
+
+  // ── hide_border ─────────────────────────────────────────────────────────
+  // Section Break with hide_border=true should not have a Card wrapper.
+  const hideBorder = allFields.some((f) => f.hide_border && f.fieldtype === 'Section Break');
 
   // Render columns horizontally as a CSS grid. Each Column Break becomes one
   // grid column. If there are no Column Breaks, fields are in a single column.
@@ -117,6 +170,9 @@ function SectionBlock(props: {
             errors={errors}
             onFieldChange={onFieldChange}
             renderTable={renderTable}
+            isExistingRecord={isExistingRecord}
+            docstatus={docstatus}
+            isSubmittable={isSubmittable}
           />
         ) : null,
       )}
@@ -132,6 +188,9 @@ function SectionBlock(props: {
                 errors={errors}
                 onFieldChange={onFieldChange}
                 renderTable={renderTable}
+                isExistingRecord={isExistingRecord}
+                docstatus={docstatus}
+                isSubmittable={isSubmittable}
               />
             ) : null,
           )}
@@ -141,6 +200,23 @@ function SectionBlock(props: {
   );
 
   if (section.label) {
+    // hide_border: render without Card wrapper, just a labeled section
+    if (hideBorder) {
+      return (
+        <div className="space-y-3">
+          <div
+            className={cn('flex items-center gap-2', collapsibleHeader && 'cursor-pointer')}
+            onClick={() => collapsibleHeader && setOpen((o) => !o)}
+          >
+            {collapsibleHeader &&
+              (open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+            <h3 className="text-sm font-semibold">{section.label}</h3>
+          </div>
+          {open && body}
+        </div>
+      );
+    }
+
     return (
       <Card>
         <CardHeader
@@ -168,6 +244,9 @@ function TabContent(props: {
   errors: Record<string, string>;
   onFieldChange: (f: string, v: unknown) => void;
   renderTable?: (field: DocFieldMeta) => JSX.Element;
+  isExistingRecord?: boolean;
+  docstatus?: number;
+  isSubmittable?: boolean;
 }): JSX.Element {
   const { tab, ...rest } = props;
   const sections = tab.children.filter((c) => c.type === 'section');
@@ -185,9 +264,19 @@ function TabContent(props: {
  * If the tree has no Tab Break nodes, falls back to a flat sections view.
  */
 export function ERPTabLayout(props: ERPTabLayoutProps): JSX.Element {
-  const { tree, ...rest } = props;
+  const { tree, isNew, docstatus, isSubmittable, ...rest } = props;
   const tabs = tree.filter((n) => n.type === 'tab') as Extract<LayoutNode, { type: 'tab' }>[];
   const rootSections = tree.filter((n) => n.type === 'section') as Extract<LayoutNode, { type: 'section' }>[];
+
+  const isExistingRecord = !isNew;
+
+  // Shared props to pass down to SectionBlock / TabContent
+  const sectionProps = {
+    ...rest,
+    isExistingRecord,
+    docstatus,
+    isSubmittable,
+  };
 
   // Frappe convention: when at least one Tab Break exists, fields BEFORE the
   // first Tab Break belong to an implicit "Details" tab. We collect them as
@@ -209,7 +298,7 @@ export function ERPTabLayout(props: ERPTabLayoutProps): JSX.Element {
     return (
       <div className="space-y-4">
         {rootSections.map((s) => (
-          <SectionBlock key={s.fieldname} section={s} {...rest} />
+          <SectionBlock key={s.fieldname} section={s} {...sectionProps} />
         ))}
       </div>
     );
@@ -230,7 +319,7 @@ export function ERPTabLayout(props: ERPTabLayoutProps): JSX.Element {
       </TabsList>
       {normalizedTabs.map((tab) => (
         <TabsContent key={tab.fieldname} value={tab.fieldname} className="mt-0 space-y-4">
-          <TabContent tab={tab} {...rest} />
+          <TabContent tab={tab} {...sectionProps} />
         </TabsContent>
       ))}
     </Tabs>

@@ -28,7 +28,22 @@ export async function GET(
         { status: 404 },
       );
     }
-    return NextResponse.json({ success: true, data: meta });
+    return NextResponse.json({
+      success: true,
+      data: {
+        // Core metadata (always present)
+        doctype: meta.doctype,
+        fields: meta.fields,
+        list_view_fields: meta.list_view_fields,
+        standard_filters: meta.standard_filters,
+        child_tables: meta.child_tables,
+        layout_tree: meta.layout_tree,
+        // Doctype-level info & permissions (added by Agent 1's loadDocTypeMeta
+        // expansion — fall back gracefully if not yet present)
+        doctype_info: (meta as unknown as Record<string, unknown>).doctype_info ?? null,
+        permissions: (meta as unknown as Record<string, unknown>).permissions ?? [],
+      },
+    });
   } catch (err) {
     console.error('[meta]', errorMessage(err));
     return NextResponse.json(

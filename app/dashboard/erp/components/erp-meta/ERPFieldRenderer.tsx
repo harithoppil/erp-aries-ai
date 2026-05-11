@@ -1,6 +1,6 @@
 'use client';
 
-import { type JSX } from 'react';
+import { type JSX, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -15,6 +15,7 @@ import {
 import { LinkFieldCombobox } from '@/app/dashboard/erp/[doctype]/[name]/LinkFieldCombobox';
 import { cn } from '@/lib/utils';
 import type { DocFieldMeta } from '@/lib/erpnext/doctype-meta';
+import { ArrowDownToLine } from 'lucide-react';
 
 interface ERPFieldRendererProps {
   field: DocFieldMeta;
@@ -37,6 +38,19 @@ function formatNumber(value: unknown, fractionDigits = 2): string {
 function parseSelectOptions(raw: string | null): string[] {
   if (!raw) return [];
   return raw.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
+/**
+ * Small indicator icon shown next to fields that auto-fetch from a linked doctype.
+ * The actual fetch logic will be wired in a future stage (on Link field change).
+ */
+function FetchFromIndicator({ fetchFrom }: { fetchFrom: string | null }): JSX.Element | null {
+  if (!fetchFrom) return null;
+  return (
+    <span title={`Auto-fetched from: ${fetchFrom}`} className="flex-shrink-0">
+      <ArrowDownToLine className="h-3.5 w-3.5 text-muted-foreground" />
+    </span>
+  );
 }
 
 /**
@@ -163,15 +177,33 @@ export function ERPFieldRenderer({
           </>
         );
       }
+      // Parse link_filters if present (JSON string of additional filters).
+      // For now, attach as a data attribute; actual filtering in a future stage.
+      const linkFiltersAttr = useMemo(() => {
+        if (!field.link_filters) return undefined;
+        try {
+          const parsed = JSON.parse(field.link_filters);
+          return JSON.stringify(parsed);
+        } catch {
+          console.warn(`[ERPFieldRenderer] Invalid link_filters JSON for ${field.fieldname}:`, field.link_filters);
+          return undefined;
+        }
+      }, [field.link_filters, field.fieldname]);
+
       // Reuse the existing combobox; it expects the doctype's display label.
       return (
         <>
-          <LinkFieldCombobox
-            linkTo={linkTo.replace(/[-_]/g, '').length ? linkTo : ''}
-            value={stringValue}
-            onChange={(v) => handleChange(v)}
-            hasError={Boolean(error)}
-          />
+          <div className="flex items-center gap-1">
+            <div className="flex-1" data-link-filters={linkFiltersAttr}>
+              <LinkFieldCombobox
+                linkTo={linkTo.replace(/[-_]/g, '').length ? linkTo : ''}
+                value={stringValue}
+                onChange={(v) => handleChange(v)}
+                hasError={Boolean(error)}
+              />
+            </div>
+            <FetchFromIndicator fetchFrom={field.fetch_from} />
+          </div>
           {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
         </>
       );
@@ -225,15 +257,19 @@ export function ERPFieldRenderer({
     case 'Percent':
       return (
         <>
-          <Input
-            id={field.fieldname}
-            type="number"
-            placeholder={placeholder}
-            value={value == null ? '' : String(value)}
-            step={field.fieldtype === 'Int' ? 1 : 0.01}
-            onChange={(e) => handleChange(e.target.value === '' ? null : Number(e.target.value))}
-            className={cn('w-full', errorClass)}
-          />
+          <div className="flex items-center gap-1">
+            <Input
+              id={field.fieldname}
+              type="number"
+              placeholder={placeholder}
+              value={value == null ? '' : String(value)}
+              step={field.fieldtype === 'Int' ? 1 : 0.01}
+              min={field.non_negative ? 0 : undefined}
+              onChange={(e) => handleChange(e.target.value === '' ? null : Number(e.target.value))}
+              className={cn('w-full', errorClass)}
+            />
+            <FetchFromIndicator fetchFrom={field.fetch_from} />
+          </div>
           {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
         </>
       );
@@ -321,14 +357,17 @@ export function ERPFieldRenderer({
     default:
       return (
         <>
-          <Input
-            id={field.fieldname}
-            type="text"
-            placeholder={placeholder}
-            value={stringValue}
-            onChange={(e) => handleChange(e.target.value)}
-            className={cn('w-full', errorClass)}
-          />
+          <div className="flex items-center gap-1">
+            <Input
+              id={field.fieldname}
+              type="text"
+              placeholder={placeholder}
+              value={stringValue}
+              onChange={(e) => handleChange(e.target.value)}
+              className={cn('w-full', errorClass)}
+            />
+            <FetchFromIndicator fetchFrom={field.fetch_from} />
+          </div>
           {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
         </>
       );

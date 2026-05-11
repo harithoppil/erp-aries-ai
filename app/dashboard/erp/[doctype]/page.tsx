@@ -3,6 +3,9 @@ import {
   type ListMeta,
 } from './actions';
 import GenericListClient from './GenericListClient';
+import ERPListClient from '@/app/dashboard/erp/components/erp-meta/ERPListClient';
+import { loadDocTypeMeta } from '@/lib/erpnext/doctype-meta';
+import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +33,20 @@ export default async function GenericListPage({ params }: PageProps) {
 
   const meta: ListMeta = result.meta;
 
+  // Try to load DocType metadata for the enhanced ERPListClient
+  const docMeta = await loadDocTypeMeta(toDisplayLabel(doctype)).catch(() => null);
+
+  if (docMeta) {
+    return (
+      <ERPListClient
+        doctype={doctype}
+        initialData={result.records}
+        initialMeta={docMeta}
+      />
+    );
+  }
+
+  // Fallback to GenericListClient when no metadata is available
   return (
     <GenericListClient
       doctype={doctype}
