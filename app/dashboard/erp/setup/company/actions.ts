@@ -169,6 +169,11 @@ export async function createCompany(
         domain: data.domain || null,
         tax_id: data.tax_id || null,
         docstatus: 0,
+        monthly_sales_target: 0,
+        total_monthly_sales: 0,
+        credit_limit: 0,
+        lft: 0,
+        rgt: 0,
       },
     });
 

@@ -89,6 +89,7 @@ export async function createCustomer(data: {
         customer_group: 'All Customer Groups',
         territory: 'All Territories',
         naming_series: 'CUST-',
+        default_commission_rate: 0,
         disabled: false,
         creation: new Date(),
         modified: new Date(),

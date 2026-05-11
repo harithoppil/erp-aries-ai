@@ -69,7 +69,7 @@ import {
   type GLEntry as SIGlEntry,
   type StockLedgerEntry as SISLE,
   type CustomerInfo as SIControllerCustomerInfo,
-} from "./controllers/selling-sales-invoice";
+} from "@/lib/erpnext/controllers/selling-sales-invoice";
 
 import {
   validatePurchaseInvoice,
@@ -84,7 +84,7 @@ import {
   type GLEntry as PIGlEntry,
   type StockLedgerEntry as PISLE,
   type SupplierInfo as PIControllerSupplierInfo,
-} from "./controllers/buying-purchase-invoice";
+} from "@/lib/erpnext/controllers/buying-purchase-invoice";
 
 // ── Journal Entry controller imports ──────────────────────────────────────
 import {
@@ -96,7 +96,7 @@ import {
   type JournalValidationContext,
   type JournalValidationResult,
   type GLEntryRow,
-} from "./controllers/accounts-journal-entry";
+} from "@/lib/erpnext/controllers/accounts-journal-entry";
 
 // ── Stock Entry controller imports ────────────────────────────────────────
 import {
@@ -105,7 +105,7 @@ import {
   type StockEntryDoc,
   type StockEntryItem,
   type ValidationResult as StockEntryValidationResult,
-} from "./controllers/stock-entry";
+} from "@/lib/erpnext/controllers/stock-entry";
 
 // ── Delivery Note controller imports ──────────────────────────────────────
 import {
@@ -116,7 +116,7 @@ import {
   type ValidationError as DNValidationError,
   type StatusUpdaterConfig as DNStatusUpdaterConfig,
   DELIVERY_NOTE_STATUS_UPDATER,
-} from "./controllers/stock-delivery-note";
+} from "@/lib/erpnext/controllers/stock-delivery-note";
 
 // ── Purchase Receipt controller imports ───────────────────────────────────
 import {
@@ -127,7 +127,7 @@ import {
   type ValidationError as PRValidationError,
   type StatusUpdaterConfig as PRStatusUpdaterConfig,
   PURCHASE_RECEIPT_STATUS_UPDATER,
-} from "./controllers/stock-purchase-receipt";
+} from "@/lib/erpnext/controllers/stock-purchase-receipt";
 
 // ── Sales Order controller imports ────────────────────────────────────────
 import {
@@ -135,7 +135,7 @@ import {
   type SalesOrder,
   type SalesOrderItem,
   type SalesOrderValidationResult,
-} from "./controllers/selling-sales-order";
+} from "@/lib/erpnext/controllers/selling-sales-order";
 
 // ── Purchase Order controller imports ─────────────────────────────────────
 import {
@@ -144,7 +144,7 @@ import {
   type PurchaseOrderItem,
   type ValidationResult as POValidationResult,
   type POValidationContext,
-} from "./controllers/buying-purchase-order";
+} from "@/lib/erpnext/controllers/buying-purchase-order";
 
 // ── Quotation controller imports ──────────────────────────────────────────
 import {
@@ -152,14 +152,14 @@ import {
   type Quotation,
   type QuotationItem,
   type QuotationValidationResult,
-} from "./controllers/selling-quotation";
+} from "@/lib/erpnext/controllers/selling-quotation";
 
 // ── Material Request controller imports ───────────────────────────────────
 import {
   validatePurchaseDoc as validateMaterialRequestDoc,
   type PurchaseDoc as MaterialRequestDoc,
   type PurchaseItemRow as MaterialRequestItem,
-} from "./controllers/buying-controller";
+} from "@/lib/erpnext/controllers/buying-controller";
 
 // ── Work Order controller imports ─────────────────────────────────────────
 import {
@@ -167,12 +167,12 @@ import {
   type WorkOrderDoc,
   type WorkOrderItem,
   type ValidationResult as WOValidationResult,
-} from "./controllers/manufacturing-work-order";
+} from "@/lib/erpnext/controllers/manufacturing-work-order";
 
 // ── Tax engine import ─────────────────────────────────────────────────────
-import { calculateTaxesAndTotals, type TransactionDoc } from "./controllers/taxes-and-totals";
+import { calculateTaxesAndTotals, type TransactionDoc } from "@/lib/erpnext/controllers/taxes-and-totals";
 
-import { type StatusUpdaterConfig, type QtyUpdateResult } from "./controllers/status-updater";
+import { type StatusUpdaterConfig, type QtyUpdateResult } from "@/lib/erpnext/controllers/status-updater";
 
 /* ════════════════════════════════════════════════════════════════════════════
    PUBLIC INTERFACES

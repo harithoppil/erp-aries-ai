@@ -92,15 +92,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Sidebar */}
-        <Sidebar
-          collapsed={collapsed}
-          onToggle={() => setCollapsed(!collapsed)}
-          mode={isDesktop ? "desktop" : "tablet"}
-        />
-
-        {/* AI Chat Panel */}
-        <AiChatPanel />
+      
 
         {/* Main Content — shifts between sidebar and chat panel */}
         <motion.main
@@ -113,6 +105,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         >
           <ErrorBoundary>{children}</ErrorBoundary>
         </motion.main>
+          {/* Sidebar */}
+        <Sidebar
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(!collapsed)}
+          mode={isDesktop ? "desktop" : "tablet"}
+        />
+
+        {/* AI Chat Panel */}
+        <AiChatPanel />
       </div>
       <Toaster
         position={isMobile ? "top-center" : "bottom-right"}

@@ -143,6 +143,8 @@ export async function createWarehouse(
         parent_warehouse: data.parent_warehouse || null,
         company: data.company || 'Aries',
         docstatus: 0,
+        lft: 0,
+        rgt: 0,
       },
     });
 
