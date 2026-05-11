@@ -1,26 +1,25 @@
 /**
- * Unified AgentLoop — calls Gemini Chat Completions API, loops on tool calls.
+ * Unified AgentLoop — calls Chat Completions API, loops on tool calls.
  *
  * Replaces backend/app/services/agent_loop.py.
- * Uses the OpenAI-compatible Chat Completions endpoint on Vertex AI:
- *   https://aiplatform.googleapis.com/v1beta1/projects/.../endpoints/openapi/chat/completions
+ * Uses the OpenAI-compatible Chat Completions endpoint:
+ *   Gemini: https://aiplatform.googleapis.com/v1beta1/projects/.../endpoints/openapi/chat/completions
+ *   Azure:  https://xxx.services.ai.azure.com/openai/v1/chat/completions
  *
- * Auth: GOOGLE_CLOUD_API_KEY as ?key= query param (simplest, confirmed working).
- *        Also supports OAuth Bearer token via GCA_KEY service account.
+ * Auth: Azure uses api-key header; Gemini uses ?key= query param or OAuth Bearer.
  *
  * The loop:
  *   while rounds < MAX:
  *     call Chat Completions API with tools + conversation history
- *     if response has tool_calls → execute via mcp-gateway → append tool results → continue
- *     if response has text content → stream/return final text → done
+ *     if response has tool_calls -> execute via mcp-gateway -> append tool results -> continue
+ *     if response has text content -> stream/return final text -> done
  *
  * Usage:
- *   const loop = new AgentLoop({ persona, gateway });
- *   const result = await loop.run({ userMessage: "Create a customer named Acme" });
- *   // result = { content: "...", toolCalls: [...], rounds: 3 }
+ *   const loop = createAgentLoop({ persona, gateway });
+ *   const result = await loop.run("Create a customer named Acme");
  *
  * Streaming:
- *   const stream = loop.runStream({ userMessage: "..." });
+ *   const stream = loop.runStream("...");
  *   for await (const event of stream) {
  *     // event.type = "tool_call" | "tool_result" | "text_delta" | "done"
  *   }
@@ -49,9 +48,7 @@ export interface AgentLoopOptions {
   persona: AgentLoopPersona;
   gateway?: MCPGateway;
   maxRounds?: number;
-  /** Override the Chat Completions URL (default: from env GEMINI_CHAT_COMPLETIONS_URL) */
   chatUrl?: string;
-  /** Override model name (default: persona.model or GEMINI_CHAT_MODEL) */
   model?: string;
 }
 
@@ -144,270 +141,40 @@ interface ChatCompletionTool {
   };
 }
 
-// ── AgentLoop class ──────────────────────────────────────────────────────────
+// ── AgentLoop factory ──────────────────────────────────────────────────────
 
-export class AgentLoop {
-  private persona: AgentLoopPersona;
-  private gateway: MCPGateway;
-  private maxRounds: number;
-  private chatUrl: string;
-  private defaultModel: string;
+export function createAgentLoop(options: AgentLoopOptions) {
+  const persona = options.persona;
+  const gateway = options.gateway || getMCPGateway();
+  const maxRounds = options.maxRounds || 10;
 
-  constructor(options: AgentLoopOptions) {
-    this.persona = options.persona;
-    this.gateway = options.gateway || getMCPGateway();
-    this.maxRounds = options.maxRounds || 10;
-    this.chatUrl = options.chatUrl ||
-      process.env.GEMINI_CHAT_COMPLETIONS_URL ||
-      "https://aiplatform.googleapis.com/v1beta1/projects/project-9a3e09d5-57ca-491d-a74/locations/us-central1/endpoints/openapi/chat/completions";
-    this.defaultModel = options.model ||
-      process.env.GEMINI_CHAT_MODEL ||
-      "google/gemini-3-flash-preview";
-  }
+  // Prefer Azure DeepSeek when available, fall back to Gemini
+  const azureUrl = process.env.AZURE_CHAT_COMPLETIONS_URL;
+  const azureKey = process.env.AZURE_API_KEY;
+  const useAzure = !!(azureUrl && azureKey);
 
-  /**
-   * Run the agent loop and return the final result (non-streaming).
-   * Good for Server Actions where we wait for the full response.
-   */
-  async run(userMessage: string, history?: ChatMessage[]): Promise<AgentLoopResult> {
-    const model = this.persona.model || this.defaultModel;
-    const tools = this.buildTools();
-    const messages = this.buildMessages(userMessage, history);
-    const allToolCalls: ToolCallRecord[] = [];
-    let rounds = 0;
+  const chatUrl = options.chatUrl ||
+    (useAzure ? azureUrl : process.env.GEMINI_CHAT_COMPLETIONS_URL) ||
+    "https://aiplatform.googleapis.com/v1beta1/projects/project-9a3e09d5-57ca-491d-a74/locations/us-central1/endpoints/openapi/chat/completions";
 
-    while (rounds < this.maxRounds) {
-      rounds++;
-
-      const response = await this.callChatCompletions(messages, tools, model, false);
-      const choice = response.choices?.[0];
-      if (!choice) break;
-
-      const msg = choice.message;
-      const toolCalls = msg?.tool_calls || [];
-
-      // If no tool calls, we have the final text answer
-      if (toolCalls.length === 0) {
-        return {
-          content: msg?.content || "",
-          toolCalls: allToolCalls,
-          rounds,
-          model,
-        };
-      }
-
-      // Add assistant message with tool calls to conversation
-      messages.push(msg as ChatMessage);
-
-      // Execute each tool call and feed results back
-      for (const tc of toolCalls) {
-        const fn = tc.function;
-        const toolName = fn.name;
-        let toolArgs: Record<string, unknown> = {};
-        try {
-          toolArgs = JSON.parse(fn.arguments);
-        } catch {
-          toolArgs = {};
-        }
-        const callId = tc.id;
-
-        // Execute tool
-        let result: string;
-        try {
-          result = await this.gateway.callTool(toolName, toolArgs);
-          // Truncate large results (same as Python AgentLoop)
-          if (result.length > 10000) {
-            result = result.slice(0, 10000) + "\n... (truncated)";
-          }
-        } catch (e) {
-          result = `Error executing ${toolName}: ${errorMessage(e)}`;
-        }
-
-        allToolCalls.push({ name: toolName, args: toolArgs, result, callId });
-
-        // Feed result back as "tool" role message
-        messages.push({
-          role: "tool",
-          tool_call_id: callId,
-          content: result,
-        });
-      }
-    }
-
-    return {
-      content: "Maximum tool rounds reached. Please try rephrasing your request.",
-      toolCalls: allToolCalls,
-      rounds,
-      model,
-    };
-  }
-
-  /**
-   * Run the agent loop with streaming events.
-   * Yields tool_call, tool_result, text_delta, and done events.
-   * Use this for SSE API routes.
-   */
-  async *runStream(userMessage: string, history?: ChatMessage[]): AsyncGenerator<AgentLoopEvent> {
-    const model = this.persona.model || this.defaultModel;
-    const tools = this.buildTools();
-    const messages = this.buildMessages(userMessage, history);
-    const allToolCalls: ToolCallRecord[] = [];
-    let rounds = 0;
-
-    while (rounds < this.maxRounds) {
-      rounds++;
-
-      // Use streaming API call
-      const stream = this.callChatCompletionsStream(messages, tools, model);
-      let assistantContent = "";
-      let toolCallsBuffer: ChatToolCall[] = [];
-      let currentText = "";
-
-      for await (const chunk of stream) {
-        const choice = chunk.choices?.[0];
-        if (!choice) continue;
-
-        const delta = choice.delta;
-
-        // Handle text deltas
-        if (delta?.content) {
-          currentText += delta.content;
-          yield { type: "text_delta", content: delta.content };
-        }
-
-        // Handle tool call deltas (accumulate)
-        if (delta?.tool_calls) {
-          for (const tcDelta of delta.tool_calls) {
-            const idx = tcDelta.index || 0;
-            if (!toolCallsBuffer[idx]) {
-              toolCallsBuffer[idx] = {
-                id: tcDelta.id || "",
-                type: "function",
-                function: { name: tcDelta.function?.name || "", arguments: tcDelta.function?.arguments || "" },
-              };
-            } else {
-              // Append arguments delta
-              if (tcDelta.function?.arguments) {
-                toolCallsBuffer[idx].function.arguments += tcDelta.function.arguments;
-              }
-              if (tcDelta.id) {
-                toolCallsBuffer[idx].id = tcDelta.id;
-              }
-              if (tcDelta.function?.name) {
-                toolCallsBuffer[idx].function.name = tcDelta.function.name;
-              }
-            }
-          }
-        }
-
-        // If finish_reason is "tool_calls", we're done with this round
-        if (choice.finish_reason === "tool_calls") {
-          break;
-        }
-
-        // If finish_reason is "stop", we have the final text
-        if (choice.finish_reason === "stop") {
-          assistantContent = currentText;
-        }
-      }
-
-      // If we got text and no tool calls, we're done
-      if (toolCallsBuffer.length === 0 && assistantContent) {
-        const result: AgentLoopResult = {
-          content: assistantContent,
-          toolCalls: allToolCalls,
-          rounds,
-          model,
-        };
-        yield { type: "done", result };
-        return;
-      }
-
-      // If no tool calls and no text, we're done
-      if (toolCallsBuffer.length === 0) {
-        const result: AgentLoopResult = {
-          content: currentText || "No response generated.",
-          toolCalls: allToolCalls,
-          rounds,
-          model,
-        };
-        yield { type: "done", result };
-        return;
-      }
-
-      // Add assistant message with complete tool calls to conversation
-      const assistantMsg: ChatMessage = {
-        role: "assistant",
-        content: currentText || null,
-        tool_calls: toolCallsBuffer,
-      };
-      messages.push(assistantMsg);
-
-      // Execute each tool call
-      for (const tc of toolCallsBuffer) {
-        const fn = tc.function;
-        const toolName = fn.name;
-        let toolArgs: Record<string, unknown> = {};
-        try {
-          toolArgs = JSON.parse(fn.arguments);
-        } catch {
-          toolArgs = {};
-        }
-        const callId = tc.id;
-
-        yield { type: "tool_call", name: toolName, args: toolArgs, callId };
-
-        // Execute tool
-        let result: string;
-        try {
-          result = await this.gateway.callTool(toolName, toolArgs);
-          if (result.length > 10000) {
-            result = result.slice(0, 10000) + "\n... (truncated)";
-          }
-        } catch (e) {
-          result = `Error executing ${toolName}: ${errorMessage(e)}`;
-        }
-
-        allToolCalls.push({ name: toolName, args: toolArgs, result, callId });
-        yield { type: "tool_result", name: toolName, result, callId };
-
-        // Feed result back
-        messages.push({
-          role: "tool",
-          tool_call_id: callId,
-          content: result,
-        });
-      }
-    }
-
-    // Max rounds reached
-    const result: AgentLoopResult = {
-      content: "Maximum tool rounds reached. Please try rephrasing your request.",
-      toolCalls: allToolCalls,
-      rounds,
-      model,
-    };
-    yield { type: "done", result };
-  }
+  const defaultModel = options.model ||
+    (useAzure ? (process.env.AZURE_CHAT_MODEL || "DeepSeek-V4-Flash") : process.env.GEMINI_CHAT_MODEL) ||
+    "google/gemini-3-flash-preview";
 
   // ── Internal helpers ───────────────────────────────────────────────────────
 
-  /**
-   * Build the system prompt from persona configuration.
-   */
-  private buildSystemPrompt(): string {
+  function buildSystemPrompt(): string {
     const parts: string[] = [];
 
-    if (this.persona.about) {
-      parts.push(this.persona.about);
+    if (persona.about) {
+      parts.push(persona.about);
     }
 
-    if (this.persona.knowledge_base_prompt && this.persona.enable_knowledge_base) {
-      parts.push(`\nKnowledge base context:\n${this.persona.knowledge_base_prompt}`);
+    if (persona.knowledge_base_prompt && persona.enable_knowledge_base) {
+      parts.push(`\nKnowledge base context:\n${persona.knowledge_base_prompt}`);
     }
 
-    // Add available tools info
-    const tools = this.buildTools();
+    const tools = buildTools();
     if (tools.length > 0) {
       const toolNames = tools.map(t => t.function.name).join(", ");
       parts.push(`\nYou have access to the following tools: ${toolNames}. Use them when appropriate to fulfill the user's request.`);
@@ -416,29 +183,22 @@ export class AgentLoop {
     return parts.join("\n\n") || "You are a helpful AI assistant for an ERP system.";
   }
 
-  /**
-   * Build the messages array for the Chat Completions API.
-   */
-  private buildMessages(userMessage: string, history?: ChatMessage[]): ChatMessage[] {
+  function buildMessages(userMessage: string, history?: ChatMessage[]): ChatMessage[] {
     const messages: ChatMessage[] = [];
 
-    // System prompt
     messages.push({
       role: "system",
-      content: this.buildSystemPrompt(),
+      content: buildSystemPrompt(),
     });
 
-    // Conversation history (limit to last 20 messages like Python AgentLoop)
     if (history && history.length > 0) {
       const recent = history.slice(-20);
       for (const msg of recent) {
-        // Skip system messages from history (we already have our own)
         if (msg.role === "system") continue;
         messages.push(msg);
       }
     }
 
-    // Current user message
     messages.push({
       role: "user",
       content: userMessage,
@@ -447,28 +207,22 @@ export class AgentLoop {
     return messages;
   }
 
-  /**
-   * Build Chat Completions tools array from persona's allowed tools.
-   */
-  private buildTools(): ChatCompletionTool[] {
-    const allowedTools = this.persona.allowed_tools;
+  function buildTools(): ChatCompletionTool[] {
+    const allowedTools = persona.allowed_tools;
     if (!allowedTools || allowedTools.length === 0) return [];
 
-    const mcpTools = this.gateway.getPersonaTools(allowedTools);
+    const mcpTools = gateway.getPersonaTools(allowedTools);
     return mcpTools.map(tool => ({
       type: "function" as const,
       function: {
         name: tool.name,
         description: tool.description,
-        parameters: this.mcpToolToSchema(tool),
+        parameters: mcpToolToSchema(tool),
       },
     }));
   }
 
-  /**
-   * Convert MCPTool.parameters to JSON Schema for Chat Completions.
-   */
-  private mcpToolToSchema(tool: MCPTool): Record<string, unknown> {
+  function mcpToolToSchema(tool: MCPTool): Record<string, unknown> {
     if (!tool.parameters) {
       return { type: "object", properties: {} };
     }
@@ -494,26 +248,25 @@ export class AgentLoop {
     };
   }
 
-  /**
-   * Call the Chat Completions API (non-streaming).
-   */
-  private async callChatCompletions(
+  async function callChatCompletions(
     messages: ChatMessage[],
     tools: ChatCompletionTool[],
     model: string,
     stream: boolean = false
   ): Promise<ChatCompletionResponse> {
-    const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
-    const url = apiKey
-      ? `${this.chatUrl}?key=${apiKey}`
-      : this.chatUrl;
+    const geminiKey = process.env.GOOGLE_CLOUD_API_KEY;
 
-    // Build headers — use API key if available, otherwise OAuth token
+    const url = useAzure
+      ? chatUrl
+      : (geminiKey ? `${chatUrl}?key=${geminiKey}` : chatUrl);
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
 
-    if (!apiKey) {
+    if (useAzure) {
+      headers["api-key"] = azureKey!;
+    } else if (!geminiKey) {
       const tokenResult = await getGeminiToken();
       if (tokenResult.success) {
         headers["Authorization"] = `Bearer ${tokenResult.token}`;
@@ -524,7 +277,7 @@ export class AgentLoop {
       model,
       messages,
       max_tokens: 8192,
-      temperature: this.persona.temperature ?? 0.7,
+      temperature: persona.temperature ?? 0.7,
       stream,
     };
 
@@ -546,24 +299,24 @@ export class AgentLoop {
     return response.json();
   }
 
-  /**
-   * Call the Chat Completions API (streaming) — yields SSE chunks.
-   */
-  private async *callChatCompletionsStream(
+  async function* callChatCompletionsStream(
     messages: ChatMessage[],
     tools: ChatCompletionTool[],
     model: string
   ): AsyncGenerator<StreamChunk> {
-    const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
-    const url = apiKey
-      ? `${this.chatUrl}?key=${apiKey}`
-      : this.chatUrl;
+    const geminiKey = process.env.GOOGLE_CLOUD_API_KEY;
+
+    const url = useAzure
+      ? chatUrl
+      : (geminiKey ? `${chatUrl}?key=${geminiKey}` : chatUrl);
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
 
-    if (!apiKey) {
+    if (useAzure) {
+      headers["api-key"] = azureKey!;
+    } else if (!geminiKey) {
       const tokenResult = await getGeminiToken();
       if (tokenResult.success) {
         headers["Authorization"] = `Bearer ${tokenResult.token}`;
@@ -574,7 +327,7 @@ export class AgentLoop {
       model,
       messages,
       max_tokens: 8192,
-      temperature: this.persona.temperature ?? 0.7,
+      temperature: persona.temperature ?? 0.7,
       stream: true,
     };
 
@@ -593,7 +346,6 @@ export class AgentLoop {
       throw new Error(`Chat Completions API error ${response.status}: ${errText.slice(0, 300)}`);
     }
 
-    // Parse SSE stream
     const reader = response.body?.getReader();
     if (!reader) throw new Error("No response body");
 
@@ -606,7 +358,7 @@ export class AgentLoop {
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
-      buffer = lines.pop() || ""; // Keep incomplete line in buffer
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -621,4 +373,208 @@ export class AgentLoop {
       }
     }
   }
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+
+  async function run(userMessage: string, history?: ChatMessage[]): Promise<AgentLoopResult> {
+    const model = persona.model || defaultModel;
+    const tools = buildTools();
+    const messages = buildMessages(userMessage, history);
+    const allToolCalls: ToolCallRecord[] = [];
+    let rounds = 0;
+
+    while (rounds < maxRounds) {
+      rounds++;
+
+      const response = await callChatCompletions(messages, tools, model, false);
+      const choice = response.choices?.[0];
+      if (!choice) break;
+
+      const msg = choice.message;
+      const toolCalls = msg?.tool_calls || [];
+
+      if (toolCalls.length === 0) {
+        return {
+          content: msg?.content || "",
+          toolCalls: allToolCalls,
+          rounds,
+          model,
+        };
+      }
+
+      messages.push(msg as ChatMessage);
+
+      for (const tc of toolCalls) {
+        const fn = tc.function;
+        const toolName = fn.name;
+        let toolArgs: Record<string, unknown> = {};
+        try {
+          toolArgs = JSON.parse(fn.arguments);
+        } catch {
+          toolArgs = {};
+        }
+        const callId = tc.id;
+
+        let result: string;
+        try {
+          result = await gateway.callTool(toolName, toolArgs);
+          if (result.length > 10000) {
+            result = result.slice(0, 10000) + "\n... (truncated)";
+          }
+        } catch (e) {
+          result = `Error executing ${toolName}: ${errorMessage(e)}`;
+        }
+
+        allToolCalls.push({ name: toolName, args: toolArgs, result, callId });
+
+        messages.push({
+          role: "tool",
+          tool_call_id: callId,
+          content: result,
+        });
+      }
+    }
+
+    return {
+      content: "Maximum tool rounds reached. Please try rephrasing your request.",
+      toolCalls: allToolCalls,
+      rounds,
+      model,
+    };
+  }
+
+  async function* runStream(userMessage: string, history?: ChatMessage[]): AsyncGenerator<AgentLoopEvent> {
+    const model = persona.model || defaultModel;
+    const tools = buildTools();
+    const messages = buildMessages(userMessage, history);
+    const allToolCalls: ToolCallRecord[] = [];
+    let rounds = 0;
+
+    while (rounds < maxRounds) {
+      rounds++;
+
+      const stream = callChatCompletionsStream(messages, tools, model);
+      let assistantContent = "";
+      let toolCallsBuffer: ChatToolCall[] = [];
+      let currentText = "";
+
+      for await (const chunk of stream) {
+        const choice = chunk.choices?.[0];
+        if (!choice) continue;
+
+        const delta = choice.delta;
+
+        if (delta?.content) {
+          currentText += delta.content;
+          yield { type: "text_delta", content: delta.content };
+        }
+
+        if (delta?.tool_calls) {
+          for (const tcDelta of delta.tool_calls) {
+            const idx = tcDelta.index || 0;
+            if (!toolCallsBuffer[idx]) {
+              toolCallsBuffer[idx] = {
+                id: tcDelta.id || "",
+                type: "function",
+                function: { name: tcDelta.function?.name || "", arguments: tcDelta.function?.arguments || "" },
+              };
+            } else {
+              if (tcDelta.function?.arguments) {
+                toolCallsBuffer[idx].function.arguments += tcDelta.function.arguments;
+              }
+              if (tcDelta.id) {
+                toolCallsBuffer[idx].id = tcDelta.id;
+              }
+              if (tcDelta.function?.name) {
+                toolCallsBuffer[idx].function.name = tcDelta.function.name;
+              }
+            }
+          }
+        }
+
+        if (choice.finish_reason === "tool_calls") {
+          break;
+        }
+
+        if (choice.finish_reason === "stop") {
+          assistantContent = currentText;
+        }
+      }
+
+      if (toolCallsBuffer.length === 0 && assistantContent) {
+        const result: AgentLoopResult = {
+          content: assistantContent,
+          toolCalls: allToolCalls,
+          rounds,
+          model,
+        };
+        yield { type: "done", result };
+        return;
+      }
+
+      if (toolCallsBuffer.length === 0) {
+        const result: AgentLoopResult = {
+          content: currentText || "No response generated.",
+          toolCalls: allToolCalls,
+          rounds,
+          model,
+        };
+        yield { type: "done", result };
+        return;
+      }
+
+      const assistantMsg: ChatMessage = {
+        role: "assistant",
+        content: currentText || null,
+        tool_calls: toolCallsBuffer,
+      };
+      messages.push(assistantMsg);
+
+      for (const tc of toolCallsBuffer) {
+        const fn = tc.function;
+        const toolName = fn.name;
+        let toolArgs: Record<string, unknown> = {};
+        try {
+          toolArgs = JSON.parse(fn.arguments);
+        } catch {
+          toolArgs = {};
+        }
+        const callId = tc.id;
+
+        yield { type: "tool_call", name: toolName, args: toolArgs, callId };
+
+        let result: string;
+        try {
+          result = await gateway.callTool(toolName, toolArgs);
+          if (result.length > 10000) {
+            result = result.slice(0, 10000) + "\n... (truncated)";
+          }
+        } catch (e) {
+          result = `Error executing ${toolName}: ${errorMessage(e)}`;
+        }
+
+        allToolCalls.push({ name: toolName, args: toolArgs, result, callId });
+        yield { type: "tool_result", name: toolName, result, callId };
+
+        messages.push({
+          role: "tool",
+          tool_call_id: callId,
+          content: result,
+        });
+      }
+    }
+
+    const result: AgentLoopResult = {
+      content: "Maximum tool rounds reached. Please try rephrasing your request.",
+      toolCalls: allToolCalls,
+      rounds,
+      model,
+    };
+    yield { type: "done", result };
+  }
+
+  return { run, runStream };
 }
+
+// Backward compat alias
+export const AgentLoop = createAgentLoop;

@@ -3,7 +3,7 @@
 import { errorMessage, errorCode } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { AgentLoop } from '@/lib/agent-loop';
+import { createAgentLoop } from '@/lib/agent-loop';
 import { generateId, generateShortCode } from '@/lib/uuid';
 import type {
   ChatMessage,
@@ -350,7 +350,7 @@ export async function chatWithPersona(
     }
 
     // Run AgentLoop
-    const loop = new AgentLoop({
+    const loop = createAgentLoop({
       persona: {
         id: persona.id,
         nickname: persona.nickname,

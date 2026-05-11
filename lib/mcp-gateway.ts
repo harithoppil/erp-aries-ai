@@ -42,39 +42,48 @@ export interface MCPServerRegistration {
   tools: MCPTool[];
 }
 
-// ── Gateway class ───────────────────────────────────────────────────────────
+// ── Gateway factory ────────────────────────────────────────────────────────
 
-class MCPGateway {
-  private servers: Map<string, MCPServerRegistration> = new Map();
-  private toolIndex: Map<string, MCPTool> = new Map();
+export interface MCPGateway {
+  registerServer(name: string, description: string): void;
+  registerTool(serverName: string, tool: MCPTool): void;
+  listServers(): { name: string; description: string; tool_count: number }[];
+  listTools(serverName?: string): { name: string; description: string; server: string; requires_auth: boolean; parameters?: Record<string, MCPToolParameter> }[];
+  callTool(toolName: string, kwargs?: Record<string, unknown>): Promise<string>;
+  getPersonaTools(allowedTools: string[] | null): MCPTool[];
+}
 
-  registerServer(name: string, description: string): void {
-    this.servers.set(name, { name, description, tools: [] });
+function createMCPGateway(): MCPGateway {
+  const servers: Map<string, MCPServerRegistration> = new Map();
+  const toolIndex: Map<string, MCPTool> = new Map();
+
+  function registerServer(name: string, description: string): void {
+    servers.set(name, { name, description, tools: [] });
   }
 
-  registerTool(serverName: string, tool: MCPTool): void {
-    if (!this.servers.has(serverName)) {
-      this.registerServer(serverName, `MCP Server: ${serverName}`);
+  function registerTool(serverName: string, tool: MCPTool): void {
+    if (!servers.has(serverName)) {
+      registerServer(serverName, `MCP Server: ${serverName}`);
     }
-    this.servers.get(serverName)!.tools.push(tool);
-    this.toolIndex.set(tool.name, tool);
+    servers.get(serverName)!.tools.push(tool);
+    toolIndex.set(tool.name, tool);
   }
 
-  listServers(): { name: string; description: string; tool_count: number }[] {
-    return [...this.servers.values()].map(s => ({
+  function listServers(): { name: string; description: string; tool_count: number }[] {
+    return [...servers.values()].map(s => ({
       name: s.name,
       description: s.description,
       tool_count: s.tools.length,
     }));
   }
 
-  listTools(serverName?: string): { name: string; description: string; server: string; requires_auth: boolean; parameters?: Record<string, MCPToolParameter> }[] {
+  function listTools(serverName?: string): { name: string; description: string; server: string; requires_auth: boolean; parameters?: Record<string, MCPToolParameter> }[] {
     const tools: MCPTool[] = [];
     if (serverName) {
-      const server = this.servers.get(serverName);
+      const server = servers.get(serverName);
       if (server) tools.push(...server.tools);
     } else {
-      for (const server of this.servers.values()) {
+      for (const server of servers.values()) {
         tools.push(...server.tools);
       }
     }
@@ -87,30 +96,30 @@ class MCPGateway {
     }));
   }
 
-  async callTool(toolName: string, kwargs: Record<string, unknown> = {}): Promise<string> {
-    const tool = this.toolIndex.get(toolName);
+  async function callTool(toolName: string, kwargs: Record<string, unknown> = {}): Promise<string> {
+    const tool = toolIndex.get(toolName);
     if (!tool) throw new Error(`Tool not found: ${toolName}`);
     return tool.handler(kwargs);
   }
 
-  /** Get tools filtered by persona's allowed_tools list */
-  getPersonaTools(allowedTools: string[] | null): MCPTool[] {
+  function getPersonaTools(allowedTools: string[] | null): MCPTool[] {
     if (!allowedTools) return [];
     return allowedTools
-      .map(name => this.toolIndex.get(name))
+      .map(name => toolIndex.get(name))
       .filter((t): t is MCPTool => t !== undefined);
   }
+
+  return { registerServer, registerTool, listServers, listTools, callTool, getPersonaTools };
 }
 
 // ── Singleton ──────────────────────────────────────────────────────────────
 
 let _gateway: MCPGateway | null = null;
 
-export { MCPGateway };
 export function getMCPGateway(): MCPGateway {
   if (_gateway) return _gateway;
 
-  _gateway = new MCPGateway();
+  _gateway = createMCPGateway();
   registerAllServers(_gateway);
   return _gateway;
 }

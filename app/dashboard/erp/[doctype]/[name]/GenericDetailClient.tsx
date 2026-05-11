@@ -384,9 +384,16 @@ export default function GenericDetailClient({
 
     setIsSaving(true);
     try {
+      // Build a set of date field keys so we can coerce YYYY-MM-DD → ISO DateTime
+      const dateFieldKeys = new Set(scalarFields.filter((f) => f.type === 'date').map((f) => f.key));
+
       const payload: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(editData)) {
-        if (value !== '' && value !== null && value !== undefined) {
+        if (value === '' || value === null || value === undefined) continue;
+        // Prisma DateTime fields require ISO-8601 strings, not bare YYYY-MM-DD
+        if (dateFieldKeys.has(key) && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          payload[key] = new Date(value + 'T00:00:00.000Z').toISOString();
+        } else {
           payload[key] = value;
         }
       }
@@ -428,7 +435,7 @@ export default function GenericDetailClient({
     } finally {
       setIsSaving(false);
     }
-  }, [validateForm, editData, editChildTables, doctype, doctypeLabel, recordName, isNew, router]);
+  }, [validateForm, editData, editChildTables, doctype, doctypeLabel, recordName, isNew, scalarFields, router]);
 
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);

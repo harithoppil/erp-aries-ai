@@ -36,9 +36,19 @@ User request: ${message}
 Decide which UI actions (if any) to execute immediately. Only call functions directly relevant to the request. Infer reasonable form values from the user's message. If the user is just asking a question, do not call any functions.`;
 
   try {
-    const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
-    const chatUrl = process.env.GEMINI_CHAT_COMPLETIONS_URL;
-    const model = process.env.GEMINI_CHAT_MODEL || "google/gemini-3-flash-preview";
+    // Prefer Azure DeepSeek when available, fall back to Gemini
+    const azureUrl = process.env.AZURE_CHAT_COMPLETIONS_URL;
+    const azureKey = process.env.AZURE_API_KEY;
+    const azureModel = process.env.AZURE_CHAT_MODEL || "DeepSeek-V4-Flash";
+
+    const geminiUrl = process.env.GEMINI_CHAT_COMPLETIONS_URL;
+    const geminiKey = process.env.GOOGLE_CLOUD_API_KEY;
+    const geminiModel = process.env.GEMINI_CHAT_MODEL || "google/gemini-3-flash-preview";
+
+    const useAzure = azureUrl && azureKey;
+    const chatUrl = useAzure ? azureUrl : geminiUrl;
+    const apiKey = useAzure ? azureKey : geminiKey;
+    const model = useAzure ? azureModel : geminiModel;
 
     if (!chatUrl || !apiKey) {
       // No Chat Completions endpoint configured — return empty
@@ -73,11 +83,14 @@ Decide which UI actions (if any) to execute immediately. Only call functions dir
       payload.tools = tools;
     }
 
-    // Call Chat Completions API
-    const url = `${chatUrl}?key=${apiKey}`;
+    // Call Chat Completions API (Azure uses api-key header, Gemini uses ?key= query param)
+    const url = useAzure ? chatUrl : `${chatUrl}?key=${apiKey}`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (useAzure) headers["api-key"] = apiKey;
+
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
     });
 

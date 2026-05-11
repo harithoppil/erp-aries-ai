@@ -3,7 +3,7 @@
  * ═══════════════════════════════════════════════════════════ */
 
 import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
-import { MissingDependencyError } from "@/lib/markitdown/exceptions";
+import { createMissingDependencyError } from "@/lib/markitdown/exceptions";
 
 interface MsgFileData {
   senderName?: string;
@@ -41,7 +41,7 @@ export function createMsgConverter(): Converter {
         }
         MsgReader = Ctor as MsgReaderClass;
       } catch {
-        throw new MissingDependencyError(
+        throw createMissingDependencyError(
           "MsgConverter",
           "@kenjiuno/msgreader",
           "bun add --optional @kenjiuno/msgreader"

@@ -5,7 +5,7 @@
  * ═══════════════════════════════════════════════════════════ */
 
 import { type StreamInfo, type Converter, type ConvertResult, type ConvertOptions } from "@/lib/markitdown/types";
-import { UnsupportedFormatError, ConversionError } from "@/lib/markitdown/exceptions";
+import { createUnsupportedFormatError, createConversionError } from "@/lib/markitdown/exceptions";
 import { buildStreamInfoGuesses } from "@/lib/markitdown/stream-info";
 import { normalizeWhitespace } from "@/lib/markitdown/turndown";
 
@@ -105,10 +105,10 @@ export async function createMarkItDown(
     }
 
     if (failed.length > 0) {
-      throw new ConversionError(failed);
+      throw createConversionError(failed);
     }
 
-    throw new UnsupportedFormatError(
+    throw createUnsupportedFormatError(
       `No converter accepted file: ${info.filename || info.url || "unknown"}`
     );
   }

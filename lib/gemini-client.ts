@@ -49,9 +49,15 @@ let cachedToken: { token: string; expiresAt: number; projectId: string } | null 
  * Returns a list of function calls to execute.
  */
 export async function planUIActions(options: PlanOptions): Promise<FunctionCall[]> {
-  const provider = options.provider || "gemini";
+  // If Azure DeepSeek is configured on the server, always go through proxy
+  // (Azure API keys shouldn't be sent to the browser)
+  const hasAzure = typeof window !== 'undefined'
+    ? false // Browser can't check env vars — proxy will handle it
+    : !!(process.env.AZURE_CHAT_COMPLETIONS_URL && process.env.AZURE_API_KEY);
 
-  // For now, direct mode only supports Gemini (OpenAI/Anthropic go through proxy)
+  const provider = options.provider || (hasAzure ? "azure" : "gemini");
+
+  // Direct mode only supports Gemini (Azure/OpenAI go through proxy)
   if (provider === "gemini" && options.direct !== false) {
     try {
       return await callVertexAIDirect(options);

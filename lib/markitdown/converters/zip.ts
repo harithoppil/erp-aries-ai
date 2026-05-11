@@ -4,7 +4,11 @@
 
 import AdmZip from "adm-zip";
 import type { Converter, ConvertResult, ConvertOptions, StreamInfo } from "@/lib/markitdown/types";
-import { UnsupportedFormatError, ConversionError } from "@/lib/markitdown/exceptions";
+import type { UnsupportedFormatError, ConversionError } from "@/lib/markitdown/exceptions";
+
+function isMarkitdownError(err: unknown, name: string): boolean {
+  return err instanceof Error && err.name === name;
+}
 
 export function createZipConverter(): Converter {
   return {
@@ -54,7 +58,7 @@ export function createZipConverter(): Converter {
               break;
             }
           } catch (err) {
-            if (err instanceof UnsupportedFormatError || err instanceof ConversionError) {
+            if (isMarkitdownError(err, "UnsupportedFormatError") || isMarkitdownError(err, "ConversionError")) {
               continue;
             }
             // Log but don't fail the whole ZIP for one bad file

@@ -32,30 +32,31 @@ import { safeTransaction, type TxClient } from "./transaction-wrapper";
 /* ------------------------------------------------------------------ */
 
 /** Thrown when the concurrency token (modified timestamp) does not match */
-export class ConcurrencyConflictError extends Error {
-  public readonly doctype: string;
-  public readonly docname: string;
-  public readonly expectedModified: Date;
-  public readonly actualModified: Date;
+export interface ConcurrencyConflictError extends Error {
+  doctype: string;
+  docname: string;
+  expectedModified: Date;
+  actualModified: Date;
+}
 
-  constructor(
-    doctype: string,
-    docname: string,
-    expectedModified: Date,
-    actualModified: Date,
-  ) {
-    super(
-      `Concurrency conflict on ${doctype} "${docname}": ` +
-      `expected modified=${expectedModified.toISOString()}, ` +
-      `actual modified=${actualModified.toISOString()}. ` +
-      `The document was modified by another transaction.`,
-    );
-    this.name = "ConcurrencyConflictError";
-    this.doctype = doctype;
-    this.docname = docname;
-    this.expectedModified = expectedModified;
-    this.actualModified = actualModified;
-  }
+export function createConcurrencyConflictError(
+  doctype: string,
+  docname: string,
+  expectedModified: Date,
+  actualModified: Date,
+): ConcurrencyConflictError {
+  const error = new Error(
+    `Concurrency conflict on ${doctype} "${docname}": ` +
+    `expected modified=${expectedModified.toISOString()}, ` +
+    `actual modified=${actualModified.toISOString()}. ` +
+    `The document was modified by another transaction.`,
+  ) as ConcurrencyConflictError;
+  error.name = "ConcurrencyConflictError";
+  error.doctype = doctype;
+  error.docname = docname;
+  error.expectedModified = expectedModified;
+  error.actualModified = actualModified;
+  return error;
 }
 
 /** Result of an optimistic-lock update */
@@ -121,7 +122,7 @@ export async function withOptimisticLock<T>(
     return {
       success: false,
       conflict: true,
-      error: new ConcurrencyConflictError(
+      error: createConcurrencyConflictError(
         doctype,
         name,
         expectedModified,
@@ -150,7 +151,7 @@ export async function withOptimisticLock<T>(
 
     const freshModified = fresh.modified as Date | null;
     if (!freshModified || freshModified.getTime() !== expectedModified.getTime()) {
-      throw new ConcurrencyConflictError(
+      throw createConcurrencyConflictError(
         doctype,
         name,
         expectedModified,

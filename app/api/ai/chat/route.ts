@@ -17,7 +17,7 @@ import { errorMessage } from '@/lib/utils';
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { AgentLoop, type AgentLoopEvent } from "@/lib/agent-loop";
+import { createAgentLoop, type AgentLoopEvent } from "@/lib/agent-loop";
 import { generateId } from "@/lib/uuid";
 import type {
   ChatMessage,
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Create the AgentLoop
-  const loop = new AgentLoop({
+  const loop = createAgentLoop({
     persona: {
       id: persona.id,
       nickname: persona.nickname,

@@ -109,88 +109,90 @@ function get_combine_datetime(postingDate?: string, postingTime?: string): strin
 /*  FIFO / LIFO Valuation (pure)                                       */
 /* ------------------------------------------------------------------ */
 
-export class FIFOValuation {
+export interface Valuation {
   state: [number, number][];
-
-  constructor(initialState?: [number, number][]) {
-    this.state = initialState ? [...initialState] : [];
-  }
-
-  add_stock(qty: number, rate: number): void {
-    this.state.push([qty, rate]);
-  }
-
-  remove_stock(
-    qty: number,
-    outgoingRate?: number,
-    rateGenerator?: () => number,
-    _isReturnPurchaseEntry = false
-  ): void {
-    let remainingQty = qty;
-    while (remainingQty > 0 && this.state.length > 0) {
-      const [bucketQty, bucketRate] = this.state[0];
-      const consume = Math.min(remainingQty, bucketQty);
-      if (bucketQty <= consume) {
-        this.state.shift();
-      } else {
-        this.state[0] = [bucketQty - consume, bucketRate];
-      }
-      remainingQty -= consume;
-    }
-    if (remainingQty > 0) {
-      // negative stock: add a phantom bucket with fallback rate
-      const fallbackRate = rateGenerator ? rateGenerator() : outgoingRate ?? 0;
-      this.state.push([remainingQty * -1, fallbackRate]);
-    }
-  }
-
-  get_total_stock_and_value(): [number, number] {
-    const totalQty = this.state.reduce((sum, [q]) => sum + q, 0);
-    const totalValue = this.state.reduce((sum, [q, r]) => sum + q * r, 0);
-    return [totalQty, totalValue];
-  }
+  add_stock(qty: number, rate: number): void;
+  remove_stock(qty: number, outgoingRate?: number, rateGenerator?: () => number, _isReturnPurchaseEntry?: boolean): void;
+  get_total_stock_and_value(): [number, number];
 }
 
-export class LIFOValuation {
-  state: [number, number][];
+export function createFIFOValuation(initialState?: [number, number][]): Valuation {
+  const state: [number, number][] = initialState ? [...initialState] : [];
 
-  constructor(initialState?: [number, number][]) {
-    this.state = initialState ? [...initialState] : [];
+  function add_stock(qty: number, rate: number): void {
+    state.push([qty, rate]);
   }
 
-  add_stock(qty: number, rate: number): void {
-    this.state.push([qty, rate]);
-  }
-
-  remove_stock(
+  function remove_stock(
     qty: number,
     outgoingRate?: number,
     rateGenerator?: () => number,
     _isReturnPurchaseEntry = false
   ): void {
     let remainingQty = qty;
-    while (remainingQty > 0 && this.state.length > 0) {
-      const lastIdx = this.state.length - 1;
-      const [bucketQty, bucketRate] = this.state[lastIdx];
+    while (remainingQty > 0 && state.length > 0) {
+      const [bucketQty, bucketRate] = state[0];
       const consume = Math.min(remainingQty, bucketQty);
       if (bucketQty <= consume) {
-        this.state.pop();
+        state.shift();
       } else {
-        this.state[lastIdx] = [bucketQty - consume, bucketRate];
+        state[0] = [bucketQty - consume, bucketRate];
       }
       remainingQty -= consume;
     }
     if (remainingQty > 0) {
       const fallbackRate = rateGenerator ? rateGenerator() : outgoingRate ?? 0;
-      this.state.push([remainingQty * -1, fallbackRate]);
+      state.push([remainingQty * -1, fallbackRate]);
     }
   }
 
-  get_total_stock_and_value(): [number, number] {
-    const totalQty = this.state.reduce((sum, [q]) => sum + q, 0);
-    const totalValue = this.state.reduce((sum, [q, r]) => sum + q * r, 0);
+  function get_total_stock_and_value(): [number, number] {
+    const totalQty = state.reduce((sum, [q]) => sum + q, 0);
+    const totalValue = state.reduce((sum, [q, r]) => sum + q * r, 0);
     return [totalQty, totalValue];
   }
+
+  return { state, add_stock, remove_stock, get_total_stock_and_value };
+}
+
+export function createLIFOValuation(initialState?: [number, number][]): Valuation {
+  const state: [number, number][] = initialState ? [...initialState] : [];
+
+  function add_stock(qty: number, rate: number): void {
+    state.push([qty, rate]);
+  }
+
+  function remove_stock(
+    qty: number,
+    outgoingRate?: number,
+    rateGenerator?: () => number,
+    _isReturnPurchaseEntry = false
+  ): void {
+    let remainingQty = qty;
+    while (remainingQty > 0 && state.length > 0) {
+      const lastIdx = state.length - 1;
+      const [bucketQty, bucketRate] = state[lastIdx];
+      const consume = Math.min(remainingQty, bucketQty);
+      if (bucketQty <= consume) {
+        state.pop();
+      } else {
+        state[lastIdx] = [bucketQty - consume, bucketRate];
+      }
+      remainingQty -= consume;
+    }
+    if (remainingQty > 0) {
+      const fallbackRate = rateGenerator ? rateGenerator() : outgoingRate ?? 0;
+      state.push([remainingQty * -1, fallbackRate]);
+    }
+  }
+
+  function get_total_stock_and_value(): [number, number] {
+    const totalQty = state.reduce((sum, [q]) => sum + q, 0);
+    const totalValue = state.reduce((sum, [q, r]) => sum + q * r, 0);
+    return [totalQty, totalValue];
+  }
+
+  return { state, add_stock, remove_stock, get_total_stock_and_value };
 }
 
 /* ------------------------------------------------------------------ */
