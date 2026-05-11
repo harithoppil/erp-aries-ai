@@ -6,6 +6,9 @@ export const dynamic = 'force-dynamic';
 
 import { fetchDoctypeRecord, fetchDoctypeSchema } from './actions';
 import GenericDetailClient from './GenericDetailClient';
+import ERPFormClient from '@/app/dashboard/erp/components/erp-meta/ERPFormClient';
+import { loadDocTypeMeta } from '@/lib/erpnext/doctype-meta';
+import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 import { notFound } from 'next/navigation';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -130,7 +133,29 @@ export default async function GenericDetailPage({
     }
   }
 
-  // Always fetch schema so the client can detect FK fields for the autocomplete.
+  // Probe DocField metadata. If the doctype has Frappe metadata, render the
+  // metadata-driven form (tabs + sections + columns, mirrors localhost:8000).
+  // Otherwise fall back to the flat GenericDetailClient.
+  const registryKey = toDisplayLabel(doctype);
+  let hasDocFieldMeta = false;
+  try {
+    const meta = await loadDocTypeMeta(registryKey);
+    hasDocFieldMeta = meta.fields.length > 0;
+  } catch {
+    hasDocFieldMeta = false;
+  }
+
+  if (hasDocFieldMeta) {
+    return (
+      <ERPFormClient
+        doctype={doctype}
+        record={scalarRecord}
+        childTables={childTables}
+      />
+    );
+  }
+
+  // Fallback: legacy flat form for doctypes without DocField metadata.
   const schemaResult = await fetchDoctypeSchema(doctype);
   const schemaFields = schemaResult.success ? schemaResult.data : [];
 

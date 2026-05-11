@@ -16877,3 +16877,47 @@ model rag_chunks {
   @@index([source_path], map: "idx_rag_chunks_source")
   @@index([tsv], map: "idx_rag_chunks_tsv", type: Gin)
 }
+
+/// Per-field metadata copied from Frappe's `tabDocField` table.
+/// Drives the metadata-driven frontend (layout, filters, list columns, links).
+/// One row per (parent doctype, fieldname). See `app/api/erpnext/meta/...`.
+model DocField {
+  name                String    @id @db.VarChar(255)
+  creation            DateTime?
+  modified            DateTime?
+  modified_by         String?
+  owner               String?
+  docstatus           Int       @default(0) @db.SmallInt
+  parent              String    @db.VarChar(255)
+  parentfield         String?   @db.VarChar(140)
+  parenttype          String?   @db.VarChar(140)
+  idx                 Int       @default(0)
+  fieldname           String?   @db.VarChar(140)
+  label               String?   @db.VarChar(255)
+  fieldtype           String?   @db.VarChar(140)
+  options             String?
+  hidden              Int       @default(0) @db.SmallInt
+  reqd                Int       @default(0) @db.SmallInt
+  read_only           Int       @default(0) @db.SmallInt
+  in_list_view        Int       @default(0) @db.SmallInt
+  in_standard_filter  Int       @default(0) @db.SmallInt
+  in_global_search    Int       @default(0) @db.SmallInt
+  permlevel           Int?      @default(0)
+  depends_on          String?
+  description         String?
+  collapsible         Int       @default(0) @db.SmallInt
+  field_default       String?   @map("default")
+  field_precision     String?   @map("precision") @db.VarChar(140)
+  length              Int?      @default(0)
+  translatable        Int       @default(0) @db.SmallInt
+  is_virtual          Int       @default(0) @db.SmallInt
+  not_nullable        Int       @default(0) @db.SmallInt
+  fetch_from          String?
+  link_filters        String?
+  placeholder         String?   @db.VarChar(140)
+
+  @@index([parent])
+  @@index([fieldname])
+  @@index([fieldtype])
+  @@map("tabDocField")
+}
