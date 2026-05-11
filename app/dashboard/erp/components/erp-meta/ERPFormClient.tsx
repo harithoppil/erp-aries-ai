@@ -8,7 +8,7 @@
 // Falls back to GenericDetailClient when metadata isn't available (e.g. doctypes
 // without tabDocField rows).
 
-import { useCallback, useMemo, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -33,6 +33,10 @@ import {
 } from '@/app/dashboard/erp/[doctype]/[name]/actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 import { errorMessage } from '@/lib/utils';
+import { usePageContext } from '@/hooks/usePageContext';
+import { useActionDispatcher, defineAction } from '@/store/useActionDispatcher';
+import { useAppStore } from '@/store/useAppStore';
+import { Sparkles } from 'lucide-react';
 
 import { useDocTypeMeta } from './useDocTypeMeta';
 import { ERPTabLayout } from './ERPTabLayout';
@@ -124,6 +128,27 @@ export default function ERPFormClient({
     if (!isEditing) return record;
     return { ...record, ...editData };
   }, [record, editData, isEditing]);
+
+  // ── AI: Page context ─────────────────────────────────────────────────────
+  const uiActionActive = useAppStore((s) => s.uiActionActive);
+
+  const contextSummary = useMemo(() => {
+    const fieldSummary = meta
+      ? meta.fields
+          .filter((f) => !f.hidden && !f.read_only && f.fieldtype !== 'Table')
+          .slice(0, 10)
+          .map((f) => `${f.fieldname}: ${String(record[f.fieldname] ?? '').slice(0, 40)}`)
+          .join(', ')
+      : '';
+    const childSummary = Object.entries(childTables)
+      .map(([k, v]) => `${k}: ${v.length} rows`)
+      .join(', ');
+    if (isNew) {
+      return `New ${doctypeLabel} form. Fields: ${meta ? meta.fields.filter((f) => !f.hidden).map((f) => f.fieldname).join(', ') || 'none' : 'unknown'}`;
+    }
+    return `${doctypeLabel} detail: ${recordName}. Status: ${['Draft', 'Submitted', 'Cancelled'][docstatus]}. Fields: ${fieldSummary}.${childSummary ? ` Child tables: ${childSummary}.` : ''}`;
+  }, [meta, record, childTables, isNew, doctypeLabel, recordName, docstatus]);
+  usePageContext(contextSummary);
 
   const handleEditStart = useCallback(() => {
     setEditData({ ...record });
@@ -262,6 +287,98 @@ export default function ERPFormClient({
     );
   }, [doctype, recordName]);
 
+  // ── AI: Action registration (must be after all handlers) ───────────────
+  const registerActions = useActionDispatcher((s) => s.registerActions);
+  const unregisterActions = useActionDispatcher((s) => s.unregisterActions);
+  useEffect(() => {
+    const actionPrefix = doctype.replace(/[-_]/g, '_');
+
+    // Build field parameter schema from DocFieldMeta (not Prisma DMMF).
+    // Only include editable, non-hidden, non-virtual, non-table fields.
+    const fieldProps: Record<string, { type: string; description: string }> = {};
+    if (meta) {
+      for (const f of meta.fields) {
+        if (f.hidden || f.read_only || f.is_virtual) continue;
+        if (f.fieldtype === 'Table' || f.fieldtype === 'Table MultiSelect') continue;
+        if (f.fieldname === 'name') continue;
+        fieldProps[f.fieldname] = {
+          type: 'string',
+          description: f.label ?? f.fieldname,
+        };
+      }
+    }
+
+    const actions = [
+      defineAction({
+        name: `${actionPrefix}_set_field`,
+        description: `Set field values on the ${doctypeLabel} ${isNew ? 'form' : 'record'}. Opens edit mode if not already editing.`,
+        parameters: { type: 'object', properties: fieldProps },
+      }),
+      defineAction({
+        name: `${actionPrefix}_save`,
+        description: `Save the ${doctypeLabel} ${isNew ? 'record' : 'changes'}`,
+        parameters: { type: 'object', properties: {} },
+      }),
+    ];
+
+    if (!isNew) {
+      actions.push(
+        defineAction({
+          name: `${actionPrefix}_submit`,
+          description: `Submit the ${doctypeLabel} record (changes status from Draft to Submitted)`,
+          parameters: { type: 'object', properties: {} },
+        }),
+        defineAction({
+          name: `${actionPrefix}_cancel`,
+          description: `Cancel the ${doctypeLabel} record (changes status from Submitted to Cancelled)`,
+          parameters: { type: 'object', properties: {} },
+        }),
+        defineAction({
+          name: `${actionPrefix}_delete`,
+          description: `Delete the ${doctypeLabel} record`,
+          parameters: { type: 'object', properties: {} },
+        }),
+      );
+    }
+
+    const handlerMap: Record<string, (args: Record<string, unknown>) => void> = {
+      [`${actionPrefix}_set_field`]: (args) => {
+        if (!isEditing) {
+          // Enter edit mode with current record values
+          const editableData: Record<string, unknown> = {};
+          if (meta) {
+            for (const f of meta.fields) {
+              if (f.hidden || f.read_only || f.is_virtual) continue;
+              if (f.fieldtype === 'Table' || f.fieldtype === 'Table MultiSelect') continue;
+              const val = record[f.fieldname];
+              editableData[f.fieldname] = val instanceof Date ? val.toISOString().slice(0, 10) : val;
+            }
+          } else {
+            Object.assign(editableData, record);
+          }
+          setEditData(editableData);
+          setFieldErrors({});
+          setIsEditing(true);
+        }
+        setEditData((prev) => ({ ...prev, ...args }));
+        const filledFields = Object.keys(args);
+        if (filledFields.length > 0) {
+          toast.info(`AI filled: ${filledFields.join(', ')}`);
+        }
+      },
+      [`${actionPrefix}_save`]: () => handleSave(),
+    };
+
+    if (!isNew) {
+      handlerMap[`${actionPrefix}_submit`] = () => handleSubmit();
+      handlerMap[`${actionPrefix}_cancel`] = () => handleCancel();
+      handlerMap[`${actionPrefix}_delete`] = () => setDeleteDialogOpen(true);
+    }
+
+    registerActions(actions, handlerMap);
+    return () => unregisterActions();
+  }, [doctype, doctypeLabel, isNew, isEditing, meta, record, childTables, recordName, registerActions, unregisterActions, handleSave, handleSubmit, handleCancel]);
+
   // Child-table renderer slot. For now display row counts; a future
   // ERPGridClient will replace this with inline editing.
   const renderTable = useCallback((field: DocFieldMeta) => {
@@ -370,6 +487,12 @@ export default function ERPFormClient({
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {uiActionActive && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 text-sm animate-pulse">
+          <Sparkles size={14} className="animate-spin" />
+          <span>AI is controlling the interface...</span>
+        </div>
+      )}
       {topBar}
 
       {metaLoading && (

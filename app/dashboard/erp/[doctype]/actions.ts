@@ -42,6 +42,7 @@ export interface FetchParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  searchFields?: string[];
   orderby?: string;
   order?: 'asc' | 'desc';
   filters?: Record<string, FilterValue>;
@@ -67,7 +68,15 @@ export async function fetchDoctypeList(
 
     const where: Record<string, unknown> = {};
     if (params?.search && params.search.trim()) {
-      where['name'] = { contains: params.search.trim(), mode: 'insensitive' };
+      const searchTerm = params.search.trim();
+      const fields = params?.searchFields && params.searchFields.length > 0
+        ? params.searchFields
+        : ['name'];
+      if (fields.length === 1) {
+        where[fields[0]] = { contains: searchTerm, mode: 'insensitive' };
+      } else {
+        where['OR'] = fields.map((f) => ({ [f]: { contains: searchTerm, mode: 'insensitive' } }));
+      }
     }
 
     // Apply filter values to the where clause

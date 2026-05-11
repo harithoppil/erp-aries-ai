@@ -190,6 +190,7 @@ export default function ERPListClient({
       const result = await fetchDoctypeList(doctype, {
         page,
         search: debouncedSearch || undefined,
+        searchFields: initialMeta.doctype_info?.search_fields ?? undefined,
         orderby: sortField,
         order: sortOrder,
         filters,
