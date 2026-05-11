@@ -78,12 +78,51 @@ export default async function GenericDetailPage({
 }) {
   const { doctype, name } = await params;
 
-  // "new" route — render create form with schema fields
+  // "new" route — render create form with metadata-driven layout when available
   if (name === 'new') {
+    const registryKey = toDisplayLabel(doctype);
+    let meta: import('@/lib/erpnext/doctype-meta').DocTypeMeta | null = null;
+    try {
+      meta = await loadDocTypeMeta(registryKey);
+    } catch {
+      meta = null;
+    }
+
+    if (meta && meta.fields.length > 0) {
+      // Build empty record with DocField defaults
+      const emptyRecord: Record<string, unknown> = { docstatus: 0, name: '' };
+      for (const field of meta.fields) {
+        if (field.default != null && field.default !== '') {
+          if (field.fieldtype === 'Check') {
+            emptyRecord[field.fieldname] = field.default === '1';
+          } else if (['Int', 'Float', 'Currency', 'Percent'].includes(field.fieldtype)) {
+            emptyRecord[field.fieldname] = Number(field.default) || 0;
+          } else {
+            emptyRecord[field.fieldname] = field.default;
+          }
+        }
+      }
+
+      // Build empty child table arrays from metadata
+      const childTables: Record<string, Record<string, unknown>[]> = {};
+      for (const ct of meta.child_tables) {
+        childTables[ct.fieldname] = [];
+      }
+
+      return (
+        <ERPFormClient
+          doctype={doctype}
+          record={emptyRecord}
+          childTables={childTables}
+          isNew={true}
+        />
+      );
+    }
+
+    // Fallback to GenericDetailClient when no DocField metadata exists
     const schemaResult = await fetchDoctypeSchema(doctype);
     const schemaFields = schemaResult.success ? schemaResult.data : [];
 
-    // Build empty record with defaults
     const emptyRecord: Record<string, unknown> = {};
     for (const field of schemaFields) {
       emptyRecord[field.name] = field.default ?? '';
@@ -137,15 +176,14 @@ export default async function GenericDetailPage({
   // metadata-driven form (tabs + sections + columns, mirrors localhost:8000).
   // Otherwise fall back to the flat GenericDetailClient.
   const registryKey = toDisplayLabel(doctype);
-  let hasDocFieldMeta = false;
+  let meta: import('@/lib/erpnext/doctype-meta').DocTypeMeta | null = null;
   try {
-    const meta = await loadDocTypeMeta(registryKey);
-    hasDocFieldMeta = meta.fields.length > 0;
+    meta = await loadDocTypeMeta(registryKey);
   } catch {
-    hasDocFieldMeta = false;
+    meta = null;
   }
 
-  if (hasDocFieldMeta) {
+  if (meta && meta.fields.length > 0) {
     return (
       <ERPFormClient
         doctype={doctype}
@@ -158,6 +196,7 @@ export default async function GenericDetailPage({
   // Fallback: legacy flat form for doctypes without DocField metadata.
   const schemaResult = await fetchDoctypeSchema(doctype);
   const schemaFields = schemaResult.success ? schemaResult.data : [];
+  const isSubmittable = meta?.doctype_info?.is_submittable ?? false;
 
   return (
     <GenericDetailClient
@@ -165,6 +204,7 @@ export default async function GenericDetailPage({
       record={scalarRecord}
       childTables={childTables}
       schemaFields={schemaFields}
+      isSubmittable={isSubmittable}
     />
   );
 }

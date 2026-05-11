@@ -31,6 +31,7 @@ import {
   cancelDoctypeRecord,
   createDoctypeRecord,
   saveChildTableRows,
+  fetchLinkedRecordField,
 } from '@/app/dashboard/erp/[doctype]/[name]/actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 import { errorMessage } from '@/lib/utils';
@@ -181,7 +182,7 @@ export default function ERPFormClient({
     setIsEditing(false);
   }, []);
 
-  const handleFieldChange = useCallback((fieldname: string, value: unknown) => {
+  const handleFieldChange = useCallback(async (fieldname: string, value: unknown) => {
     setEditData((prev) => ({ ...prev, [fieldname]: value }));
     setFieldErrors((prev) => {
       if (!prev[fieldname]) return prev;
@@ -189,7 +190,48 @@ export default function ERPFormClient({
       delete next[fieldname];
       return next;
     });
-  }, []);
+
+    // If this field is a Link field, check if other fields fetch_from it
+    if (!meta || !value || typeof value !== 'string') return;
+
+    // Find all fields with fetch_from that reference this field
+    const fetchFields = meta.fields.filter((f) => {
+      if (!f.fetch_from) return false;
+      const parts = f.fetch_from.split('.');
+      return parts.length === 2 && parts[0] === fieldname;
+    });
+
+    if (fetchFields.length === 0) return;
+
+    // Determine the link doctype from the Link field's options
+    const linkField = meta.fields.find((f) => f.fieldname === fieldname);
+    if (!linkField?.options) return;
+
+    const fieldsToFetch = fetchFields.map((f) => f.fetch_from!.split('.')[1]);
+
+    try {
+      const linkedData = await fetchLinkedRecordField(linkField.options, value, fieldsToFetch);
+      if (linkedData) {
+        setEditData((prev) => {
+          const updated = { ...prev };
+          for (const ff of fetchFields) {
+            const sourceField = ff.fetch_from!.split('.')[1];
+            if (linkedData[sourceField] !== undefined) {
+              // Respect fetch_if_empty: only overwrite if target field is currently empty
+              if (ff.fetch_if_empty) {
+                const currentVal = updated[ff.fieldname];
+                if (currentVal !== undefined && currentVal !== null && currentVal !== '') continue;
+              }
+              updated[ff.fieldname] = linkedData[sourceField];
+            }
+          }
+          return updated;
+        });
+      }
+    } catch {
+      // Silently fail — fetch_from is best-effort
+    }
+  }, [meta]);
 
   const validate = useCallback((): boolean => {
     if (!meta) return true;
@@ -276,6 +318,8 @@ export default function ERPFormClient({
       const r = await submitDoctypeRecord(doctype, recordName);
       if (r.success) {
         toast.success(`${doctypeLabel} submitted`);
+        setRecord((prev) => prev ? { ...prev, docstatus: 1 } : prev);
+        setIsEditing(false);
         router.refresh();
       } else toast.error(r.error);
     } finally {
@@ -289,6 +333,8 @@ export default function ERPFormClient({
       const r = await cancelDoctypeRecord(doctype, recordName);
       if (r.success) {
         toast.success(`${doctypeLabel} cancelled`);
+        setRecord((prev) => prev ? { ...prev, docstatus: 2 } : prev);
+        setIsEditing(false);
         router.refresh();
       } else toast.error(r.error);
     } finally {

@@ -87,6 +87,7 @@ export interface GenericDetailClientProps {
   childTables: Record<string, Record<string, unknown>[]>;
   isNew?: boolean;
   schemaFields?: SchemaField[];
+  isSubmittable?: boolean;
 }
 
 // Stable empty default — declaring `schemaFields = []` inline creates a new
@@ -208,6 +209,7 @@ export default function GenericDetailClient({
   childTables: initialChildTables,
   isNew = false,
   schemaFields = EMPTY_SCHEMA_FIELDS,
+  isSubmittable = false,
 }: GenericDetailClientProps) {
   const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -443,6 +445,8 @@ export default function GenericDetailClient({
       const result = await submitDoctypeRecord(doctype, recordName);
       if (result.success) {
         toast.success(`${doctype} submitted successfully`);
+        setRecord((prev) => ({ ...prev, docstatus: 1 }));
+        setIsEditing(false);
         router.refresh();
       } else {
         toast.error(!result.success ? result.error : 'Submit failed');
@@ -461,6 +465,8 @@ export default function GenericDetailClient({
       const result = await cancelDoctypeRecord(doctype, recordName);
       if (result.success) {
         toast.success(`${doctype} cancelled successfully`);
+        setRecord((prev) => ({ ...prev, docstatus: 2 }));
+        setIsEditing(false);
         router.refresh();
       } else {
         toast.error(!result.success ? result.error : 'Cancel failed');
@@ -1084,8 +1090,8 @@ export default function GenericDetailClient({
               </Button>
             )}
 
-            {/* Submit — only for draft */}
-            {docstatus === 0 && (
+            {/* Submit — only for draft submittable doctypes */}
+            {docstatus === 0 && isSubmittable && (
               <Button size="sm" onClick={handleSubmit} disabled={isSubmitting} className="gap-1">
                 <Send className="h-3.5 w-3.5" />
                 {isSubmitting ? 'Submitting...' : 'Submit'}
@@ -1196,7 +1202,7 @@ export default function GenericDetailClient({
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </Button>
             )}
-            {docstatus === 0 && (
+            {docstatus === 0 && isSubmittable && (
               <Button
                 size="sm"
                 onClick={handleSubmit}

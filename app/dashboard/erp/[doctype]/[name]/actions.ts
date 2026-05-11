@@ -568,6 +568,31 @@ export async function createDoctypeRecord(
   }
 }
 
+// ── Fetch Linked Record Fields (for fetch_from auto-population) ────────────────
+
+/**
+ * Fetch specific field values from a linked DocType record.
+ * Used by ERPFormClient to implement fetch_from auto-population when a Link
+ * field changes (e.g. selecting a Customer auto-fills customer_name).
+ */
+export async function fetchLinkedRecordField(
+  linkDoctype: string,
+  linkName: string,
+  fieldsToFetch: string[],
+): Promise<Record<string, unknown> | null> {
+  'use server';
+  const delegate = getDelegate(prisma, linkDoctype);
+  if (!delegate) return null;
+
+  const record = await delegate.findUnique({
+    where: { name: linkName },
+    select: Object.fromEntries(fieldsToFetch.map((f) => [f, true])),
+  }) as Record<string, unknown> | null;
+
+  if (!record) return null;
+  return serializeDates(record);
+}
+
 // ── Save Child Table Rows ──────────────────────────────────────────────────────
 
 /**
