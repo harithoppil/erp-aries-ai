@@ -96,7 +96,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main Content — shifts between sidebar and chat panel */}
         <motion.main
-          className="min-h-screen p-2 pt-16"
+          className="min-h-screen p-2 pt-16 z-50"
           animate={{
             marginLeft: sidebarWidth,
             marginRight: chatWidth,
