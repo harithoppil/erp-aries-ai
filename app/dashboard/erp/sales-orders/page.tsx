@@ -1,10 +1,7 @@
-import { listSalesOrders, type ClientSafeSalesOrder } from "@/app/dashboard/erp/sales-orders/actions";
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
-import SalesOrdersClient from "@/app/dashboard/erp/sales-orders/sales-orders-client";
 
-export default async function SalesOrdersPage() {
-  const result = await listSalesOrders();
-  const orders = result.success ? result.orders : [];
-  return <SalesOrdersClient initialOrders={orders} />;
+export default function SalesOrdersPage() {
+  redirect('/dashboard/erp/sales-order');
 }

@@ -1,11 +1,7 @@
-import { listAssets, type ClientSafeAsset } from "@/app/dashboard/erp/assets/actions";
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
-import AssetsClient from "@/app/dashboard/erp/assets/assets-client";
 
-export default async function AssetsListPage() {
-  const result = await listAssets();
-  const assets = result.success ? result.assets : [];
-
-  return <AssetsClient initialAssets={assets} />;
+export default function AssetsListPage() {
+  redirect('/dashboard/erp/asset');
 }

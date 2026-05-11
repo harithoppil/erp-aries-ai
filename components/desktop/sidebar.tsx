@@ -416,9 +416,6 @@ const NAV_GROUPS: NavGroup[] = [
       },
 
       // ── 12. HR ─────────────────────────────────────────────────────────────
-      // NOTE: most of HR (leave, payroll, salary, attendance, training, appraisals,
-      // recruitment, shifts) is not yet ported in the Prisma schema, so those
-      // sidebar items are hidden until their models are added.
       {
         label: "HR",
         icon: UserCog,
@@ -428,8 +425,27 @@ const NAV_GROUPS: NavGroup[] = [
           { label: "Employee Education", href: erpHref("EmployeeEducation"), icon: GraduationCap, group: "Employee" },
           { label: "Employee Group", href: erpHref("EmployeeGroup"), icon: Users, group: "Employee" },
           { label: "Designation", href: erpHref("Designation"), icon: Tag, group: "Employee" },
-          // Leave (only Holiday List has a Prisma model right now)
+          // Leave
+          { label: "Leave Type", href: erpHref("LeaveType"), icon: PlaneTakeoff, group: "Leave" },
+          { label: "Leave Allocation", href: erpHref("LeaveAllocation"), icon: CalendarClock, group: "Leave" },
+          { label: "Leave Application", href: erpHref("LeaveApplication"), icon: Calendar, group: "Leave" },
+          { label: "Leave Policy", href: erpHref("LeavePolicy"), icon: FileText, group: "Leave" },
           { label: "Holiday List", href: erpHref("HolidayList"), icon: Calendar, group: "Leave" },
+          // Payroll
+          { label: "Salary Component", href: erpHref("SalaryComponent"), icon: DollarSign, group: "Payroll" },
+          { label: "Salary Structure", href: erpHref("SalaryStructure"), icon: Wallet, group: "Payroll" },
+          { label: "Salary Slip", href: erpHref("SalarySlip"), icon: Receipt, group: "Payroll" },
+          { label: "Payroll Entry", href: erpHref("PayrollEntry"), icon: BookOpenCheck, group: "Payroll" },
+          // Attendance
+          { label: "Attendance", href: erpHref("Attendance"), icon: Clock, group: "Attendance" },
+          { label: "Attendance Request", href: erpHref("AttendanceRequest"), icon: CalendarClock, group: "Attendance" },
+          { label: "Shift Type", href: erpHref("ShiftType"), icon: Clock, group: "Attendance" },
+          { label: "Shift Assignment", href: erpHref("ShiftAssignment"), icon: CalendarClock, group: "Attendance" },
+          // Performance
+          { label: "Appraisal", href: erpHref("Appraisal"), icon: Star, group: "Performance" },
+          { label: "Appraisal Template", href: erpHref("AppraisalTemplate"), icon: Star, group: "Performance" },
+          // Recruitment
+          { label: "Job Opening", href: erpHref("JobOpening"), icon: UserPlus, group: "Recruitment" },
           // Fleet
           { label: "Vehicle", href: erpHref("Vehicle"), icon: Car, group: "Fleet" },
         ],

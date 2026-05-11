@@ -174,6 +174,35 @@ import { calculateTaxesAndTotals, type TransactionDoc } from "@/lib/erpnext/cont
 
 import { type StatusUpdaterConfig, type QtyUpdateResult } from "@/lib/erpnext/controllers/status-updater";
 
+// ── HR controller imports ──────────────────────────────────────────────────
+import {
+  validateLeaveApplication,
+  type LeaveApplicationDoc,
+  type LeaveValidationResult,
+} from "@/lib/erpnext/controllers/hr-leave-application";
+
+import {
+  validateSalarySlip,
+  onSubmitSalarySlip,
+  onCancelSalarySlip,
+  type SalarySlipDoc,
+  type SalarySlipGLEntry,
+  type SalarySlipSubmitResult,
+  type SalaryDetailRow,
+} from "@/lib/erpnext/controllers/hr-salary-slip";
+
+import {
+  validateAttendance,
+  type AttendanceDoc,
+  type AttendanceValidationResult,
+} from "@/lib/erpnext/controllers/hr-attendance";
+
+import {
+  validatePayrollEntry,
+  type PayrollEntryDoc,
+  type PayrollEntryValidationResult,
+} from "@/lib/erpnext/controllers/hr-payroll-entry";
+
 /* ════════════════════════════════════════════════════════════════════════════
    PUBLIC INTERFACES
    ════════════════════════════════════════════════════════════════════════════ */
@@ -1313,6 +1342,113 @@ function woOnCancel(_doc: unknown, _children: Record<string, unknown[]>): Cancel
 }
 
 /* ================================================================== */
+/*  Leave Application Adapters                                        */
+/* ================================================================== */
+
+/**
+ * Leave Application: status-only DocType. No GL or stock entries on submit.
+ */
+function laValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const laDoc = doc as LeaveApplicationDoc;
+  const result: LeaveValidationResult = validateLeaveApplication(laDoc);
+  return { valid: result.valid, errors: result.errors, warnings: result.warnings };
+}
+
+function laOnSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function laOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
+}
+
+/* ================================================================== */
+/*  Salary Slip Adapters                                              */
+/* ================================================================== */
+
+/**
+ * Salary Slip: creates GL entries on submit (earnings debit, deductions credit,
+ * net pay credit to payable account). Reverses GL entries on cancel.
+ */
+function ssValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const ssDoc = doc as SalarySlipDoc;
+  const result = validateSalarySlip(ssDoc);
+  return { valid: result.valid, errors: result.errors, warnings: result.warnings };
+}
+
+function ssOnSubmit(doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  const ssDoc = doc as SalarySlipDoc;
+  const result: SalarySlipSubmitResult = onSubmitSalarySlip(ssDoc);
+
+  if (!result.success) {
+    return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+  }
+
+  const glEntries: GlEntryInput[] = result.gl_entries.map((e: SalarySlipGLEntry) => ({
+    account: e.account,
+    debit: e.debit,
+    credit: e.credit,
+    against: e.against ?? "",
+    voucherType: "Salary Slip",
+    voucherNo: ssDoc.name ?? "",
+    fiscalYear: "",
+    company: ssDoc.company,
+    postingDate: new Date(ssDoc.posting_date),
+    costCenter: e.cost_center,
+    remarks: e.remarks,
+  }));
+
+  return { glEntries, stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function ssOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: true, reverseStockLedger: false, reverseStatusUpdates: [] };
+}
+
+/* ================================================================== */
+/*  Attendance Adapters                                               */
+/* ================================================================== */
+
+/**
+ * Attendance: status-only DocType. No GL or stock entries on submit.
+ */
+function attValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const attDoc = doc as AttendanceDoc;
+  const result: AttendanceValidationResult = validateAttendance(attDoc);
+  return { valid: result.valid, errors: result.errors, warnings: result.warnings };
+}
+
+function attOnSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function attOnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
+}
+
+/* ================================================================== */
+/*  Payroll Entry Adapters                                            */
+/* ================================================================== */
+
+/**
+ * Payroll Entry: status-only DocType. Actual salary slip creation is a
+ * background job in Frappe. On submit, only the docstatus flip occurs.
+ */
+function peHRValidate(doc: unknown, _context: ValidationContext): ValidationResult {
+  const peDoc = doc as PayrollEntryDoc;
+  const result: PayrollEntryValidationResult = validatePayrollEntry(peDoc);
+  return { valid: result.valid, errors: result.errors, warnings: result.warnings };
+}
+
+function peHROnSubmit(_doc: unknown, _children: Record<string, unknown[]>): SubmitSideEffects {
+  return { glEntries: [], stockLedgerEntries: [], statusUpdates: [], accountBalanceUpdates: [] };
+}
+
+function peHROnCancel(_doc: unknown, _children: Record<string, unknown[]>): CancelSideEffects {
+  return { reverseGlEntries: false, reverseStockLedger: false, reverseStatusUpdates: [] };
+}
+
+/* ================================================================== */
 /*  Generic adapter helper for status-only DocTypes                    */
 /* ================================================================== */
 
@@ -1428,6 +1564,21 @@ const landedCostVoucherAdapter = makeStatusOnlyAdapter({
 });
 const productionPlanAdapter = makeStatusOnlyAdapter({
   required: ['company'],
+});
+
+// ── HR status-only adapters ─────────────────────────────────────────────────
+const leaveAllocationAdapter = makeStatusOnlyAdapter({
+  required: ['employee', 'leave_type', 'from_date', 'to_date'],
+});
+const attendanceRequestAdapter = makeStatusOnlyAdapter({
+  required: ['employee', 'from_date', 'to_date'],
+});
+const shiftAssignmentAdapter = makeStatusOnlyAdapter({
+  required: ['employee', 'shift_type', 'start_date'],
+});
+const appraisalAdapter = makeStatusOnlyAdapter({
+  required: ['employee', 'appraisal_template', 'start_date', 'end_date'],
+  itemsTable: { field: 'goals', rowRequired: ['goal_name', 'per_weightage'] },
 });
 
 /* ------------------------------------------------------------------ */
@@ -1719,6 +1870,80 @@ const REGISTRY: Map<string, DocTypeConfig> = new Map([
     controller: productionPlanAdapter,
     prismaModel: "productionPlan",
     childModels: [],
+    submittable: true,
+  }],
+
+  // ── HR / Payroll doctypes ────────────────────────────────────────────────
+
+  ["Leave Application", {
+    controller: {
+      validate: laValidate,
+      onSubmit: laOnSubmit,
+      onCancel: laOnCancel,
+    },
+    prismaModel: "leaveApplication",
+    childModels: [],
+    submittable: true,
+  }],
+  ["Leave Allocation", {
+    controller: leaveAllocationAdapter,
+    prismaModel: "leaveAllocation",
+    childModels: [],
+    submittable: true,
+  }],
+  ["Salary Slip", {
+    controller: {
+      validate: ssValidate,
+      onSubmit: ssOnSubmit,
+      onCancel: ssOnCancel,
+    },
+    prismaModel: "salarySlip",
+    childModels: [
+      { accessor: "salaryDetail", parentField: "earnings" },
+      { accessor: "salaryDetail", parentField: "deductions" },
+    ],
+    submittable: true,
+  }],
+  ["Payroll Entry", {
+    controller: {
+      validate: peHRValidate,
+      onSubmit: peHROnSubmit,
+      onCancel: peHROnCancel,
+    },
+    prismaModel: "payrollEntry",
+    childModels: [
+      { accessor: "payrollEmployeeDetail", parentField: "employees" },
+    ],
+    submittable: true,
+  }],
+  ["Attendance", {
+    controller: {
+      validate: attValidate,
+      onSubmit: attOnSubmit,
+      onCancel: attOnCancel,
+    },
+    prismaModel: "attendance",
+    childModels: [],
+    submittable: true,
+  }],
+  ["Attendance Request", {
+    controller: attendanceRequestAdapter,
+    prismaModel: "attendanceRequest",
+    childModels: [],
+    submittable: true,
+  }],
+  ["Shift Assignment", {
+    controller: shiftAssignmentAdapter,
+    prismaModel: "shiftAssignment",
+    childModels: [],
+    submittable: true,
+  }],
+  ["Appraisal", {
+    controller: appraisalAdapter,
+    prismaModel: "appraisal",
+    childModels: [
+      { accessor: "appraisalGoal", parentField: "goals" },
+    ],
     submittable: true,
   }],
 ]);

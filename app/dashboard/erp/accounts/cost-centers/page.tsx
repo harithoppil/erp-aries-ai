@@ -1,10 +1,7 @@
-import { listCostCenters, type ClientSafeCostCenter } from './actions';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
-import CostCentersClient from './cost-centers-client';
 
-export default async function CostCentersPage() {
-  const result = await listCostCenters();
-  const costCenters = result.success ? result.costCenters : [];
-  return <CostCentersClient initialRecords={JSON.parse(JSON.stringify(costCenters))} />;
+export default function CostCentersPage() {
+  redirect('/dashboard/erp/cost-center');
 }

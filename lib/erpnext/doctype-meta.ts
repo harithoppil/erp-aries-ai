@@ -21,6 +21,7 @@
 // is read-only after the Frappe migration, so we don't need invalidation.
 
 import { prisma } from '@/lib/prisma';
+import { LIST_VIEW_OVERRIDES } from './list-view-overrides';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -159,16 +160,7 @@ const NO_VALUE_TYPES: ReadonlySet<string> = new Set([
 /** Always include these columns in the list view even if not marked `in_list_view`. */
 const FORCE_INCLUDE_LIST_FIELDS: ReadonlySet<string> = new Set(['status']);
 
-/** Per-doctype overrides for list view columns and sort defaults. */
-const LIST_VIEW_OVERRIDES: Record<string, {
-  append?: string[];
-  hide?: string[];
-  defaultSort?: { field: string; dir: 'asc' | 'desc' };
-}> = {
-  'Customer': { append: ['outstanding_amount'], defaultSort: { field: 'modified', dir: 'desc' } },
-  'Sales Invoice': { append: ['outstanding_amount', 'due_date'] },
-  'Purchase Invoice': { append: ['outstanding_amount', 'due_date'] },
-};
+/** Per-doctype overrides imported from list-view-overrides.ts (reconciled — no inline copy). */
 
 /** DocField property names that hold boolean values. */
 const DOCFIELD_BOOL_KEYS: ReadonlySet<string> = new Set([

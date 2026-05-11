@@ -1,10 +1,7 @@
-import { listOpportunities, type ClientSafeOpportunity } from '@/app/dashboard/erp/crm/opportunities/actions';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
-import OpportunitiesClient from './opportunities-client';
 
-export default async function OpportunitiesPage() {
-  const result = await listOpportunities();
-  const opportunities = result.success ? result.opportunities : [];
-  return <OpportunitiesClient initialOpportunities={JSON.parse(JSON.stringify(opportunities))} />;
+export default function OpportunitiesPage() {
+  redirect('/dashboard/erp/opportunity');
 }

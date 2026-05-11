@@ -23,6 +23,8 @@ interface LinkFieldComboboxProps {
   placeholder?: string;
   className?: string;
   hasError?: boolean;
+  /** Extra Prisma where-clause filters derived from link_filters metadata. */
+  extraFilters?: Record<string, unknown> | null;
 }
 
 export function LinkFieldCombobox({
@@ -32,6 +34,7 @@ export function LinkFieldCombobox({
   placeholder,
   className,
   hasError,
+  extraFilters,
 }: LinkFieldComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -49,7 +52,7 @@ export function LinkFieldCombobox({
       return;
     }
     let cancelled = false;
-    searchDoctypeNames(linkTo, value, 1).then((result) => {
+    searchDoctypeNames(linkTo, value, 1, extraFilters).then((result) => {
       if (cancelled) return;
       if (result.success) {
         const exact = result.data.find((r) => r.name === value);
@@ -59,7 +62,7 @@ export function LinkFieldCombobox({
     return () => {
       cancelled = true;
     };
-  }, [value, linkTo]);
+  }, [value, linkTo, extraFilters]);
 
   // Debounced server search
   const runSearch = useCallback(
@@ -68,14 +71,14 @@ export function LinkFieldCombobox({
       debounceRef.current = setTimeout(async () => {
         const myReqId = ++reqIdRef.current;
         setLoading(true);
-        const result = await searchDoctypeNames(linkTo, q, 20);
+        const result = await searchDoctypeNames(linkTo, q, 20, extraFilters);
         if (myReqId !== reqIdRef.current) return; // stale
         setLoading(false);
         if (result.success) setResults(result.data);
         else setResults([]);
       }, 250);
     },
-    [linkTo],
+    [linkTo, extraFilters],
   );
 
   // Trigger initial search when popover opens

@@ -1,10 +1,7 @@
-import { listJournalEntries, type ClientSafeJournalEntry } from "@/app/dashboard/erp/journal-entries/actions";
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
-import JournalEntriesClient from "@/app/dashboard/erp/journal-entries/journal-entries-client";
 
-export default async function JournalEntriesPage() {
-  const result = await listJournalEntries();
-  const entries = result.success ? result.entries : [];
-  return <JournalEntriesClient initialEntries={entries} />;
+export default function JournalEntriesPage() {
+  redirect('/dashboard/erp/journal-entry');
 }

@@ -15,6 +15,7 @@ import {
 import { LinkFieldCombobox } from '@/app/dashboard/erp/[doctype]/[name]/LinkFieldCombobox';
 import { cn } from '@/lib/utils';
 import type { DocFieldMeta } from '@/lib/erpnext/doctype-meta';
+import { linkFiltersToWhere } from '@/lib/erpnext/depends-on';
 import { ArrowDownToLine } from 'lucide-react';
 
 interface ERPFieldRendererProps {
@@ -177,29 +178,22 @@ export function ERPFieldRenderer({
           </>
         );
       }
-      // Parse link_filters if present (JSON string of additional filters).
-      // For now, attach as a data attribute; actual filtering in a future stage.
-      const linkFiltersAttr = useMemo(() => {
-        if (!field.link_filters) return undefined;
-        try {
-          const parsed = JSON.parse(field.link_filters);
-          return JSON.stringify(parsed);
-        } catch {
-          console.warn(`[ERPFieldRenderer] Invalid link_filters JSON for ${field.fieldname}:`, field.link_filters);
-          return undefined;
-        }
-      }, [field.link_filters, field.fieldname]);
+      // Parse link_filters into a Prisma where clause for the combobox.
+      const parsedFilters = useMemo(() => {
+        return linkFiltersToWhere(field.link_filters);
+      }, [field.link_filters]);
 
       // Reuse the existing combobox; it expects the doctype's display label.
       return (
         <>
           <div className="flex items-center gap-1">
-            <div className="flex-1" data-link-filters={linkFiltersAttr}>
+            <div className="flex-1">
               <LinkFieldCombobox
                 linkTo={linkTo.replace(/[-_]/g, '').length ? linkTo : ''}
                 value={stringValue}
                 onChange={(v) => handleChange(v)}
                 hasError={Boolean(error)}
+                extraFilters={parsedFilters}
               />
             </div>
             <FetchFromIndicator fetchFrom={field.fetch_from} />

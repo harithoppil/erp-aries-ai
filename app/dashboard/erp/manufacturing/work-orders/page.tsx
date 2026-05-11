@@ -1,10 +1,7 @@
-import { listWorkOrders, type ClientSafeWorkOrder } from '@/app/dashboard/erp/manufacturing/work-orders/actions';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
-import WorkOrdersClient from './work-orders-client';
 
-export default async function WorkOrdersPage() {
-  const result = await listWorkOrders();
-  const orders = result.success ? result.orders : [];
-  return <WorkOrdersClient initialOrders={JSON.parse(JSON.stringify(orders))} />;
+export default function WorkOrdersPage() {
+  redirect('/dashboard/erp/work-order');
 }

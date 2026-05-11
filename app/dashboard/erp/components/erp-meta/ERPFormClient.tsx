@@ -30,6 +30,7 @@ import {
   submitDoctypeRecord,
   cancelDoctypeRecord,
   createDoctypeRecord,
+  saveChildTableRows,
 } from '@/app/dashboard/erp/[doctype]/[name]/actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 import { errorMessage } from '@/lib/utils';
@@ -40,6 +41,8 @@ import { Sparkles } from 'lucide-react';
 
 import { useDocTypeMeta } from './useDocTypeMeta';
 import { ERPTabLayout } from './ERPTabLayout';
+import { ERPGridClient } from './ERPGridClient';
+import { useEditChildTables } from './use-edit-child-tables';
 import type { DocFieldMeta, DocTypeInfo } from '@/lib/erpnext/doctype-meta';
 
 /**
@@ -102,6 +105,12 @@ export default function ERPFormClient({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Child table edit state
+  const {
+    editChildTables,
+    setEditChildTables,
+  } = useEditChildTables(childTables);
+
   const docstatus = getDocStatus(record);
   const badge = statusBadge(docstatus);
   const recordName = (record.name as string) || '';
@@ -129,6 +138,15 @@ export default function ERPFormClient({
     return { ...record, ...editData };
   }, [record, editData, isEditing]);
 
+  /** Resolve thumbnail image URL when doctype has image_field and the record has a value. */
+  const imageThumbnailUrl = useMemo(() => {
+    const imageField = doctypeInfo?.image_field;
+    if (!imageField) return null;
+    const val = displayRecord[imageField];
+    if (!val || typeof val !== 'string' || val.trim() === '') return null;
+    return val;
+  }, [doctypeInfo, displayRecord]);
+
   // ── AI: Page context ─────────────────────────────────────────────────────
   const uiActionActive = useAppStore((s) => s.uiActionActive);
 
@@ -152,9 +170,10 @@ export default function ERPFormClient({
 
   const handleEditStart = useCallback(() => {
     setEditData({ ...record });
+    setEditChildTables({ ...childTables });
     setFieldErrors({});
     setIsEditing(true);
-  }, [record]);
+  }, [record, childTables, setEditChildTables]);
 
   const handleEditCancel = useCallback(() => {
     setEditData({});
@@ -219,6 +238,23 @@ export default function ERPFormClient({
       } else {
         const result = await updateDoctypeRecord(doctype, recordName, payload);
         if (result.success) {
+          // Save child tables in parallel
+          const childFieldNames = Object.keys(editChildTables);
+          if (childFieldNames.length > 0) {
+            toast.info(`Saving ${childFieldNames.length} child table(s)...`);
+            const childResults = await Promise.all(
+              childFieldNames.map((fn) =>
+                saveChildTableRows(doctype, recordName, fn, editChildTables[fn]),
+              ),
+            );
+            const failed = childResults.find((r) => !r.success);
+            if (failed && !failed.success) {
+              toast.error(`Parent saved, but child table failed: ${failed.error}`);
+              // Don't exit edit mode — let user retry
+              setIsSaving(false);
+              return;
+            }
+          }
           toast.success(`${doctypeLabel} updated`);
           setRecord((prev) => ({ ...prev, ...payload, ...(result.data as Record<string, unknown>) }));
           router.refresh();
@@ -232,7 +268,7 @@ export default function ERPFormClient({
     } finally {
       setIsSaving(false);
     }
-  }, [validate, editData, isNew, doctype, doctypeLabel, recordName, router, meta]);
+  }, [validate, editData, isNew, doctype, doctypeLabel, recordName, router, meta, editChildTables]);
 
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
@@ -379,32 +415,25 @@ export default function ERPFormClient({
     return () => unregisterActions();
   }, [doctype, doctypeLabel, isNew, isEditing, meta, record, childTables, recordName, registerActions, unregisterActions, handleSave, handleSubmit, handleCancel]);
 
-  // Child-table renderer slot. For now display row counts; a future
-  // ERPGridClient will replace this with inline editing.
+  // Child-table renderer — uses ERPGridClient for inline editing.
   const renderTable = useCallback((field: DocFieldMeta) => {
-    const rows = childTables[field.fieldname] ?? [];
+    const rows = (isEditing ? editChildTables : childTables)[field.fieldname] ?? [];
+    const onRowsChange = (next: Record<string, unknown>[]) =>
+      setEditChildTables((prev) => ({ ...prev, [field.fieldname]: next }));
     return (
-      <div className="rounded-md border bg-card p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h4 className="text-sm font-medium">
-            {field.label ?? field.fieldname}
-            {field.reqd && <span className="text-red-500"> *</span>}
-          </h4>
-          <span className="text-xs text-muted-foreground">
-            {rows.length} row{rows.length === 1 ? '' : 's'}
-          </span>
-        </div>
-        {rows.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No rows yet.</p>
-        ) : (
-          <div className="max-h-64 overflow-auto text-xs">
-            <pre className="rounded bg-muted p-2">{JSON.stringify(rows.slice(0, 3), null, 2)}</pre>
-            {rows.length > 3 && <p className="mt-1 italic">…and {rows.length - 3} more</p>}
-          </div>
-        )}
-      </div>
+      <ERPGridClient
+        parentDoctype={doctype}
+        parentName={recordName || null}
+        childDoctype={field.options ?? ''}
+        fieldname={field.fieldname}
+        rows={rows}
+        editable={isEditing}
+        reqd={field.reqd}
+        label={field.label}
+        onRowsChange={onRowsChange}
+      />
     );
-  }, [childTables]);
+  }, [doctype, recordName, isEditing, childTables, editChildTables, setEditChildTables]);
 
   // ── Top bar ──────────────────────────────────────────────────────────────
   const topBar = (
@@ -415,6 +444,14 @@ export default function ERPFormClient({
         </Button>
         <div>
           <div className="flex items-center gap-2">
+            {imageThumbnailUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageThumbnailUrl}
+                alt=""
+                className="w-10 h-10 rounded-lg object-cover"
+              />
+            )}
             <h1 className="text-lg font-semibold">
               {DoctypeIcon && <DoctypeIcon className="mr-1 inline h-4 w-4" />}
               {doctypeLabel}{!isNew && !isSingle && <span className="text-muted-foreground"> / {displayTitle}</span>}

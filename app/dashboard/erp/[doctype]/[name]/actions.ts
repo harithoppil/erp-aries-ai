@@ -466,6 +466,7 @@ export async function searchDoctypeNames(
   linkTo: string,
   query: string,
   limit = 20,
+  extraFilters?: Record<string, unknown> | null,
 ): Promise<ActionResult<LinkSearchResult[]>> {
   try {
     const delegate = getDelegate(prisma, linkTo);
@@ -474,7 +475,7 @@ export async function searchDoctypeNames(
     const labelField = LINK_LABEL_FIELD[linkTo];
     const trimmed = query.trim();
 
-    const where: Record<string, unknown> = trimmed
+    const searchWhere: Record<string, unknown> = trimmed
       ? labelField
         ? {
             OR: [
@@ -484,6 +485,16 @@ export async function searchDoctypeNames(
           }
         : { name: { contains: trimmed, mode: 'insensitive' } }
       : {};
+
+    // Merge extra filters (from link_filters) with the search where clause
+    let where: Record<string, unknown>;
+    if (extraFilters && Object.keys(extraFilters).length > 0) {
+      where = searchWhere
+        ? { AND: [searchWhere, extraFilters] }
+        : extraFilters;
+    } else {
+      where = searchWhere;
+    }
 
     const select = labelField ? { name: true, [labelField]: true } : { name: true };
 
@@ -555,4 +566,111 @@ export async function createDoctypeRecord(
     console.error('[createDoctypeRecord]', message);
     return { success: false, error: message };
   }
+}
+
+// ── Save Child Table Rows ──────────────────────────────────────────────────────
+
+/**
+ * Persist child-table rows for a given parent fieldname.
+ * Uses delete-then-create in a transaction (same pattern as Frappe).
+ * Returns counts of deleted, created, and updated rows.
+ */
+export async function saveChildTableRows(
+  parentDoctype: string,
+  parentName: string,
+  fieldname: string,
+  rows: Record<string, unknown>[],
+): Promise<ActionResult<{ deleted: number; created: number; updated: number }>> {
+  try {
+    const resolved = getModel(parentDoctype);
+    if (!resolved) return { success: false, error: `Unknown DocType: ${parentDoctype}` };
+
+    const childAccessors = findChildAccessors(toDisplayLabel(parentDoctype));
+
+    // Find which child model has rows with this parentfield
+    const childAccessor = await findChildAccessorForField(
+      childAccessors,
+      parentName,
+      fieldname,
+    );
+
+    if (!childAccessor) {
+      return {
+        success: false,
+        error: `No child table accessor found for field "${fieldname}" on ${parentDoctype}`,
+      };
+    }
+
+    const parentDisplayLabel = toDisplayLabel(parentDoctype);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const txRecord = tx as unknown as Record<string, PrismaDelegate>;
+      const childModel = txRecord[childAccessor];
+      if (!childModel) {
+        throw new Error(`Child model ${childAccessor} not found in transaction`);
+      }
+
+      // Delete existing rows
+      const deleted = await childModel.deleteMany({
+        where: { parent: parentName, parentfield: fieldname },
+      });
+
+      // Create new rows
+      const childRows = rows.map((row, i) => ({
+        ...row,
+        parent: parentName,
+        parenttype: parentDisplayLabel,
+        parentfield: fieldname,
+        idx: i + 1,
+        name: (row.name as string) || crypto.randomUUID(),
+      }));
+
+      // Strip client-side markers
+      for (const r of childRows) {
+        delete (r as Record<string, unknown>).__is_new;
+      }
+
+      if (childRows.length > 0) {
+        await childModel.createMany({ data: childRows });
+      }
+
+      return {
+        deleted: deleted.count,
+        created: childRows.length,
+        updated: 0, // delete+create pattern; no separate update count
+      };
+    });
+
+    return { success: true, data: result };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[saveChildTableRows]', message);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Find the child accessor (Prisma model name) that contains rows for a given
+ * parent + parentfield combination. Queries sample rows from each candidate.
+ */
+async function findChildAccessorForField(
+  childAccessors: string[],
+  parentName: string,
+  fieldname: string,
+): Promise<string | null> {
+  for (const accessor of childAccessors) {
+    const childModel = getDelegateByAccessor(prisma as unknown as Record<string, unknown>, accessor);
+    if (childModel) {
+      const sample = await childModel.findFirst({
+        where: { parent: parentName, parentfield: fieldname },
+      });
+      if (sample) return accessor;
+    }
+  }
+  // If no existing rows found, try the first accessor that has parentfield field
+  // (for new records where there are no rows yet)
+  if (childAccessors.length > 0) {
+    return childAccessors[0];
+  }
+  return null;
 }

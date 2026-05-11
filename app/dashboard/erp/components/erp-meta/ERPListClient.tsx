@@ -27,7 +27,9 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +74,20 @@ import ERPFilterBar from './ERPFilterBar';
 import { useListFilters, type FilterValue } from './use-list-filters';
 import { formatListCell, listColumnLabel, statusBadge } from './list-cell';
 
+// ── Icon resolver (shared with ERPFormClient) ──────────────────────────────────
+
+function resolveIcon(iconName: string | null): LucideIcon | null {
+  if (!iconName) return null;
+  const cleaned = iconName.replace(/^fa\s+fa-/, '').replace(/-/g, ' ');
+  const pascal = cleaned
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('');
+  const icon = (LucideIcons as Record<string, unknown>)[pascal];
+  if (typeof icon === 'function') return icon as LucideIcon;
+  return null;
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface ERPListClientProps {
@@ -115,6 +131,8 @@ export default function ERPListClient({
   const titleField = (initialMeta.doctype_info?.title_field as string) || null;
   const defaultSortField = (initialMeta.doctype_info?.sort_field as string) || 'creation';
   const defaultSortOrder = (initialMeta.doctype_info?.sort_order as string) === 'ASC' ? 'asc' : 'desc';
+  const isSingle = Boolean(initialMeta.doctype_info?.issingle);
+  const DoctypeIcon = useMemo(() => resolveIcon(initialMeta.doctype_info?.icon ?? null), [initialMeta.doctype_info?.icon]);
 
   const [sortField, setSortField] = useState(defaultSortField);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(defaultSortOrder);
@@ -372,18 +390,23 @@ export default function ERPListClient({
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-[#0f172a]">{doctypeLabel}</h2>
+            <h2 className="text-2xl font-bold text-[#0f172a] flex items-center gap-2">
+              {DoctypeIcon && <DoctypeIcon className="h-6 w-6" />}
+              {doctypeLabel}
+            </h2>
             <p className="text-sm text-[#64748b] mt-1">
               {currentMeta.total} record{currentMeta.total !== 1 ? 's' : ''} total
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href={`/dashboard/erp/${doctype}/new`}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45] px-4 py-2 text-sm font-medium text-white transition-colors"
-            >
-              <Plus size={16} /> New {doctypeLabel}
-            </Link>
+            {!isSingle && (
+              <Link
+                href={`/dashboard/erp/${doctype}/new`}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] hover:bg-[#152a45] px-4 py-2 text-sm font-medium text-white transition-colors"
+              >
+                <Plus size={16} /> New {doctypeLabel}
+              </Link>
+            )}
           </div>
         </div>
 

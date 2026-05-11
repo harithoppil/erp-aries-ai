@@ -15,6 +15,7 @@ import type {
   DocFieldMeta,
   LayoutNode,
 } from '@/lib/erpnext/doctype-meta';
+import { evaluateDependsOn } from '@/lib/erpnext/depends-on';
 
 interface ERPTabLayoutProps {
   tree: LayoutNode[];
@@ -50,10 +51,15 @@ function FieldRow(props: {
   docstatus?: number;
   /** Whether the doctype is submittable. */
   isSubmittable?: boolean;
+  /** Dynamically computed required state from mandatory_depends_on. */
+  dynamicRequired?: boolean;
+  /** Dynamically computed read-only state from read_only_depends_on. */
+  dynamicReadOnly?: boolean;
 }): JSX.Element | null {
   const {
     field, record, editable, errors, onFieldChange, renderTable,
     isExistingRecord, docstatus, isSubmittable,
+    dynamicRequired, dynamicReadOnly,
   } = props;
   if (field.hidden) return null;
 
@@ -70,6 +76,9 @@ function FieldRow(props: {
     );
   }
 
+  // depends_on: do not render the field at all when expression evaluates false
+  if (!evaluateDependsOn(field.depends_on, record)) return null;
+
   // set_only_once: field is read-only when editing an existing record
   const setOnlyOnce = field.set_only_once && isExistingRecord;
 
@@ -77,7 +86,13 @@ function FieldRow(props: {
   // all fields are read-only EXCEPT those with allow_on_submit=true
   const submittedReadonly = isSubmittable && docstatus === 1 && !field.allow_on_submit;
 
-  const fieldEditable = editable && !setOnlyOnce && !submittedReadonly;
+  // Dynamic read-only from read_only_depends_on
+  const dynReadOnly = dynamicReadOnly ?? false;
+
+  const fieldEditable = editable && !setOnlyOnce && !submittedReadonly && !dynReadOnly;
+
+  // Dynamic required from mandatory_depends_on
+  const fieldRequired = field.reqd || (dynamicRequired ?? false);
 
   return (
     <div className="space-y-1">
@@ -86,7 +101,7 @@ function FieldRow(props: {
         className={cn('block text-sm', field.bold ? 'font-semibold' : 'font-medium')}
       >
         {field.label || field.fieldname}
-        {field.reqd && <span className="text-red-500"> *</span>}
+        {fieldRequired && <span className="text-red-500"> *</span>}
       </label>
       <ERPFieldRenderer
         field={field}
@@ -122,18 +137,10 @@ function SectionBlock(props: {
 
   // ── collapsible_depends_on ──────────────────────────────────────────────
   // Evaluate the expression to determine initial expand/collapse state.
-  // Simple fieldname check: if record[fieldname] is truthy, start expanded.
-  // eval: expressions are logged and default to collapsed.
   const collapsibleDependsOn = allFields.find((f) => f.collapsible_depends_on)?.collapsible_depends_on ?? null;
   const initialOpen = useMemo(() => {
     if (!collapsibleDependsOn) return true;
-    if (collapsibleDependsOn.startsWith('eval:')) {
-      // Complex eval expressions not yet supported — default collapsed
-      console.warn(`[ERPTabLayout] collapsible_depends_on eval not supported: ${collapsibleDependsOn}`);
-      return false;
-    }
-    // Simple fieldname: truthy = expanded
-    return Boolean(record[collapsibleDependsOn]);
+    return evaluateDependsOn(collapsibleDependsOn, record);
   }, [collapsibleDependsOn, record]);
 
   const [open, setOpen] = useState(initialOpen);
@@ -173,6 +180,8 @@ function SectionBlock(props: {
             isExistingRecord={isExistingRecord}
             docstatus={docstatus}
             isSubmittable={isSubmittable}
+            dynamicRequired={evaluateDependsOn(c.field.mandatory_depends_on, record)}
+            dynamicReadOnly={evaluateDependsOn(c.field.read_only_depends_on, record)}
           />
         ) : null,
       )}
@@ -191,6 +200,8 @@ function SectionBlock(props: {
                 isExistingRecord={isExistingRecord}
                 docstatus={docstatus}
                 isSubmittable={isSubmittable}
+                dynamicRequired={evaluateDependsOn(c.field.mandatory_depends_on, record)}
+                dynamicReadOnly={evaluateDependsOn(c.field.read_only_depends_on, record)}
               />
             ) : null,
           )}
