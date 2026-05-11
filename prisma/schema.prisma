@@ -16878,46 +16878,309 @@ model rag_chunks {
   @@index([tsv], map: "idx_rag_chunks_tsv", type: Gin)
 }
 
-/// Per-field metadata copied from Frappe's `tabDocField` table.
-/// Drives the metadata-driven frontend (layout, filters, list columns, links).
-/// One row per (parent doctype, fieldname). See `app/api/erpnext/meta/...`.
-model DocField {
-  name                String    @id @db.VarChar(255)
-  creation            DateTime?
-  modified            DateTime?
-  modified_by         String?
-  owner               String?
-  docstatus           Int       @default(0) @db.SmallInt
-  parent              String    @db.VarChar(255)
-  parentfield         String?   @db.VarChar(140)
-  parenttype          String?   @db.VarChar(140)
-  idx                 Int       @default(0)
-  fieldname           String?   @db.VarChar(140)
-  label               String?   @db.VarChar(255)
-  fieldtype           String?   @db.VarChar(140)
-  options             String?
-  hidden              Int       @default(0) @db.SmallInt
-  reqd                Int       @default(0) @db.SmallInt
-  read_only           Int       @default(0) @db.SmallInt
-  in_list_view        Int       @default(0) @db.SmallInt
-  in_standard_filter  Int       @default(0) @db.SmallInt
-  in_global_search    Int       @default(0) @db.SmallInt
-  permlevel           Int?      @default(0)
-  depends_on          String?
-  description         String?
-  collapsible         Int       @default(0) @db.SmallInt
-  field_default       String?   @map("default")
-  field_precision     String?   @map("precision") @db.VarChar(140)
-  length              Int?      @default(0)
-  translatable        Int       @default(0) @db.SmallInt
-  is_virtual          Int       @default(0) @db.SmallInt
-  not_nullable        Int       @default(0) @db.SmallInt
-  fetch_from          String?
-  link_filters        String?
-  placeholder         String?   @db.VarChar(140)
+model custom_field {
+  name                    String    @id @db.VarChar(140)
+  creation                DateTime? @db.Timestamp(6)
+  modified                DateTime? @db.Timestamp(6)
+  modified_by             String?   @db.VarChar(140)
+  owner                   String?   @db.VarChar(140)
+  docstatus               Int       @default(0) @db.SmallInt
+  idx                     BigInt    @default(0)
+  is_system_generated     Int       @default(0) @db.SmallInt
+  dt                      String?   @db.VarChar(140)
+  module                  String?   @db.VarChar(140)
+  label                   String?   @db.VarChar(255)
+  placeholder             String?   @db.VarChar(140)
+  fieldname               String?   @db.VarChar(140)
+  insert_after            String?   @db.VarChar(140)
+  length                  Int       @default(0)
+  link_filters            Json?     @db.Json
+  fieldtype               String?   @default("Data") @db.VarChar(140)
+  button_color            String?   @db.VarChar(140)
+  precision               String?   @db.VarChar(140)
+  hide_seconds            Int       @default(0) @db.SmallInt
+  hide_days               Int       @default(0) @db.SmallInt
+  options                 String?
+  sort_options            Int       @default(0) @db.SmallInt
+  fetch_from              String?
+  fetch_if_empty          Int       @default(0) @db.SmallInt
+  collapsible             Int       @default(0) @db.SmallInt
+  collapsible_depends_on  String?
+  default                 String?
+  depends_on              String?
+  mandatory_depends_on    String?
+  read_only_depends_on    String?
+  non_negative            Int       @default(0) @db.SmallInt
+  reqd                    Int       @default(0) @db.SmallInt
+  unique                  Int       @default(0) @db.SmallInt
+  is_virtual              Int       @default(0) @db.SmallInt
+  read_only               Int       @default(0) @db.SmallInt
+  ignore_user_permissions Int       @default(0) @db.SmallInt
+  hidden                  Int       @default(0) @db.SmallInt
+  print_hide              Int       @default(0) @db.SmallInt
+  print_hide_if_no_value  Int       @default(0) @db.SmallInt
+  print_width             String?   @db.VarChar(140)
+  alignment               String?   @db.VarChar(140)
+  no_copy                 Int       @default(0) @db.SmallInt
+  set_only_once           Int       @default(0) @db.SmallInt
+  allow_on_submit         Int       @default(0) @db.SmallInt
+  in_list_view            Int       @default(0) @db.SmallInt
+  in_standard_filter      Int       @default(0) @db.SmallInt
+  in_global_search        Int       @default(0) @db.SmallInt
+  in_preview              Int       @default(0) @db.SmallInt
+  bold                    Int       @default(0) @db.SmallInt
+  report_hide             Int       @default(0) @db.SmallInt
+  search_index            Int       @default(0) @db.SmallInt
+  allow_in_quick_entry    Int       @default(0) @db.SmallInt
+  ignore_xss_filter       Int       @default(0) @db.SmallInt
+  translatable            Int       @default(0) @db.SmallInt
+  hide_border             Int       @default(0) @db.SmallInt
+  show_dashboard          Int       @default(0) @db.SmallInt
+  description             String?
+  permlevel               Int       @default(0)
+  width                   String?   @db.VarChar(140)
+  columns                 Int       @default(0)
+  user_tags               String?   @map("_user_tags")
+  comments                String?   @map("_comments")
+  assign                  String?   @map("_assign")
+  liked_by                String?   @map("_liked_by")
 
-  @@index([parent])
+  @@index([dt], map: "dt")
+}
+
+model doc_field {
+  name                         String    @id @db.VarChar(255)
+  creation                     DateTime? @db.Timestamp(6)
+  modified                     DateTime? @db.Timestamp(6)
+  modified_by                  String?   @db.VarChar(255)
+  owner                        String?   @db.VarChar(255)
+  docstatus                    Int       @default(0) @db.SmallInt
+  parent                       String?   @db.VarChar(255)
+  parentfield                  String?   @db.VarChar(255)
+  parenttype                   String?   @db.VarChar(255)
+  idx                          BigInt    @default(0)
+  fieldname                    String?   @db.VarChar(140)
+  label                        String?   @db.VarChar(255)
+  oldfieldname                 String?   @db.VarChar(140)
+  fieldtype                    String?   @default("Data") @db.VarChar(140)
+  oldfieldtype                 String?   @db.VarChar(140)
+  options                      String?
+  search_index                 Int       @default(0) @db.SmallInt
+  hidden                       Int       @default(0) @db.SmallInt
+  set_only_once                Int       @default(0) @db.SmallInt
+  show_dashboard               Int       @default(0) @db.SmallInt
+  allow_in_quick_entry         Int       @default(0) @db.SmallInt
+  print_hide                   Int       @default(0) @db.SmallInt
+  report_hide                  Int       @default(0) @db.SmallInt
+  reqd                         Int       @default(0) @db.SmallInt
+  bold                         Int       @default(0) @db.SmallInt
+  in_global_search             Int       @default(0) @db.SmallInt
+  collapsible                  Int       @default(0) @db.SmallInt
+  unique                       Int       @default(0) @db.SmallInt
+  no_copy                      Int       @default(0) @db.SmallInt
+  allow_on_submit              Int       @default(0) @db.SmallInt
+  show_preview_popup           Int       @default(0) @db.SmallInt
+  trigger                      String?   @db.VarChar(255)
+  collapsible_depends_on       String?
+  mandatory_depends_on         String?
+  read_only_depends_on         String?
+  depends_on                   String?
+  permlevel                    Int       @default(0)
+  ignore_user_permissions      Int       @default(0) @db.SmallInt
+  width                        String?   @db.VarChar(64)
+  print_width                  String?   @db.VarChar(64)
+  columns                      Int       @default(0)
+  default                      String?
+  description                  String?
+  in_list_view                 Int       @default(0) @db.SmallInt
+  fetch_if_empty               Int       @default(0) @db.SmallInt
+  in_filter                    Int       @default(0) @db.SmallInt
+  remember_last_selected_value Int       @default(0) @db.SmallInt
+  ignore_xss_filter            Int       @default(0) @db.SmallInt
+  print_hide_if_no_value       Int       @default(0) @db.SmallInt
+  allow_bulk_edit              Int       @default(0) @db.SmallInt
+  in_standard_filter           Int       @default(0) @db.SmallInt
+  in_preview                   Int       @default(0) @db.SmallInt
+  read_only                    Int       @default(0) @db.SmallInt
+  precision                    String?   @db.VarChar(140)
+  max_height                   String?   @db.VarChar(64)
+  length                       Int       @default(0)
+  translatable                 Int       @default(0) @db.SmallInt
+  hide_border                  Int       @default(0) @db.SmallInt
+  hide_days                    Int       @default(0) @db.SmallInt
+  hide_seconds                 Int       @default(0) @db.SmallInt
+  non_negative                 Int       @default(0) @db.SmallInt
+  is_virtual                   Int       @default(0) @db.SmallInt
+  not_nullable                 Int       @default(0) @db.SmallInt
+  mask                         Int       @default(0) @db.SmallInt
+  sort_options                 Int       @default(0) @db.SmallInt
+  link_filters                 Json?     @db.Json
+  fetch_from                   String?
+  button_color                 String?   @db.VarChar(140)
+  show_on_timeline             Int       @default(0) @db.SmallInt
+  in_import_template           Int       @default(0) @db.SmallInt
+  sticky                       Int       @default(0) @db.SmallInt
+  make_attachment_public       Int       @default(0) @db.SmallInt
+  alignment                    String?   @db.VarChar(140)
+  documentation_url            String?   @db.VarChar(140)
+  placeholder                  String?   @db.VarChar(140)
+  show_description_on_click    Int       @default(0) @db.SmallInt
+
   @@index([fieldname])
   @@index([fieldtype])
-  @@map("tabDocField")
+  @@index([label])
+  @@index([parent])
+}
+
+model doc_perm {
+  name        String    @id @db.VarChar(255)
+  creation    DateTime? @db.Timestamp(6)
+  modified    DateTime? @db.Timestamp(6)
+  modified_by String?   @db.VarChar(255)
+  owner       String?   @db.VarChar(255)
+  docstatus   Int       @default(0) @db.SmallInt
+  parent      String?   @db.VarChar(255)
+  parentfield String?   @db.VarChar(255)
+  parenttype  String?   @db.VarChar(255)
+  idx         BigInt    @default(0)
+  permlevel   Int?      @default(0)
+  role        String?   @db.VarChar(140)
+  match       String?   @db.VarChar(255)
+  read        Int       @default(1) @db.SmallInt
+  write       Int       @default(1) @db.SmallInt
+  create      Int       @default(1) @db.SmallInt
+  submit      Int       @default(0) @db.SmallInt
+  cancel      Int       @default(0) @db.SmallInt
+  delete      Int       @default(1) @db.SmallInt
+  amend       Int       @default(0) @db.SmallInt
+  report      Int       @default(1) @db.SmallInt
+  export      Int       @default(1) @db.SmallInt
+  import      Int       @default(0) @db.SmallInt
+  share       Int       @default(1) @db.SmallInt
+  print       Int       @default(1) @db.SmallInt
+  email       Int       @default(1) @db.SmallInt
+  if_owner    Int       @default(0) @db.SmallInt
+  select      Int       @default(0) @db.SmallInt
+  mask        Int       @default(0) @db.SmallInt
+  impersonate Int       @default(0) @db.SmallInt
+
+  @@index([parent])
+}
+
+model doc_type {
+  name                           String    @id @db.VarChar(255)
+  creation                       DateTime? @db.Timestamp(6)
+  modified                       DateTime? @db.Timestamp(6)
+  modified_by                    String?   @db.VarChar(255)
+  owner                          String?   @db.VarChar(255)
+  docstatus                      Int       @default(0) @db.SmallInt
+  idx                            BigInt    @default(0)
+  search_fields                  String?   @db.VarChar(140)
+  issingle                       Int       @default(0) @db.SmallInt
+  is_virtual                     Int       @default(0) @db.SmallInt
+  is_tree                        Int       @default(0) @db.SmallInt
+  istable                        Int       @default(0) @db.SmallInt
+  editable_grid                  Int       @default(1) @db.SmallInt
+  track_changes                  Int       @default(0) @db.SmallInt
+  module                         String?   @db.VarChar(140)
+  restrict_to_domain             String?   @db.VarChar(140)
+  app                            String?   @db.VarChar(255)
+  autoname                       String?   @db.VarChar(140)
+  naming_rule                    String?   @db.VarChar(64)
+  title_field                    String?   @db.VarChar(140)
+  image_field                    String?   @db.VarChar(140)
+  timeline_field                 String?   @db.VarChar(140)
+  sort_field                     String?   @default("creation") @db.VarChar(140)
+  sort_order                     String?   @default("DESC") @db.VarChar(140)
+  description                    String?
+  colour                         String?   @db.VarChar(255)
+  read_only                      Int       @default(0) @db.SmallInt
+  in_create                      Int       @default(0) @db.SmallInt
+  menu_index                     BigInt?
+  parent_node                    String?   @db.VarChar(255)
+  smallicon                      String?   @db.VarChar(255)
+  allow_copy                     Int       @default(0) @db.SmallInt
+  allow_rename                   Int       @default(1) @db.SmallInt
+  allow_import                   Int       @default(0) @db.SmallInt
+  hide_toolbar                   Int       @default(0) @db.SmallInt
+  track_seen                     Int       @default(0) @db.SmallInt
+  max_attachments                Int       @default(0)
+  print_outline                  String?   @db.VarChar(255)
+  document_type                  String?   @db.VarChar(140)
+  icon                           String?   @db.VarChar(140)
+  color                          String?   @db.VarChar(140)
+  tag_fields                     String?   @db.VarChar(255)
+  subject                        String?   @db.VarChar(255)
+  last_update                    String?   @map("_last_update") @db.VarChar(32)
+  engine                         String?   @default("InnoDB") @db.VarChar(140)
+  default_print_format           String?   @db.VarChar(140)
+  is_submittable                 Int       @default(0) @db.SmallInt
+  show_name_in_global_search     Int       @default(0) @db.SmallInt
+  user_tags                      String?   @map("_user_tags")
+  custom                         Int       @default(0) @db.SmallInt
+  beta                           Int       @default(0) @db.SmallInt
+  has_web_view                   Int       @default(0) @db.SmallInt
+  allow_guest_to_view            Int       @default(0) @db.SmallInt
+  route                          String?   @db.VarChar(140)
+  is_published_field             String?   @db.VarChar(140)
+  website_search_field           String?   @db.VarChar(140)
+  email_append_to                Int       @default(0) @db.SmallInt
+  subject_field                  String?   @db.VarChar(140)
+  sender_field                   String?   @db.VarChar(140)
+  show_title_field_in_link       Int       @default(0) @db.SmallInt
+  migration_hash                 String?   @db.VarChar(140)
+  translated_doctype             Int       @default(0) @db.SmallInt
+  protect_attached_files         Int       @default(0) @db.SmallInt
+  is_calendar_and_gantt          Int       @default(0) @db.SmallInt
+  quick_entry                    Int       @default(0) @db.SmallInt
+  grid_page_length               Int       @default(50)
+  rows_threshold_for_grid_search Int       @default(20)
+  allow_bulk_edit                Int       @default(1) @db.SmallInt
+  track_views                    Int       @default(0) @db.SmallInt
+  queue_in_background            Int       @default(0) @db.SmallInt
+  nsm_parent_field               String?   @db.VarChar(140)
+  documentation                  String?   @db.VarChar(140)
+  allow_events_in_timeline       Int       @default(0) @db.SmallInt
+  allow_auto_repeat              Int       @default(0) @db.SmallInt
+  make_attachments_public        Int       @default(0) @db.SmallInt
+  default_view                   String?   @db.VarChar(140)
+  force_re_route_to_default_view Int       @default(0) @db.SmallInt
+  show_preview_popup             Int       @default(0) @db.SmallInt
+  default_email_template         String?   @db.VarChar(140)
+  sender_name_field              String?   @db.VarChar(140)
+  recipient_account_field        String?   @db.VarChar(140)
+  index_web_pages_for_search     Int       @default(1) @db.SmallInt
+  row_format                     String?   @default("Dynamic") @db.VarChar(140)
+  comments                       String?   @map("_comments")
+  assign                         String?   @map("_assign")
+  liked_by                       String?   @map("_liked_by")
+
+  @@index([module], map: "module")
+}
+
+model property_setter {
+  name                String    @id @db.VarChar(140)
+  creation            DateTime? @db.Timestamp(6)
+  modified            DateTime? @db.Timestamp(6)
+  modified_by         String?   @db.VarChar(140)
+  owner               String?   @db.VarChar(140)
+  docstatus           Int       @default(0) @db.SmallInt
+  idx                 BigInt    @default(0)
+  is_system_generated Int       @default(0) @db.SmallInt
+  doctype_or_field    String?   @db.VarChar(140)
+  doc_type            String?   @db.VarChar(140)
+  field_name          String?   @db.VarChar(140)
+  row_name            String?   @db.VarChar(140)
+  module              String?   @db.VarChar(140)
+  property            String?   @db.VarChar(140)
+  property_type       String?   @db.VarChar(140)
+  value               String?
+  default_value       String?   @db.VarChar(140)
+  user_tags           String?   @map("_user_tags")
+  comments            String?   @map("_comments")
+  assign              String?   @map("_assign")
+  liked_by            String?   @map("_liked_by")
+
+  @@index([field_name], map: "field_name")
+  @@index([property], map: "property")
 }
