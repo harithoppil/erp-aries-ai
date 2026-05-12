@@ -280,8 +280,26 @@ export default function ERPFormClient({
       if (isNew) {
         const result = await createDoctypeRecord(doctype, payload);
         if (result.success) {
-          toast.success(`${doctypeLabel} created`);
           const name = (result.data as Record<string, unknown>).name as string | undefined;
+          // Save child tables for the new record
+          const childFieldNames = Object.keys(editChildTables).filter(
+            (fn) => editChildTables[fn].length > 0,
+          );
+          if (childFieldNames.length > 0 && name) {
+            const childResults = await Promise.all(
+              childFieldNames.map((fn) =>
+                saveChildTableRows(doctype, name, fn, editChildTables[fn]),
+              ),
+            );
+            const failed = childResults.find((r) => !r.success);
+            if (failed && !failed.success) {
+              toast.error(`Record created, but child table failed: ${failed.error}`);
+              if (name) router.push(`/dashboard/erp/${doctype}/${encodeURIComponent(name)}`);
+              setIsSaving(false);
+              return;
+            }
+          }
+          toast.success(`${doctypeLabel} created`);
           if (name) router.push(`/dashboard/erp/${doctype}/${encodeURIComponent(name)}`);
         } else {
           toast.error(result.error);

@@ -167,7 +167,7 @@ export async function updateDoctypeRecord(
       const txRecord = tx as unknown as Record<string, PrismaDelegate>;
       await txRecord[accessor].update({ where: { name }, data: parentFields });
 
-      // Update child tables
+      // Update child tables — preserve existing row names
       const childAccessors = findChildAccessors(doctype);
       for (const [field, rows] of Object.entries(childTables)) {
         let childAccessor: string | null = null;
@@ -181,16 +181,51 @@ export async function updateDoctypeRecord(
 
         if (childAccessor) {
           const childModel = txRecord[childAccessor];
-          await childModel.deleteMany({ where: { parent: name, parentfield: field } });
-          if (rows.length > 0) {
-            const childRows = (rows as Record<string, unknown>[]).map((row, i) => ({
-              ...row,
-              parent: name,
-              parentfield: field,
-              parenttype: doctype,
-              idx: row.idx ?? i + 1,
-            }));
-            await childModel.createMany({ data: childRows });
+
+          // Fetch existing rows
+          const existingRows = await childModel.findMany({
+            where: { parent: name, parentfield: field },
+            select: { name: true },
+          }) as Array<{ name: string }>;
+          const existingNames = new Set(existingRows.map((r) => r.name));
+
+          const incomingRows = rows as Record<string, unknown>[];
+          const incomingExistingNames = new Set<string>();
+          const toCreate: Record<string, unknown>[] = [];
+
+          for (let i = 0; i < incomingRows.length; i++) {
+            const row = { ...incomingRows[i] };
+            delete row.__is_new;
+            const rowName = row.name as string | undefined;
+            if (rowName && existingNames.has(rowName)) {
+              incomingExistingNames.add(rowName);
+              const { name: _pk, ...updateData } = row;
+              await childModel.update({
+                where: { name: rowName },
+                data: { ...updateData, idx: i + 1 },
+              });
+            } else {
+              toCreate.push({
+                ...row,
+                name: (rowName && !rowName.startsWith('new-')) ? rowName : crypto.randomUUID(),
+                parent: name,
+                parentfield: field,
+                parenttype: doctype,
+                idx: i + 1,
+              });
+            }
+          }
+
+          // Delete removed rows
+          const namesToDelete = existingRows
+            .map((r) => r.name)
+            .filter((n) => !incomingExistingNames.has(n));
+          if (namesToDelete.length > 0) {
+            await childModel.deleteMany({ where: { name: { in: namesToDelete } } });
+          }
+
+          if (toCreate.length > 0) {
+            await childModel.createMany({ data: toCreate });
           }
         }
       }
@@ -608,8 +643,8 @@ export async function fetchLinkedRecordField(
 
 /**
  * Persist child-table rows for a given parent fieldname.
- * Uses delete-then-create in a transaction (same pattern as Frappe).
- * Returns counts of deleted, created, and updated rows.
+ * Preserves existing row names — only deletes removed rows, updates changed
+ * rows in-place, and creates genuinely new rows.
  */
 export async function saveChildTableRows(
   parentDoctype: string,
@@ -646,34 +681,73 @@ export async function saveChildTableRows(
         throw new Error(`Child model ${childAccessor} not found in transaction`);
       }
 
-      // Delete existing rows
-      const deleted = await childModel.deleteMany({
+      // Fetch existing rows to determine what to delete / update / create
+      const existingRows = await childModel.findMany({
         where: { parent: parentName, parentfield: fieldname },
-      });
+        select: { name: true },
+      }) as Array<{ name: string }>;
+      const existingNames = new Set(existingRows.map((r) => r.name));
 
-      // Create new rows
-      const childRows = rows.map((row, i) => ({
-        ...row,
-        parent: parentName,
-        parenttype: parentDisplayLabel,
-        parentfield: fieldname,
-        idx: i + 1,
-        name: (row.name as string) || crypto.randomUUID(),
-      }));
+      // Separate incoming rows into existing (update) vs new (create)
+      const toUpdate: Array<{ name: string; data: Record<string, unknown> }> = [];
+      const toCreate: Array<Record<string, unknown>> = [];
 
-      // Strip client-side markers
-      for (const r of childRows) {
-        delete (r as Record<string, unknown>).__is_new;
+      for (let i = 0; i < rows.length; i++) {
+        const row = { ...rows[i] };
+        // Strip client-side markers
+        delete row.__is_new;
+
+        const rowName = row.name as string | undefined;
+        const isNewRow = !rowName || rowName.startsWith('new-') || !existingNames.has(rowName);
+
+        if (isNewRow) {
+          toCreate.push({
+            ...row,
+            name: rowName && !rowName.startsWith('new-') ? rowName : crypto.randomUUID(),
+            parent: parentName,
+            parenttype: parentDisplayLabel,
+            parentfield: fieldname,
+            idx: i + 1,
+          });
+        } else {
+          toUpdate.push({ name: rowName!, data: { ...row, idx: i + 1 } });
+        }
       }
 
-      if (childRows.length > 0) {
-        await childModel.createMany({ data: childRows });
+      // Delete rows that are no longer in the incoming set
+      const incomingExistingNames = new Set(
+        rows.map((r) => r.name as string).filter((n) => existingNames.has(n)),
+      );
+      const namesToDelete = existingRows
+        .map((r) => r.name)
+        .filter((n) => !incomingExistingNames.has(n));
+
+      let deletedCount = 0;
+      if (namesToDelete.length > 0) {
+        const del = await childModel.deleteMany({
+          where: { name: { in: namesToDelete } },
+        });
+        deletedCount = del.count;
+      }
+
+      // Update existing rows in-place (preserving name)
+      for (const { name, data } of toUpdate) {
+        const { name: _pk, ...updateData } = data;
+        await childModel.update({
+          where: { name },
+          data: updateData,
+        });
+      }
+
+      // Create new rows
+      if (toCreate.length > 0) {
+        await childModel.createMany({ data: toCreate });
       }
 
       return {
-        deleted: deleted.count,
-        created: childRows.length,
-        updated: 0, // delete+create pattern; no separate update count
+        deleted: deletedCount,
+        created: toCreate.length,
+        updated: toUpdate.length,
       };
     });
 

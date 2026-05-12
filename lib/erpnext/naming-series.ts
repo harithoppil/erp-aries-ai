@@ -139,11 +139,8 @@ function seriesKey(doctype: string, company: string, prefix: string): string {
 
 /**
  * Get or create a naming series config for a DocType.
- * Attempts to load from the database first; falls back to in-memory defaults.
- *
- * @param doctype  - The DocType name (e.g. "Sales Invoice")
- * @param company  - The company name (used for partitioning series)
- * @returns The naming series configuration
+ * Derives the current counter from the highest-numbered existing document
+ * matching the prefix pattern, so counter survives server restarts.
  */
 export async function getNamingSeries(doctype: string, company: string): Promise<NamingSeriesConfig> {
   const prefix = DEFAULT_SERIES[doctype] ?? `${doctype.replace(/\s+/g, "").substring(0, 4).toUpperCase()}-.YYYY.-`;
@@ -153,36 +150,68 @@ export async function getNamingSeries(doctype: string, company: string): Promise
   const existing = seriesStore.get(key);
   if (existing) return existing;
 
-  // Try to load from database (naming_series table may exist in erpnext_port)
+  // Derive counter from actual documents in the database
+  let current = 0;
   try {
-    const dbSeries = await prisma.$queryRaw<Array<{ prefix: string; current: bigint }>>`
-      SELECT prefix, current
-      FROM erpnext_port.naming_series
-      WHERE doctype = ${doctype}
-      ORDER BY current DESC
-      LIMIT 1
-    `;
-    if (dbSeries.length > 0) {
-      const config: NamingSeriesConfig = {
-        prefix: dbSeries[0].prefix,
-        current: Number(dbSeries[0].current),
-        doctype,
-      };
-      seriesStore.set(key, config);
-      return config;
+    const { base, hasYear } = parsePrefix(prefix);
+    // Build LIKE pattern: e.g. "SINV-%" matches "SINV-2026-00001"
+    const likePattern = hasYear ? `${base}%` : `${base}%`;
+    const accessor = toAccessorType(doctype);
+    const model = (prisma as unknown as Record<string, { findMany: (a: unknown) => Promise<unknown[]> }>)[accessor];
+    if (model) {
+      const rows = await model.findMany({
+        where: { name: { startsWith: base } },
+        select: { name: true },
+        take: 1,
+        orderBy: { name: 'desc' },
+      }) as Array<{ name: string }>;
+      if (rows.length > 0) {
+        // Extract trailing number: "SINV-2026-00042" → 42
+        const match = rows[0].name.match(/(\d+)$/);
+        if (match) current = parseInt(match[1], 10);
+      }
     }
   } catch (_e: unknown) {
-    // Table doesn't exist — proceed with defaults
+    // Model doesn't exist or query failed — start at 0
   }
 
-  // Create default config
+  // Try to load from database naming_series table as fallback
+  if (current === 0) {
+    try {
+      const dbSeries = await prisma.$queryRaw<Array<{ prefix: string; current: bigint }>>`
+        SELECT prefix, current
+        FROM erpnext_port.naming_series
+        WHERE doctype = ${doctype}
+        ORDER BY current DESC
+        LIMIT 1
+      `;
+      if (dbSeries.length > 0) {
+        current = Number(dbSeries[0].current);
+      }
+    } catch (_e: unknown) {
+      // Table doesn't exist — proceed with default 0
+    }
+  }
+
   const config: NamingSeriesConfig = {
     prefix,
-    current: 0,
+    current,
     doctype,
   };
   seriesStore.set(key, config);
   return config;
+}
+
+/** Convert a display-label doctype name to its Prisma accessor (camelCase). */
+function toAccessorType(doctype: string): string {
+  return doctype
+    .split(/\s+/)
+    .map((w, i) =>
+      i === 0
+        ? w.toLowerCase()
+        : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+    )
+    .join('');
 }
 
 // ── Increment series counter ──────────────────────────────────────────────────
