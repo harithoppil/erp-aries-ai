@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Pencil, Save, X, Send, Ban, Trash2, MoreHorizontal, Copy, Printer, LucideIcon,
+  CopyPlus, RotateCcw,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -543,6 +544,11 @@ export default function ERPFormClient({
                 <Ban className="mr-1 h-4 w-4" /> {isCancelling ? 'Cancelling…' : 'Cancel'}
               </Button>
             )}
+            {docstatus === 2 && isSubmittable && (
+              <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/erp/${doctype}/new?amend=${recordName}`)}>
+                <RotateCcw className="mr-1 h-4 w-4" /> Amend
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent">
                 <MoreHorizontal className="h-4 w-4" />
@@ -551,6 +557,11 @@ export default function ERPFormClient({
                 <DropdownMenuItem onClick={handleCopyName}>
                   <Copy className="mr-2 h-4 w-4" /> Copy Name
                 </DropdownMenuItem>
+                {!isNew && (
+                  <DropdownMenuItem onClick={() => router.push(`/dashboard/erp/${doctype}/new?source=${recordName}`)}>
+                    <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
+                  </DropdownMenuItem>
+                )}
                 {isPrintable && !isNew && (
                   <DropdownMenuItem onClick={handlePrintPdf}>
                     <Printer className="mr-2 h-4 w-4" /> Print PDF

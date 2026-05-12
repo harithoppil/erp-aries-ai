@@ -73,10 +73,13 @@ function toClientSafe(value: unknown): unknown {
 
 export default async function GenericDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ doctype: string; name: string }>;
+  searchParams: Promise<{ source?: string; amend?: string }>;
 }) {
   const { doctype, name } = await params;
+  const query = await searchParams;
 
   // "new" route — render create form with metadata-driven layout when available
   if (name === 'new') {
@@ -89,7 +92,7 @@ export default async function GenericDetailPage({
     }
 
     if (meta && meta.fields.length > 0) {
-      // Build empty record with DocField defaults
+      // Build base record with DocField defaults
       const emptyRecord: Record<string, unknown> = { docstatus: 0, name: '' };
       for (const field of meta.fields) {
         if (field.default != null && field.default !== '') {
@@ -103,10 +106,42 @@ export default async function GenericDetailPage({
         }
       }
 
-      // Build empty child table arrays from metadata
+      // Prefill from source record (Duplicate / Amend)
+      let prefillChildTables: Record<string, Record<string, unknown>[]> = {};
+      if (query.source) {
+        const sourceResult = await fetchDoctypeRecord(doctype, query.source);
+        if (sourceResult.success && sourceResult.data) {
+          const sourceData = sourceResult.data;
+          // Copy scalar fields from source, skip system/identity fields
+          const skipFields = new Set(['name', 'docstatus', 'creation', 'modified', 'owner', 'modified_by', 'idx', 'parent', 'parenttype', 'parentfield', '_user_tags', '_comments', '_assign', '_liked_by', 'amended_from']);
+          for (const [k, v] of Object.entries(sourceData)) {
+            if (!skipFields.has(k) && !Array.isArray(v)) {
+              emptyRecord[k] = v;
+            }
+          }
+          // Track amend lineage
+          if (query.amend) {
+            emptyRecord.amended_from = query.source;
+          }
+          // Extract child tables from source
+          for (const [k, v] of Object.entries(sourceData)) {
+            if (Array.isArray(v) && v.length > 0 && v[0] && typeof v[0] === 'object' && 'parentfield' in (v[0] as Record<string, unknown>)) {
+              prefillChildTables[k] = (v as Record<string, unknown>[]).map((row) => {
+                const clean: Record<string, unknown> = {};
+                for (const [rk, rv] of Object.entries(row as Record<string, unknown>)) {
+                  if (!skipFields.has(rk) && rk !== 'name') clean[rk] = rv;
+                }
+                return clean;
+              });
+            }
+          }
+        }
+      }
+
+      // Build child table arrays — prefill from source if available
       const childTables: Record<string, Record<string, unknown>[]> = {};
       for (const ct of meta.child_tables) {
-        childTables[ct.fieldname] = [];
+        childTables[ct.fieldname] = prefillChildTables[ct.fieldname] ?? [];
       }
 
       return (
