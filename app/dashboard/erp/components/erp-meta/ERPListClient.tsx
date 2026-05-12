@@ -34,6 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -74,6 +75,7 @@ import ERPFilterBar from './ERPFilterBar';
 import { useListFilters, type FilterValue } from './use-list-filters';
 import { formatListCell, listColumnLabel, statusBadge } from './list-cell';
 import ExportButton from '@/app/dashboard/erp/components/ExportButton';
+import { cn } from '@/lib/utils';
 
 // ── Icon resolver (shared with ERPFormClient) ──────────────────────────────────
 
@@ -276,6 +278,47 @@ export default function ERPListClient({
     [doctype],
   );
 
+  // ── Bulk selection ──────────────────────────────────────────────────────
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
+  const toggleSelectRow = useCallback((name: string) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedRows((prev) => {
+      if (prev.size === records.length) return new Set();
+      return new Set(records.map((r) => String(r.name ?? '')));
+    });
+  }, [records]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const names = [...selectedRows];
+    if (names.length === 0) return;
+    if (!confirm(`Delete ${names.length} record(s)? This cannot be undone.`)) return;
+
+    let successCount = 0;
+    for (const name of names) {
+      const result = await deleteDoctypeRecord(doctype, name);
+      if (result.success) {
+        successCount++;
+      } else {
+        toast.error(`Failed to delete "${name}": ${result.error}`);
+      }
+    }
+    if (successCount > 0) {
+      toast.success(`${successCount} record(s) deleted`);
+      setRecords((prev) => prev.filter((r) => !selectedRows.has(String(r.name ?? ''))));
+      setCurrentMeta((prev) => ({ ...prev, total: prev.total - successCount }));
+      setSelectedRows(new Set());
+    }
+  }, [doctype, selectedRows]);
+
   // ── AI: Action registration ─────────────────────────────────────────────
   const { registerActions, unregisterActions } = useActionDispatcher();
   useEffect(() => {
@@ -452,6 +495,32 @@ export default function ERPListClient({
         )}
       </div>
 
+      {/* Bulk action toolbar */}
+      {selectedRows.size > 0 && (
+        <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg"
+        >
+          <span className="text-sm font-medium text-indigo-700">
+            {selectedRows.size} selected
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+            onClick={handleBulkDelete}
+          >
+            <Trash2 size={12} className="mr-1" /> Delete
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-indigo-600 hover:bg-indigo-100"
+            onClick={() => setSelectedRows(new Set())}
+          >
+            Clear
+          </Button>
+        </div>
+      )}
+
       {/* Scrollable content area */}
       <div className="flex-1 min-h-0 overflow-auto pr-2">
         {records.length === 0 && !isLoading ? (
@@ -484,6 +553,9 @@ export default function ERPListClient({
             deleting={deleting}
             onSort={handleSort}
             onDelete={handleDelete}
+            selectedRows={selectedRows}
+            onToggleSelect={toggleSelectRow}
+            onToggleSelectAll={toggleSelectAll}
           />
         )}
       </div>
@@ -532,6 +604,9 @@ interface DesktopTableProps {
   deleting: string | null;
   onSort: (field: string) => void;
   onDelete: (name: string) => void;
+  selectedRows: Set<string>;
+  onToggleSelect: (name: string) => void;
+  onToggleSelectAll: () => void;
 }
 
 function DesktopTable({
@@ -544,14 +619,25 @@ function DesktopTable({
   deleting,
   onSort,
   onDelete,
+  selectedRows,
+  onToggleSelect,
+  onToggleSelectAll,
 }: DesktopTableProps) {
   const router = useRouter();
+  const allSelected = records.length > 0 && selectedRows.size === records.length;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50">
+            <TableHead className="w-10">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={onToggleSelectAll}
+                aria-label="Select all"
+              />
+            </TableHead>
             {columns.map((col) => (
               <TableHead
                 key={col.fieldname}
@@ -579,16 +665,27 @@ function DesktopTable({
         <TableBody>
           {records.map((row) => {
             const name = String(row.name ?? '');
+            const isSelected = selectedRows.has(name);
             return (
               <TableRow
                 key={name}
-                className="cursor-pointer hover:bg-gray-50 transition-colors group"
+                className={cn(
+                  'cursor-pointer hover:bg-gray-50 transition-colors group',
+                  isSelected && 'bg-indigo-50/50',
+                )}
                 onClick={() =>
                   router.push(
                     `/dashboard/erp/${doctype}/${encodeURIComponent(name)}`,
                   )
                 }
               >
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onToggleSelect(name)}
+                    aria-label={`Select ${name}`}
+                  />
+                </TableCell>
                 {columns.map((col) => (
                   <TableCell key={col.fieldname}>
                     {col.isName
