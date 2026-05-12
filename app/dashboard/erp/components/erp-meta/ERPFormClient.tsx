@@ -108,6 +108,14 @@ export default function ERPFormClient({
   const [record, setRecord] = useState<Record<string, unknown>>(initialRecord);
   const [isEditing, setIsEditing] = useState(isNew);
   const [editData, setEditData] = useState<Record<string, unknown>>(isNew ? { ...initialRecord } : {});
+
+  // Sync record state when prop changes (client-side navigation between records)
+  useEffect(() => {
+    setRecord(initialRecord);
+    setIsEditing(isNew);
+    setEditData(isNew ? { ...initialRecord } : {});
+    setFieldErrors({});
+  }, [initialRecord, isNew]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
