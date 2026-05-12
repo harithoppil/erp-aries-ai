@@ -333,9 +333,6 @@ export function ERPFieldRenderer({
     case 'Heading':
     case 'Button':
     case 'Image':
-    case 'Attach':
-    case 'Attach Image':
-    case 'Signature':
       // No editable input — fall through to text input as a sensible default
       return (
         <Input
@@ -345,6 +342,115 @@ export function ERPFieldRenderer({
           value={stringValue}
           onChange={(e) => handleChange(e.target.value)}
           className={cn('w-full', errorClass)}
+        />
+      );
+
+    case 'Attach':
+    case 'Attach Image':
+      return (
+        <div className="flex items-center gap-2">
+          <Input
+            id={field.fieldname}
+            type="url"
+            placeholder={placeholder || 'Enter file URL or upload'}
+            value={stringValue}
+            onChange={(e) => handleChange(e.target.value)}
+            className={cn('w-full', errorClass)}
+          />
+          {stringValue && (
+            <a
+              href={stringValue}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline whitespace-nowrap"
+            >
+              {field.fieldtype === 'Attach Image' ? 'View' : 'Open'}
+            </a>
+          )}
+        </div>
+      );
+
+    case 'Signature':
+      return (
+        <Input
+          id={field.fieldname}
+          type="text"
+          placeholder={placeholder || 'Signature data (base64)'}
+          value={stringValue}
+          onChange={(e) => handleChange(e.target.value)}
+          className={cn('w-full', errorClass)}
+        />
+      );
+
+    case 'Rating': {
+      const maxStars = 5;
+      const ratingVal = Math.min(Math.max(Number(value) || 0, 0), maxStars);
+      return (
+        <div className="flex items-center gap-1">
+          {Array.from({ length: maxStars }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              className={cn(
+                'text-lg',
+                i < ratingVal ? 'text-yellow-500' : 'text-gray-300',
+                editable ? 'cursor-pointer hover:scale-110' : 'cursor-default',
+              )}
+              onClick={() => editable && handleChange(i + 1)}
+              disabled={!editable}
+            >
+              ★
+            </button>
+          ))}
+          <span className="text-xs text-muted-foreground ml-1">{ratingVal}/{maxStars}</span>
+        </div>
+      );
+    }
+
+    case 'Phone':
+      return (
+        <Input
+          id={field.fieldname}
+          type="tel"
+          placeholder={placeholder || '+971-XX-XXX-XXXX'}
+          value={stringValue}
+          onChange={(e) => handleChange(e.target.value)}
+          className={cn('w-full', errorClass)}
+        />
+      );
+
+    case 'Duration': {
+      // Display as HH:MM:SS
+      const totalSec = Number(value) || 0;
+      const hrs = Math.floor(totalSec / 3600);
+      const mins = Math.floor((totalSec % 3600) / 60);
+      const secs = totalSec % 60;
+      const display = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      return (
+        <Input
+          id={field.fieldname}
+          type="text"
+          placeholder="00:00:00"
+          value={display}
+          onChange={(e) => {
+            const parts = e.target.value.split(':').map(Number);
+            const total = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+            handleChange(total);
+          }}
+          className={cn('w-full font-mono', errorClass)}
+        />
+      );
+    }
+
+    case 'Text Editor':
+      return (
+        <Textarea
+          id={field.fieldname}
+          placeholder={placeholder || 'Enter content…'}
+          value={stringValue}
+          onChange={(e) => handleChange(e.target.value)}
+          rows={6}
+          className={cn('w-full min-h-[120px]', errorClass)}
         />
       );
 
