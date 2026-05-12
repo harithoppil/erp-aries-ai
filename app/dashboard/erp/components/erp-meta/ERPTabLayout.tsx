@@ -200,8 +200,8 @@ function SectionBlock(props: {
                 isExistingRecord={isExistingRecord}
                 docstatus={docstatus}
                 isSubmittable={isSubmittable}
-                dynamicRequired={evaluateDependsOn(c.field.mandatory_depends_on, record)}
-                dynamicReadOnly={evaluateDependsOn(c.field.read_only_depends_on, record)}
+                dynamicRequired={c.field.mandatory_depends_on ? evaluateDependsOn(c.field.mandatory_depends_on, record) : false}
+                dynamicReadOnly={c.field.read_only_depends_on ? evaluateDependsOn(c.field.read_only_depends_on, record) : false}
               />
             ) : null,
           )}
