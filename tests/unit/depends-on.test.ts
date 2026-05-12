@@ -70,25 +70,16 @@ describe('evaluateDependsOn', () => {
     expect(evaluateDependsOn('eval:doc.is_return', record)).toBe(false);
   });
 
-  // ── N3: != operator — not supported, falls through to "always visible" ────
+  // ── != operator (N3 fix) ──────────────────────────────────────────────────────
 
-  it('evaluates eval:doc.status!="Closed" — falls through to true (BUG N3)', () => {
-    // Frappe commonly uses eval:doc.status!="Closed" to show fields
-    // when status is anything OTHER than Closed.
-    // Our evaluator doesn't parse !=, so it falls through to the
-    // "unsupported" warning and returns true (always visible).
-    // Correct behavior: should be true (status IS "Open", not "Closed")
+  it('evaluates eval:doc.status!="Closed" to true (status is Open)', () => {
     const result = evaluateDependsOn('eval:doc.status!="Closed"', record);
-    // Coincidentally correct for this case, but for the wrong reason
     expect(result).toBe(true);
   });
 
-  it('evaluates eval:doc.status!="Open" — falls through to true (BUG N3)', () => {
-    // This should be FALSE (status IS Open, so != Open should hide the field)
-    // But our evaluator doesn't parse !=, returns true (always visible)
+  it('evaluates eval:doc.status!="Open" to false (status IS Open)', () => {
     const result = evaluateDependsOn('eval:doc.status!="Open"', record);
-    // BUG: should be false, but evaluator can't parse != so returns true
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 
   // ── null/empty expression ─────────────────────────────────────────────────

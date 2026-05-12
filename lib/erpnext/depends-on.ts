@@ -43,6 +43,14 @@ export function evaluateDependsOn(
       return String(record[field] ?? '') === expected;
     }
 
+    // Case 1b2: eval:doc.fieldname!="value" — inequality check
+    const neqMatch = expr.match(/^doc\.(\w+)\s*!=\s*["'](.+)["']$/);
+    if (neqMatch) {
+      const field = neqMatch[1];
+      const expected = neqMatch[2];
+      return String(record[field] ?? '') !== expected;
+    }
+
     // Case 1c: eval:doc.fieldname — truthy check
     const fieldMatch = expr.match(/^doc\.(\w+)$/);
     if (fieldMatch) {

@@ -23,7 +23,10 @@ export interface NamingSeriesConfig {
 
 export interface ParsedPrefix {
   base: string;          // e.g. "SINV-"
-  hasYear: boolean;      // whether `.YYYY.` placeholder is present
+  hasYear: boolean;      // whether `.YYYY.` or `.YY.` placeholder is present
+  yearFormat: 'YYYY' | 'YY' | '';
+  hasMonth: boolean;     // whether `.MM.` placeholder is present
+  hasDay: boolean;       // whether `.DD.` placeholder is present
 }
 
 // ── Default naming series per DocType ─────────────────────────────────────────
@@ -104,13 +107,29 @@ async function getCurrentFiscalYear(company: string): Promise<string> {
  * Parse a naming series prefix into its components.
  *
  * @example
- *   parsePrefix("SINV-.YYYY.-") => { base: "SINV-", hasYear: true }
- *   parsePrefix("SO-")          => { base: "SO-", hasYear: false }
+ *   parsePrefix("SINV-.YYYY.-") => { base: "SINV-", hasYear: true, yearFormat: "YYYY", hasMonth: false, hasDay: false }
+ *   parsePrefix("SINV-.YY.-")   => { base: "SINV-", hasYear: true, yearFormat: "YY", hasMonth: false, hasDay: false }
+ *   parsePrefix("SO-.YYYY..MM.-") => { base: "SO-", hasYear: true, yearFormat: "YYYY", hasMonth: true, hasDay: false }
+ *   parsePrefix("SO-")          => { base: "SO-", hasYear: false, yearFormat: "", hasMonth: false, hasDay: false }
  */
 export function parsePrefix(prefix: string): ParsedPrefix {
-  const hasYear = prefix.includes(".YYYY.");
-  const base = prefix.replace(".YYYY.", "");
-  return { base, hasYear };
+  const hasMonth = prefix.includes(".MM.");
+  const hasDay = prefix.includes(".DD.");
+  let hasYear = false;
+  let yearFormat: 'YYYY' | 'YY' | '' = '';
+  if (prefix.includes(".YYYY.")) {
+    hasYear = true;
+    yearFormat = 'YYYY';
+  } else if (prefix.includes(".YY.")) {
+    hasYear = true;
+    yearFormat = 'YY';
+  }
+  const base = prefix
+    .replace(".YYYY.", "")
+    .replace(".YY.", "")
+    .replace(".MM.", "")
+    .replace(".DD.", "");
+  return { base, hasYear, yearFormat, hasMonth, hasDay };
 }
 
 // ── Format document name ──────────────────────────────────────────────────────
@@ -118,15 +137,32 @@ export function parsePrefix(prefix: string): ParsedPrefix {
 /**
  * Format a complete document name from prefix components.
  *
- * @param prefix   - The raw prefix string (may contain `.YYYY.`)
+ * @param prefix   - The raw prefix string (may contain `.YYYY.`, `.YY.`, `.MM.`, `.DD.`)
  * @param counter  - The numeric counter value
  * @param fiscalYear - The fiscal year string to substitute
- * @returns Formatted name like "SINV-2026-00001"
+ * @returns Formatted name like "SINV-2026-00001" or "SINV-26-05-00001"
  */
 function formatDocName(prefix: string, counter: number, fiscalYear: string): string {
-  const { base, hasYear } = parsePrefix(prefix);
+  const now = new Date();
   const padded = String(counter).padStart(5, "0");
-  return hasYear ? `${base}${fiscalYear}-${padded}` : `${base}${padded}`;
+
+  let result = prefix;
+  result = result.replace(".YYYY.", fiscalYear);
+  result = result.replace(".YY.", String(now.getFullYear()).slice(-2));
+  result = result.replace(".MM.", String(now.getMonth() + 1).padStart(2, "0"));
+  result = result.replace(".DD.", String(now.getDate()).padStart(2, "0"));
+
+  // Strip remaining separators and append counter
+  const { base } = parsePrefix(prefix);
+  const yearPart = prefix.includes(".YYYY.") ? fiscalYear
+    : prefix.includes(".YY.") ? String(now.getFullYear()).slice(-2) : "";
+  const monthPart = prefix.includes(".MM.") ? `-${String(now.getMonth() + 1).padStart(2, "0")}` : "";
+  const dayPart = prefix.includes(".DD.") ? `-${String(now.getDate()).padStart(2, "0")}` : "";
+
+  if (yearPart || monthPart || dayPart) {
+    return `${base}${yearPart}${monthPart}${dayPart}-${padded}`;
+  }
+  return `${base}${padded}`;
 }
 
 // ── Series key for in-memory store ────────────────────────────────────────────
