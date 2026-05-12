@@ -1,7 +1,22 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { toAccessor, getDelegate } from '@/lib/erpnext/prisma-delegate';
+import { toAccessor, toDisplayLabel, getDelegate } from '@/lib/erpnext/prisma-delegate';
+
+/** Convert raw Prisma errors into user-friendly messages. */
+function friendlyError(err: unknown, doctype: string): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes('does not exist') && msg.includes('table')) {
+    return `Table for "${toDisplayLabel(doctype)}" does not exist yet. Run a migration first.`;
+  }
+  if (msg.includes('Unique constraint failed')) {
+    return `A record with this name already exists.`;
+  }
+  if (msg.includes('Foreign key constraint failed') || msg.includes('violates foreign key')) {
+    return `Referenced record not found. Check linked fields.`;
+  }
+  return `Failed to load ${toDisplayLabel(doctype)}`;
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -181,9 +196,8 @@ export async function fetchDoctypeList(
       },
     };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[doctype-list] fetchDoctypeList(${doctype}) failed:`, msg);
-    return { success: false, error: msg || `Failed to fetch ${doctype}` };
+    console.error(`[doctype-list] fetchDoctypeList(${doctype}) failed:`, err instanceof Error ? err.message : err);
+    return { success: false, error: friendlyError(err, doctype) };
   }
 }
 
