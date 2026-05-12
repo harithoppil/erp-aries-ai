@@ -73,6 +73,7 @@ import { toKebabCase } from '@/lib/erpnext/utils';
 import ERPFilterBar from './ERPFilterBar';
 import { useListFilters, type FilterValue } from './use-list-filters';
 import { formatListCell, listColumnLabel, statusBadge } from './list-cell';
+import ExportButton from '@/app/dashboard/erp/components/ExportButton';
 
 // ── Icon resolver (shared with ERPFormClient) ──────────────────────────────────
 
@@ -399,6 +400,11 @@ export default function ERPListClient({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ExportButton
+              data={records as Record<string, unknown>[]}
+              filename={doctype}
+              disabled={records.length === 0}
+            />
             {!isSingle && (
               <Link
                 href={`/dashboard/erp/${doctype}/new`}

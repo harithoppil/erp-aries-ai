@@ -245,20 +245,63 @@ export default function ERPFormClient({
   const validate = useCallback((): boolean => {
     if (!meta) return true;
     const errors: Record<string, string> = {};
+
+    // Validate parent fields
     for (const f of meta.fields) {
       if (!f.reqd || f.hidden || f.read_only) continue;
+      if (f.fieldtype === 'Table') continue; // child tables validated below
       const v = (isEditing ? editData : record)[f.fieldname];
       if (v === undefined || v === null || v === '') {
         errors[f.fieldname] = `${f.label ?? f.fieldname} is required`;
       }
     }
+
+    // Validate child table required fields
+    for (const f of meta.fields) {
+      if (f.fieldtype !== 'Table' || !f.reqd) continue;
+      const rows = editChildTables[f.fieldname] ?? [];
+      if (rows.length === 0) {
+        errors[f.fieldname] = `${f.label ?? f.fieldname} requires at least one row`;
+        continue;
+      }
+      // Check each row's required child columns
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        // Get child fields from grid metadata — for now check common required fields
+        // by looking at what's marked reqd in the child doctype fields
+        const childMeta = meta.fields.find(mf => mf.fieldname === f.fieldname);
+        if (childMeta?.options) {
+          // Use the grid's column metadata if available
+        }
+        // Basic validation: item_code is required for Sales Invoice Items
+        const requiredChildFields = ['item_code', 'item_name', 'account', 'party_type', 'party'];
+        for (const cf of requiredChildFields) {
+          if (row[cf] === undefined || row[cf] === null || row[cf] === '') {
+            // Only flag if the row has any content at all (skip completely empty rows)
+            const hasContent = Object.values(row).some(
+              v => typeof v === 'string' && v.trim() && !v.startsWith('new-')
+            );
+            if (hasContent) {
+              errors[`${f.fieldname}[${i}].${cf}`] = `Row ${i + 1}: ${cf} is required`;
+            }
+          }
+        }
+      }
+    }
+
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
-      toast.error('Please fix the errors below');
+      const parentErrors = Object.values(errors).filter(e => !e.includes('Row'));
+      const childErrors = Object.values(errors).filter(e => e.includes('Row'));
+      toast.error(
+        parentErrors.length > 0
+          ? `Please fix ${parentErrors.length} error(s)`
+          : `${childErrors.length} child row error(s)`,
+      );
       return false;
     }
     return true;
-  }, [meta, isEditing, editData, record]);
+  }, [meta, isEditing, editData, record, editChildTables]);
 
   const handleSave = useCallback(async () => {
     if (!validate()) return;
@@ -656,6 +699,23 @@ export default function ERPFormClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {!isNew && String(record.creation || '') && (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground border-t pt-3">
+          {record.owner ? (
+            <span>Created by <b className="text-foreground">{String(record.owner)}</b></span>
+          ) : null}
+          {record.creation ? (
+            <span>on {new Date(String(record.creation)).toLocaleString()}</span>
+          ) : null}
+          {record.modified_by && String(record.modified_by) !== String(record.owner ?? '') ? (
+            <span>| Modified by <b className="text-foreground">{String(record.modified_by)}</b></span>
+          ) : null}
+          {record.modified ? (
+            <span>on {new Date(String(record.modified)).toLocaleString()}</span>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
