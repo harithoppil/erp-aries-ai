@@ -115,6 +115,7 @@ export default async function GenericDetailPage({
           record={emptyRecord}
           childTables={childTables}
           isNew={true}
+          initialMeta={meta}
         />
       );
     }
@@ -189,6 +190,7 @@ export default async function GenericDetailPage({
         doctype={doctype}
         record={scalarRecord}
         childTables={childTables}
+        initialMeta={meta}
       />
     );
   }

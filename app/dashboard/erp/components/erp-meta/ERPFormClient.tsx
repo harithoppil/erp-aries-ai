@@ -44,7 +44,7 @@ import { useDocTypeMeta } from './useDocTypeMeta';
 import { ERPTabLayout } from './ERPTabLayout';
 import { ERPGridClient } from './ERPGridClient';
 import { useEditChildTables } from './use-edit-child-tables';
-import type { DocFieldMeta, DocTypeInfo } from '@/lib/erpnext/doctype-meta';
+import type { DocFieldMeta, DocTypeInfo, DocTypeMeta } from '@/lib/erpnext/doctype-meta';
 
 /**
  * Resolve a Frappe icon string (e.g. "building", "file-text") to a Lucide React
@@ -70,6 +70,8 @@ interface ERPFormClientProps {
   record: Record<string, unknown>;
   childTables: Record<string, Record<string, unknown>[]>;
   isNew?: boolean;
+  /** Server-loaded metadata — avoids a redundant client-side API fetch. */
+  initialMeta?: DocTypeMeta | null;
 }
 
 function getDocStatus(record: Record<string, unknown>): number {
@@ -92,9 +94,15 @@ export default function ERPFormClient({
   record: initialRecord,
   childTables,
   isNew = false,
+  initialMeta,
 }: ERPFormClientProps): JSX.Element {
   const router = useRouter();
-  const { meta, loading: metaLoading, error: metaError } = useDocTypeMeta(doctype);
+
+  // Use server-provided metadata when available, otherwise fetch client-side.
+  const clientMeta = useDocTypeMeta(doctype);
+  const meta = initialMeta ?? clientMeta.meta;
+  const metaLoading = initialMeta ? false : clientMeta.loading;
+  const metaError = initialMeta ? null : clientMeta.error;
 
   const [record, setRecord] = useState<Record<string, unknown>>(initialRecord);
   const [isEditing, setIsEditing] = useState(isNew);
