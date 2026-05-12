@@ -11,6 +11,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "sonner";
 import { useAppStore } from "@/store/useAppStore";
 import { MessageSquare, Menu } from "lucide-react";
+import { ERPGlobalSearch } from "@/app/dashboard/erp/components/ERPGlobalSearch";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { isDesktop, isMobile, isTablet } = useResponsive();
@@ -76,8 +77,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
-          {/* Right side: chat toggle */}
+          {/* Right side: search + chat toggle */}
           <div className="flex items-center gap-2">
+            <ERPGlobalSearch />
             <button
               onClick={toggleChat}
               className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${

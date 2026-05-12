@@ -17824,3 +17824,42 @@ model JobOpening {
 }
 
 // === HR_PORT_END ===
+
+// ── Activity / Timeline tables ──────────────────────────────────────────────
+
+model Comment {
+  id                String   @id @default(uuid()) @db.Uuid
+  name              String   @unique @default(cuid()) @db.VarChar(140)
+  creation          DateTime @default(now()) @db.Timestamptz(3)
+  modified          DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  owner             String?  @db.VarChar(255)
+  modified_by       String?  @db.VarChar(255)
+  docstatus         Int      @default(0)
+  comment_type      String   @default("Comment") @db.VarChar(140)
+  reference_doctype String   @db.VarChar(140)
+  reference_name    String   @db.VarChar(140)
+  content           String?
+  comment_email     String?  @db.VarChar(255)
+  comment_by        String?  @db.VarChar(255)
+
+  @@index([reference_doctype, reference_name])
+  @@index([creation])
+  @@map("comment")
+}
+
+model DocumentVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @unique @default(cuid()) @db.VarChar(140)
+  creation     DateTime @default(now()) @db.Timestamptz(3)
+  modified     DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  owner        String?  @db.VarChar(255)
+  modified_by  String?  @db.VarChar(255)
+  docstatus    Int      @default(0)
+  ref_doctype  String   @db.VarChar(140)
+  docname      String   @db.VarChar(140)
+  data         String?  // JSON: { changed: [[field, old, new], ...] }
+
+  @@index([ref_doctype, docname])
+  @@index([creation])
+  @@map("document_version")
+}

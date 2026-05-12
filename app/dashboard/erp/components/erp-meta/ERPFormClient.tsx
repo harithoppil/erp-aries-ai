@@ -44,6 +44,8 @@ import { Sparkles } from 'lucide-react';
 import { useDocTypeMeta } from './useDocTypeMeta';
 import { ERPTabLayout } from './ERPTabLayout';
 import { ERPGridClient } from './ERPGridClient';
+import { ERPFormTimeline } from './ERPFormTimeline';
+import { ERPLinkedDocs } from './ERPLinkedDocs';
 import { useEditChildTables } from './use-edit-child-tables';
 import type { DocFieldMeta, DocTypeInfo, DocTypeMeta } from '@/lib/erpnext/doctype-meta';
 
@@ -688,6 +690,10 @@ export default function ERPFormClient({
           isSubmittable={isSubmittable}
         />
       )}
+
+      {!isNew && <ERPFormTimeline doctype={doctype} recordName={recordName} />}
+
+      {!isNew && <ERPLinkedDocs doctype={doctype} recordName={recordName} />}
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
