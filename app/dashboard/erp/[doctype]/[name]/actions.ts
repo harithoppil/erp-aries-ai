@@ -538,7 +538,9 @@ export async function createDoctypeRecord(
     if (!data.name || (typeof data.name === 'string' && !data.name.trim())) {
       if (usesNamingSeries) {
         // Transaction doctypes use naming series (SINV-2026-00001, etc.)
-        data.name = await generateDocName(displayLabel, (data.company as string) || undefined);
+        // Use the user-selected series from the form if provided
+        const seriesPrefix = (data.naming_series as string) || undefined;
+        data.name = await generateDocName(displayLabel, (data.company as string) || undefined, seriesPrefix);
       } else {
         // Master doctypes derive name from a label field
         const pascal = toAccessor(doctype).charAt(0).toUpperCase() + toAccessor(doctype).slice(1);

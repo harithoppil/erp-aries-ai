@@ -233,9 +233,20 @@ export async function incrementSeries(seriesId: string, newValue: number): Promi
  * @param company  - Optional company name for series partitioning
  * @returns The generated document name (e.g. "SINV-2026-00001")
  */
-export async function generateDocName(doctype: string, company?: string): Promise<string> {
+export async function generateDocName(doctype: string, company?: string, prefix?: string): Promise<string> {
   const companyName = company ?? "default";
   const config = await getNamingSeries(doctype, companyName);
+
+  // Use the caller-supplied prefix (from naming_series field) if given
+  if (prefix && prefix.trim()) {
+    config.prefix = prefix.trim();
+    const key = seriesKey(doctype, companyName, config.prefix);
+    const existing = seriesStore.get(key);
+    if (existing) {
+      Object.assign(config, existing);
+    }
+    seriesStore.set(key, config);
+  }
   const key = seriesKey(doctype, companyName, config.prefix);
   const fiscalYear = await getCurrentFiscalYear(companyName);
 
