@@ -2579,3 +2579,14 @@ function findChildAccessors(doctype: string): string[] {
 
   return results;
 }
+
+/**
+ * Look up the Prisma child model accessor for a given parent doctype + parentfield.
+ * Returns null if the doctype is not registered or the field has no known child model.
+ */
+export function getChildAccessor(doctype: string, parentField: string): string | null {
+  const config = REGISTRY.get(doctype);
+  if (!config) return null;
+  const match = config.childModels.find((cm) => cm.parentField === parentField);
+  return match?.accessor ?? null;
+}

@@ -18,6 +18,7 @@ import {
 import {
   submitDocument as orchestratorSubmit,
   cancelDocument as orchestratorCancel,
+  getChildAccessor,
 } from '@/lib/erpnext/document-orchestrator';
 import { generateDocName, getDefaultSeriesMappings } from '@/lib/erpnext/naming-series';
 
@@ -621,12 +622,14 @@ export async function saveChildTableRows(
     if (!resolved) return { success: false, error: `Unknown DocType: ${parentDoctype}` };
 
     const childAccessors = findChildAccessors(toDisplayLabel(parentDoctype));
+    const parentDisplayLabel = toDisplayLabel(parentDoctype);
 
     // Find which child model has rows with this parentfield
     const childAccessor = await findChildAccessorForField(
       childAccessors,
       parentName,
       fieldname,
+      parentDisplayLabel,
     );
 
     if (!childAccessor) {
@@ -635,8 +638,6 @@ export async function saveChildTableRows(
         error: `No child table accessor found for field "${fieldname}" on ${parentDoctype}`,
       };
     }
-
-    const parentDisplayLabel = toDisplayLabel(parentDoctype);
 
     const result = await prisma.$transaction(async (tx) => {
       const txRecord = tx as unknown as Record<string, PrismaDelegate>;
@@ -692,7 +693,13 @@ async function findChildAccessorForField(
   childAccessors: string[],
   parentName: string,
   fieldname: string,
+  parentDisplayLabel: string,
 ): Promise<string | null> {
+  // Prefer orchestrator registry — knows exact accessor↔parentField mapping
+  const fromRegistry = getChildAccessor(parentDisplayLabel, fieldname);
+  if (fromRegistry) return fromRegistry;
+
+  // Fallback: query existing rows to find which model owns this parentfield
   for (const accessor of childAccessors) {
     const childModel = getDelegateByAccessor(prisma as unknown as Record<string, unknown>, accessor);
     if (childModel) {
@@ -702,8 +709,8 @@ async function findChildAccessorForField(
       if (sample) return accessor;
     }
   }
-  // If no existing rows found, try the first accessor that has parentfield field
-  // (for new records where there are no rows yet)
+
+  // Last resort: first accessor (works when doctype has only one child table)
   if (childAccessors.length > 0) {
     return childAccessors[0];
   }
