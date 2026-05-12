@@ -31,12 +31,68 @@ export interface DeleteResult {
   error?: string;
 }
 
+export type FilterOperator = '=' | '!=' | '>' | '<' | '>=' | '<=' | 'like' | 'not like' | 'in' | 'not in' | 'is set' | 'is not set';
+
 export type FilterValue =
   | string
   | number
   | boolean
   | { from: string; to: string }
+  | { operator: FilterOperator; value: unknown }
   | null;
+
+/** Apply a filter operator to a Prisma where clause. */
+function applyOperator(
+  where: Record<string, unknown>,
+  field: string,
+  operator: string,
+  value: unknown,
+): void {
+  switch (operator) {
+    case '=':
+      where[field] = value;
+      break;
+    case '!=':
+      where[field] = { not: value };
+      break;
+    case '>':
+      where[field] = { gt: value };
+      break;
+    case '<':
+      where[field] = { lt: value };
+      break;
+    case '>=':
+      where[field] = { gte: value };
+      break;
+    case '<=':
+      where[field] = { lte: value };
+      break;
+    case 'like':
+      where[field] = { contains: String(value).replace(/[*%]/g, ''), mode: 'insensitive' };
+      break;
+    case 'not like':
+      where[field] = { not: { contains: String(value).replace(/[*%]/g, ''), mode: 'insensitive' } };
+      break;
+    case 'in': {
+      const arr = Array.isArray(value) ? value : String(value).split(',').map((s: string) => s.trim());
+      where[field] = { in: arr };
+      break;
+    }
+    case 'not in': {
+      const arr = Array.isArray(value) ? value : String(value).split(',').map((s: string) => s.trim());
+      where[field] = { notIn: arr };
+      break;
+    }
+    case 'is set':
+      where[field] = { not: null };
+      break;
+    case 'is not set':
+      where[field] = null;
+      break;
+    default:
+      where[field] = value;
+  }
+}
 
 export interface FetchParams {
   page?: number;
@@ -83,7 +139,12 @@ export async function fetchDoctypeList(
     if (params?.filters) {
       for (const [k, v] of Object.entries(params.filters)) {
         if (v == null || v === '') continue;
-        if (typeof v === 'object' && 'from' in v) {
+        // Structured filter: { operator: '!=', value: 'Closed' }
+        if (typeof v === 'object' && 'operator' in v) {
+          const sf = v as { operator: string; value: unknown };
+          const clauses: Record<string, unknown>[] = [];
+          applyOperator(where, k, sf.operator, sf.value);
+        } else if (typeof v === 'object' && 'from' in v) {
           const rangeVal = v as { from: string; to: string };
           const rangeClause: Record<string, unknown> = {};
           if (rangeVal.from) rangeClause.gte = rangeVal.from;

@@ -8,11 +8,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+export type FilterOperator = '=' | '!=' | '>' | '<' | '>=' | '<=' | 'like' | 'not like' | 'in' | 'not in' | 'is set' | 'is not set';
+
 export type FilterValue =
   | string
   | number
   | boolean
   | { from: string; to: string }
+  | { operator: FilterOperator; value: unknown }
   | null;
 
 interface UseListFiltersReturn {
@@ -27,6 +30,10 @@ interface UseListFiltersReturn {
 function serializeFilterValue(v: FilterValue): string {
   if (v === null || v === undefined) return '';
   if (typeof v === 'boolean') return v ? '1' : '0';
+  if (typeof v === 'object' && 'operator' in v) {
+    const sf = v as { operator: string; value: unknown };
+    return `${sf.operator}:${String(sf.value ?? '')}`;
+  }
   if (typeof v === 'object' && 'from' in v) {
     const range = v as { from: string; to: string };
     return [range.from, range.to].join('~');
@@ -37,6 +44,16 @@ function serializeFilterValue(v: FilterValue): string {
 /** Deserialize a single filter value from URL query string. */
 function deserializeFilterValue(raw: string): FilterValue {
   if (raw === '') return null;
+  // Operator-structured values: "!=:Closed" or "like:search"
+  const colonIdx = raw.indexOf(':');
+  if (colonIdx > 0) {
+    const opPart = raw.slice(0, colonIdx);
+    const valPart = raw.slice(colonIdx + 1);
+    if (opPart === 'is set' || opPart === 'is not set') {
+      return { operator: opPart as FilterOperator, value: null };
+    }
+    return { operator: opPart as FilterOperator, value: valPart };
+  }
   // Range values contain "~"
   if (raw.includes('~')) {
     const [from, to] = raw.split('~', 2);

@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { StandardFilter } from '@/lib/erpnext/doctype-meta';
-import type { FilterValue } from './use-list-filters';
+import type { FilterValue, FilterOperator } from './use-list-filters';
 import { LinkFieldCombobox } from '@/app/dashboard/erp/[doctype]/[name]/LinkFieldCombobox';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -367,10 +367,28 @@ function NumberRangeFilterInput({ filter, value, onChange }: FilterInputProps) {
   );
 }
 
-// ── Text filter (debounced) ──────────────────────────────────────────────────
+// ── Text filter (debounced) with operator ────────────────────────────────────
+
+const TEXT_OPERATORS: { value: FilterOperator; label: string }[] = [
+  { value: '=', label: 'equals' },
+  { value: '!=', label: 'not equals' },
+  { value: 'like', label: 'contains' },
+  { value: 'not like', label: 'not contains' },
+  { value: 'is set', label: 'is set' },
+  { value: 'is not set', label: 'is not set' },
+];
 
 function TextFilterInput({ filter, value, onChange }: FilterInputProps) {
-  const [local, setLocal] = useState(typeof value === 'string' ? value : '');
+  // Parse structured { operator, value } or legacy string
+  const isStructured = typeof value === 'object' && value !== null && 'operator' in value;
+  const operator: FilterOperator = isStructured
+    ? (value as { operator: FilterOperator; value: unknown }).operator
+    : 'like';
+  const rawVal = isStructured
+    ? String((value as { operator: FilterOperator; value: unknown }).value ?? '')
+    : typeof value === 'string' ? value : '';
+
+  const [local, setLocal] = useState(rawVal);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -379,26 +397,59 @@ function TextFilterInput({ filter, value, onChange }: FilterInputProps) {
     };
   }, []);
 
+  const emitChange = useCallback((op: FilterOperator, v: string) => {
+    if (op === 'is set' || op === 'is not set') {
+      onChange({ operator: op, value: null });
+    } else if (!v) {
+      onChange(null);
+    } else {
+      onChange({ operator: op, value: v });
+    }
+  }, [onChange]);
+
   const handleChange = useCallback(
     (newVal: string) => {
       setLocal(newVal);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        onChange(newVal || null);
+        emitChange(operator, newVal);
       }, 250);
     },
-    [onChange],
+    [operator, emitChange],
   );
+
+  const handleOperatorChange = useCallback(
+    (op: FilterOperator) => {
+      emitChange(op, local);
+    },
+    [local, emitChange],
+  );
+
+  const noValueNeeded = operator === 'is set' || operator === 'is not set';
 
   return (
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{filter.label}</Label>
-      <Input
-        value={local}
-        onChange={(e) => handleChange(e.target.value)}
-        className="h-8 text-sm w-[160px]"
-        placeholder={`Search ${filter.label}…`}
-      />
+      <div className="flex items-center gap-1">
+        <Select value={operator} onValueChange={(v) => handleOperatorChange(v as FilterOperator)}>
+          <SelectTrigger className="h-8 text-xs w-[110px] shrink-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TEXT_OPERATORS.map((op) => (
+              <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {!noValueNeeded && (
+          <Input
+            value={local}
+            onChange={(e) => handleChange(e.target.value)}
+            className="h-8 text-sm w-[140px]"
+            placeholder={`Search ${filter.label}…`}
+          />
+        )}
+      </div>
     </div>
   );
 }
