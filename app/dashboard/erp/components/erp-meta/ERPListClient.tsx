@@ -31,6 +31,7 @@ import {
   List,
   CalendarDays,
   Image as ImageIcon,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
@@ -82,6 +83,7 @@ import ExportButton from '@/app/dashboard/erp/components/ExportButton';
 import { ERPKanbanBoard } from '../ERPKanbanBoard';
 import { ERPCalendarView } from '../ERPCalendarView';
 import { ERPImageView } from '../ERPImageView';
+import { ERPReportBuilder } from '../ERPReportBuilder';
 import { cn } from '@/lib/utils';
 
 // ── Icon resolver (shared with ERPFormClient) ──────────────────────────────────
@@ -135,7 +137,7 @@ export default function ERPListClient({
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar' | 'image'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar' | 'image' | 'report'>('table');
 
   // Derive defaults from DocTypeInfo (if available)
   const doctypeLabel = toDisplayLabel(doctype);
@@ -492,6 +494,15 @@ export default function ERPListClient({
                   <ImageIcon className="h-3.5 w-3.5" /> Image
                 </button>
               )}
+              <button
+                onClick={() => setViewMode('report')}
+                className={cn(
+                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                  viewMode === 'report' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <BarChart3 className="h-3.5 w-3.5" /> Report
+              </button>
             </div>
             <ExportButton
               data={records as Record<string, unknown>[]}
@@ -579,6 +590,8 @@ export default function ERPListClient({
           <ERPCalendarView doctype={doctype} />
         ) : viewMode === 'image' && imageField ? (
           <ERPImageView doctype={doctype} imageField={imageField!} titleField={titleField ?? undefined} />
+        ) : viewMode === 'report' ? (
+          <ERPReportBuilder doctype={doctype} />
         ) : records.length === 0 && !isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
             <FileText size={48} className="mb-4 opacity-40" />
