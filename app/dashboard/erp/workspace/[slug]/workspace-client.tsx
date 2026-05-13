@@ -43,7 +43,7 @@ const CARD_COLORS = [
 ];
 
 function WorkspaceSkeleton({ isMobile }: { isMobile: boolean }): JSX.Element {
-  const cols = isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4';
+  const cols = isMobile ? 'grid-cols-2' : 'grid-cols-4';
   return (
     <div className="space-y-6">
       <Skeleton className="h-8 w-48" />
@@ -101,7 +101,7 @@ export function WorkspaceClient({ slug }: WorkspaceClientProps): JSX.Element {
 
   if (!data) return <></>;
 
-  const gridCols = isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5';
+  const gridCols = isMobile ? 'grid-cols-2' : 'grid-cols-5';
 
   return (
     <div className="space-y-6">

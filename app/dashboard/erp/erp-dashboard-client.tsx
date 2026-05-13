@@ -102,13 +102,13 @@ function DashboardChartSkeleton(): JSX.Element {
 }
 
 function DashboardSkeleton({ isMobile }: { isMobile: boolean }): JSX.Element {
-  const gridCols = isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
+  const gridCols = isMobile ? 'grid-cols-2' : 'grid-cols-6';
   return (
     <div className="space-y-6">
       <div className={`grid ${gridCols} gap-3`}>
         {Array(6).fill(0).map((_, i) => <DashboardCardSkeleton key={i} />)}
       </div>
-      <div className={isMobile ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}>
+      <div className={isMobile ? 'space-y-4' : 'grid grid-cols-3 gap-4'}>
         {Array(3).fill(0).map((_, i) => <DashboardChartSkeleton key={i} />)}
       </div>
     </div>
@@ -138,8 +138,8 @@ export function ERPDashboard(): JSX.Element {
     return <DashboardSkeleton isMobile={isMobile} />;
   }
 
-  const cardGrid = isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
-  const chartGrid = isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+  const cardGrid = isMobile ? 'grid-cols-2' : 'grid-cols-6';
+  const chartGrid = isMobile ? 'grid-cols-1' : 'grid-cols-3';
 
   return (
     <div className="space-y-6">

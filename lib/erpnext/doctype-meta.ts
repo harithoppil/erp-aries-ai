@@ -111,6 +111,7 @@ export interface DocTypeInfo {
   istable: boolean;
   search_fields: string[];
   default_view: string | null;
+  is_calendar_and_gantt: boolean;
   icon: string | null;
   image_field: string | null;
   document_type: string | null;
@@ -454,6 +455,9 @@ function applyDocTypeOverride(
     case 'default_view':
       if (typeof value === 'string') info.default_view = value || null;
       break;
+    case 'is_calendar_and_gantt':
+      if (typeof value === 'number' || typeof value === 'boolean') info.is_calendar_and_gantt = Boolean(value);
+      break;
     case 'icon':
       if (typeof value === 'string') info.icon = value || null;
       break;
@@ -582,6 +586,7 @@ interface DocTypeRow {
   istable: number;
   search_fields: string | null;
   default_view: string | null;
+  is_calendar_and_gantt: number;
   icon: string | null;
   image_field: string | null;
   document_type: string | null;
@@ -605,6 +610,7 @@ function buildDocTypeInfo(row: DocTypeRow | null, overrides: Partial<DocTypeInfo
       ? row.search_fields.split(',').map((s: string) => s.trim()).filter(Boolean)
       : []),
     default_view: overrides.default_view ?? row?.default_view ?? null,
+    is_calendar_and_gantt: overrides.is_calendar_and_gantt ?? asBool(row?.is_calendar_and_gantt),
     icon: overrides.icon ?? row?.icon ?? null,
     image_field: overrides.image_field ?? row?.image_field ?? null,
     document_type: overrides.document_type ?? row?.document_type ?? null,
@@ -800,6 +806,8 @@ export async function loadDocTypeMeta(doctype: string): Promise<DocTypeMeta> {
       sort_field: true,
       sort_order: true,
       search_fields: true,
+      default_view: true,
+      is_calendar_and_gantt: true,
       icon: true,
       image_field: true,
       module: true,
@@ -807,7 +815,6 @@ export async function loadDocTypeMeta(doctype: string): Promise<DocTypeMeta> {
       is_tree: true,
       issingle: true,
       istable: true,
-      default_view: true,
       document_type: true,
       quick_entry: true,
       editable_grid: true,

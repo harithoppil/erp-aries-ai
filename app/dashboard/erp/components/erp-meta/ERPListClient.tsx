@@ -139,8 +139,6 @@ export default function ERPListClient({
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar' | 'image' | 'report' | 'gantt'>('table');
-
   // Derive defaults from DocTypeInfo (if available)
   const doctypeLabel = toDisplayLabel(doctype);
   const titleField = (initialMeta.doctype_info?.title_field as string) || null;
@@ -148,7 +146,14 @@ export default function ERPListClient({
   const defaultSortOrder = (initialMeta.doctype_info?.sort_order as string) === 'ASC' ? 'asc' : 'desc';
   const isSingle = Boolean(initialMeta.doctype_info?.issingle);
   const imageField = (initialMeta.doctype_info?.image_field as string) || undefined;
+  const isCalendarAndGantt = Boolean(initialMeta.doctype_info?.is_calendar_and_gantt);
+  const defaultView = (initialMeta.doctype_info?.default_view as string) || 'table';
   const DoctypeIcon = useMemo(() => resolveIcon(initialMeta.doctype_info?.icon ?? null), [initialMeta.doctype_info?.icon]);
+
+  type ViewMode = 'table' | 'kanban' | 'calendar' | 'image' | 'report' | 'gantt';
+  const validViews: ViewMode[] = ['table', 'kanban', 'image', 'report', ...(isCalendarAndGantt ? ['calendar' as const, 'gantt' as const] : [])];
+  const initialView: ViewMode = validViews.includes(defaultView as ViewMode) ? (defaultView as ViewMode) : 'table';
+  const [viewMode, setViewMode] = useState<ViewMode>(initialView);
 
   const [sortField, setSortField] = useState(defaultSortField);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(defaultSortOrder);
@@ -476,15 +481,17 @@ export default function ERPListClient({
               >
                 <LayoutGrid className="h-3.5 w-3.5" /> Kanban
               </button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={cn(
-                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
-                  viewMode === 'calendar' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <CalendarDays className="h-3.5 w-3.5" /> Calendar
-              </button>
+              {isCalendarAndGantt && (
+                <button
+                  onClick={() => setViewMode('calendar')}
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                    viewMode === 'calendar' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <CalendarDays className="h-3.5 w-3.5" /> Calendar
+                </button>
+              )}
               {imageField && (
                 <button
                   onClick={() => setViewMode('image')}
@@ -505,15 +512,17 @@ export default function ERPListClient({
               >
                 <BarChart3 className="h-3.5 w-3.5" /> Report
               </button>
-              <button
-                onClick={() => setViewMode('gantt')}
-                className={cn(
-                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
-                  viewMode === 'gantt' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <GanttChart className="h-3.5 w-3.5" /> Gantt
-              </button>
+              {isCalendarAndGantt && (
+                <button
+                  onClick={() => setViewMode('gantt')}
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                    viewMode === 'gantt' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <GanttChart className="h-3.5 w-3.5" /> Gantt
+                </button>
+              )}
             </div>
             <ExportButton
               data={records as Record<string, unknown>[]}

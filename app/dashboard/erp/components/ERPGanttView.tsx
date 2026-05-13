@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { useRouter } from 'next/navigation';
-import Gantt from 'frappe-gantt';
+import Gantt, { type GanttTask } from 'frappe-gantt';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { GanttChart, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
 import {
   fetchGanttData,
   type GanttConfig,
-  type GanttTask,
+  type GanttTask as GanttTaskData,
   type FetchGanttResult,
 } from '@/app/dashboard/erp/gantt-actions';
 
@@ -98,7 +98,7 @@ export function ERPGanttView({ doctype }: ERPGanttViewProps): JSX.Element {
       ganttRef.current = new Gantt(svgRef.current, tasks, {
         view_mode: zoomMode,
         date_format: 'YYYY-MM-DD',
-        on_click: (task: { id: string }) => {
+        on_click: (task: GanttTask) => {
           const matchedTask = config.tasks.find((t) => t.id === task.id);
           if (matchedTask) {
             router.push(`/dashboard/erp/${doctype}/${encodeURIComponent(matchedTask.id)}`);
@@ -111,14 +111,14 @@ export function ERPGanttView({ doctype }: ERPGanttViewProps): JSX.Element {
         on_progress_change: (_task: unknown, _progress: number) => {
           // Could persist progress changes
         },
-        custom_popup_html: (task: { id: string; name: string; start: string; end: string; progress: number }) => {
+        custom_popup_html: (task: GanttTask) => {
           const matchedTask = config.tasks.find((t) => t.id === task.id);
           const color = matchedTask?.color ?? '#3b82f6';
           return `
             <div style="padding: 8px 12px; font-size: 12px; min-width: 160px;">
               <div style="font-weight: 600; margin-bottom: 4px;">${task.name}</div>
               <div style="color: #666;">${task.start} → ${task.end}</div>
-              <div style="color: ${color}; margin-top: 4px;">Progress: ${task.progress}%</div>
+              <div style="color: ${color}; margin-top: 4px;">Progress: ${task.progress ?? 0}%</div>
             </div>
           `;
         },
