@@ -412,7 +412,7 @@ export default function ERPListClient({
 
   // ── RENDER: Loading skeleton ────────────────────────────────────────────
   if (isLoading && !records.length) {
-    return <ERPListSkeleton columnCount={columns.length} />;
+    return <ERPListSkeleton columnCount={columns.length} isMobile={isMobile} />;
   }
 
   // ── RENDER ──────────────────────────────────────────────────────────────
@@ -443,7 +443,7 @@ export default function ERPListClient({
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className={isMobile ? 'flex flex-col gap-4' : 'flex flex-row items-center justify-between gap-4'}>
           <div>
             <h2 className="text-2xl font-bold text-[#0f172a] flex items-center gap-2">
               {DoctypeIcon && <DoctypeIcon className="h-6 w-6" />}
@@ -931,12 +931,30 @@ function renderNameCell(
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
-function ERPListSkeleton({ columnCount }: { columnCount: number }) {
+function ERPListSkeleton({ columnCount, isMobile }: { columnCount: number; isMobile: boolean }) {
   const colCount = Math.min(columnCount, 10);
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-36 mb-2" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-xl" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="p-4 space-y-2">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-20" />
+          </Card>
+        ))}
+      </div>
+    );
+  }
   return (
     <>
       {/* Desktop */}
-      <div className="hidden md:block space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <Skeleton className="h-8 w-48 mb-2" />
@@ -973,28 +991,6 @@ function ERPListSkeleton({ columnCount }: { columnCount: number }) {
               ))}
             </TableBody>
           </Table>
-        </div>
-      </div>
-      {/* Mobile */}
-      <div className="block md:hidden space-y-4">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-36 mb-2" />
-          <Skeleton className="h-10 w-20" />
-        </div>
-        <Skeleton className="h-10 w-full rounded-xl" />
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i} className="border-gray-100">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-5 w-32" />
-                  <Skeleton className="h-5 w-16 rounded-full" />
-                </div>
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="h-4 w-40" />
-              </CardContent>
-            </Card>
-          ))}
         </div>
       </div>
     </>

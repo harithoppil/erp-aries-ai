@@ -200,7 +200,7 @@ export function ERPReportBuilder({ doctype }: ERPReportBuilderProps): JSX.Elemen
             <CardTitle className="text-xs">Select Columns</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <div className={isMobile ? 'grid grid-cols-2 gap-1' : 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1'}>
+            <div className={isMobile ? 'grid grid-cols-2 gap-1' : 'grid grid-cols-5 gap-1'}>
               {columns.map((col) => (
                 <button
                   key={col.fieldname}

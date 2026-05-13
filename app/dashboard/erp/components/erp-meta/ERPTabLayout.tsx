@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { ERPFieldRenderer } from './ERPFieldRenderer';
 import type {
   DocFieldMeta,
@@ -162,9 +163,10 @@ function SectionBlock(props: {
         'grid gap-x-6 gap-y-4',
         columns.length === 0 && 'grid-cols-1',
         columns.length === 1 && 'grid-cols-1',
-        columns.length === 2 && 'grid-cols-1 md:grid-cols-2',
-        columns.length === 3 && 'grid-cols-1 md:grid-cols-3',
-        columns.length >= 4 && 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4',
+        columns.length === 2 && (isMobile ? 'grid-cols-1' : 'grid-cols-2'),
+        columns.length === 3 && (isMobile ? 'grid-cols-1' : 'grid-cols-3'),
+        columns.length === 4 && (isMobile ? 'grid-cols-1' : 'grid-cols-4'),
+        columns.length >= 5 && (isMobile ? 'grid-cols-1' : 'grid-cols-5'),
       )}
     >
       {looseFields.map((c) =>
@@ -276,6 +278,7 @@ function TabContent(props: {
  */
 export function ERPTabLayout(props: ERPTabLayoutProps): JSX.Element {
   const { tree, isNew, docstatus, isSubmittable, ...rest } = props;
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const tabs = tree.filter((n) => n.type === 'tab') as Extract<LayoutNode, { type: 'tab' }>[];
   const rootSections = tree.filter((n) => n.type === 'section') as Extract<LayoutNode, { type: 'section' }>[];
 
@@ -317,12 +320,12 @@ export function ERPTabLayout(props: ERPTabLayoutProps): JSX.Element {
 
   return (
     <Tabs defaultValue={normalizedTabs[0].fieldname}>
-      <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+      <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-1 bg-gray-100 rounded-xl p-1">
         {normalizedTabs.map((tab) => (
           <TabsTrigger
             key={tab.fieldname}
             value={tab.fieldname}
-            className="rounded-md border border-transparent px-3 py-1.5 text-sm data-[state=active]:border-border data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="rounded-lg px-3 py-1.5 text-sm transition-all data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm"
           >
             {tab.label}
           </TabsTrigger>

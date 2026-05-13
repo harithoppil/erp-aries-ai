@@ -100,7 +100,7 @@ export function ERPImageView({ doctype, imageField, titleField }: ERPImageViewPr
     );
   }
 
-  const gridCols = isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5';
+  const gridCols = isMobile ? 'grid-cols-2' : 'grid-cols-5';
 
   return (
     <div className="space-y-3">

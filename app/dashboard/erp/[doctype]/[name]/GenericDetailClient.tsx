@@ -1305,21 +1305,21 @@ export default function GenericDetailClient({
             className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm rounded-lg transition-all duration-200 gap-1.5"
           >
             <Activity className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Activity</span>
+            {!isMobile && <span>Activity</span>}
           </TabsTrigger>
           <TabsTrigger
             value="comments"
             className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm rounded-lg transition-all duration-200 gap-1.5"
           >
             <MessageSquare className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Comments</span>
+            {!isMobile && <span>Comments</span>}
           </TabsTrigger>
           <TabsTrigger
             value="attachments"
             className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm rounded-lg transition-all duration-200 gap-1.5"
           >
             <Paperclip className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Attachments</span>
+            {!isMobile && <span>Attachments</span>}
           </TabsTrigger>
         </TabsList>
 
