@@ -21,7 +21,7 @@
 // is read-only after the Frappe migration, so we don't need invalidation.
 
 import { prisma } from '@/lib/prisma';
-import { LIST_VIEW_OVERRIDES } from './list-view-overrides';
+import { LIST_VIEW_OVERRIDES } from '@/lib/erpnext/list-view-overrides';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

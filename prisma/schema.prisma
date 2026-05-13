@@ -17863,3 +17863,100 @@ model DocumentVersion {
   @@index([creation])
   @@map("document_version")
 }
+
+// ── Workflow Engine ──────────────────────────────────────────────────────────
+
+model Workflow {
+  name            String   @id @db.VarChar(140)
+  creation        DateTime @default(now())
+  modified        DateTime @default(now()) @updatedAt
+  owner           String?  @db.VarChar(255)
+  modified_by     String?  @db.VarChar(255)
+  docstatus       Int      @default(0)
+  workflow_name   String   @db.VarChar(140)
+  document_type   String   @db.VarChar(140)
+  is_active       Int      @default(0)
+  workflow_state_field String @default("workflow_state") @db.VarChar(140)
+  send_email_alert Int     @default(0)
+
+  states     WorkflowDocumentState[]
+  transitions WorkflowTransitionRule[]
+
+  @@index([document_type, is_active])
+  @@map("workflow")
+}
+
+model WorkflowDocumentState {
+  name        String  @id @db.VarChar(140)
+  creation    DateTime @default(now())
+  modified    DateTime @default(now()) @updatedAt
+  owner       String?  @db.VarChar(255)
+  modified_by String?  @db.VarChar(255)
+  docstatus   Int     @default(0)
+  parent      String? @db.VarChar(140)
+  parenttype  String? @db.VarChar(140)
+  parentfield String? @db.VarChar(140)
+  idx         Int     @default(0)
+
+  state       String  @db.VarChar(140)
+  doc_status  Int     @default(0)
+  update_field String? @db.VarChar(140)
+  update_value String? @db.VarChar(255)
+  allow_edit  String? @db.VarChar(140)
+  is_optional_state Int @default(0)
+  message     String? @db.Text
+
+  workflow    Workflow? @relation(fields: [parent], references: [name])
+
+  @@index([parent])
+  @@map("workflow_document_state")
+}
+
+model WorkflowTransitionRule {
+  name        String  @id @db.VarChar(140)
+  creation    DateTime @default(now())
+  modified    DateTime @default(now()) @updatedAt
+  owner       String?  @db.VarChar(255)
+  modified_by String?  @db.VarChar(255)
+  docstatus   Int     @default(0)
+  parent      String? @db.VarChar(140)
+  parenttype  String? @db.VarChar(140)
+  parentfield String? @db.VarChar(140)
+  idx         Int     @default(0)
+
+  state       String  @db.VarChar(140)
+  action      String  @db.VarChar(140)
+  next_state  String  @db.VarChar(140)
+  allowed     String  @db.VarChar(140)
+  allow_self_approval Int @default(1)
+  condition   String? @db.Text
+
+  workflow    Workflow? @relation(fields: [parent], references: [name])
+
+  @@index([parent])
+  @@index([state])
+  @@map("workflow_transition_rule")
+}
+
+model WorkflowAction {
+  name        String  @id @db.VarChar(140)
+  creation    DateTime @default(now())
+  modified    DateTime @default(now()) @updatedAt
+  owner       String?  @db.VarChar(255)
+  modified_by String?  @db.VarChar(255)
+  docstatus   Int     @default(0)
+
+  reference_doctype String  @db.VarChar(140)
+  reference_name    String  @db.VarChar(140)
+  workflow_state    String  @db.VarChar(140)
+  action            String  @db.VarChar(140)
+  next_state        String  @db.VarChar(140)
+  status            String  @default("Open") @db.VarChar(140)
+  user              String? @db.VarChar(140)
+  completed_by      String? @db.VarChar(140)
+  completed_on      DateTime?
+
+  @@index([reference_doctype, reference_name])
+  @@index([user, status])
+  @@map("workflow_action")
+}

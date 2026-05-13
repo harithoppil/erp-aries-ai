@@ -41,13 +41,14 @@ import { useActionDispatcher, defineAction } from '@/store/useActionDispatcher';
 import { useAppStore } from '@/store/useAppStore';
 import { Sparkles } from 'lucide-react';
 
-import { useDocTypeMeta } from './useDocTypeMeta';
-import { ERPTabLayout } from './ERPTabLayout';
-import { ERPGridClient } from './ERPGridClient';
-import { ERPFormTimeline } from './ERPFormTimeline';
-import { ERPLinkedDocs } from './ERPLinkedDocs';
-import { ERPPrintPreview } from '../ERPPrintPreview';
-import { useEditChildTables } from './use-edit-child-tables';
+import { useDocTypeMeta } from '@/app/dashboard/erp/components/erp-meta/useDocTypeMeta';
+import { ERPTabLayout } from '@/app/dashboard/erp/components/erp-meta/ERPTabLayout';
+import { ERPGridClient } from '@/app/dashboard/erp/components/erp-meta/ERPGridClient';
+import { ERPFormTimeline } from '@/app/dashboard/erp/components/erp-meta/ERPFormTimeline';
+import { ERPLinkedDocs } from '@/app/dashboard/erp/components/erp-meta/ERPLinkedDocs';
+import { ERPPrintPreview } from '@/app/dashboard/erp/components/ERPPrintPreview';
+import { ERPWorkflowPanel } from '@/app/dashboard/erp/components/ERPWorkflowPanel';
+import { useEditChildTables } from '@/app/dashboard/erp/components/erp-meta/use-edit-child-tables';
 import type { DocFieldMeta, DocTypeInfo, DocTypeMeta } from '@/lib/erpnext/doctype-meta';
 
 /**
@@ -696,6 +697,14 @@ export default function ERPFormClient({
       {!isNew && <ERPFormTimeline doctype={doctype} recordName={recordName} />}
 
       {!isNew && <ERPLinkedDocs doctype={doctype} recordName={recordName} />}
+
+      {!isNew && (
+        <ERPWorkflowPanel
+          doctype={doctype}
+          recordName={recordName}
+          onTransitionApplied={() => router.refresh()}
+        />
+      )}
 
       {isPrintable && !isNew && (
         <ERPPrintPreview

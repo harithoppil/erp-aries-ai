@@ -77,15 +77,15 @@ import { useAppStore } from '@/store/useAppStore';
 import type { DocTypeMeta, DocFieldMeta } from '@/lib/erpnext/doctype-meta';
 import { toKebabCase } from '@/lib/erpnext/utils';
 
-import ERPFilterBar from './ERPFilterBar';
-import { useListFilters, type FilterValue } from './use-list-filters';
-import { formatListCell, listColumnLabel, statusBadge } from './list-cell';
+import ERPFilterBar from '@/app/dashboard/erp/components/erp-meta/ERPFilterBar';
+import { useListFilters, type FilterValue } from '@/app/dashboard/erp/components/erp-meta/use-list-filters';
+import { formatListCell, listColumnLabel, statusBadge } from '@/app/dashboard/erp/components/erp-meta/list-cell';
 import ExportButton from '@/app/dashboard/erp/components/ExportButton';
-import { ERPKanbanBoard } from '../ERPKanbanBoard';
-import { ERPCalendarView } from '../ERPCalendarView';
-import { ERPImageView } from '../ERPImageView';
-import { ERPReportBuilder } from '../ERPReportBuilder';
-import { ERPGanttView } from '../ERPGanttView';
+import { ERPKanbanBoard } from '@/app/dashboard/erp/components/ERPKanbanBoard';
+import { ERPCalendarView } from '@/app/dashboard/erp/components/ERPCalendarView';
+import { ERPImageView } from '@/app/dashboard/erp/components/ERPImageView';
+import { ERPReportBuilder } from '@/app/dashboard/erp/components/ERPReportBuilder';
+import { ERPGanttView } from '@/app/dashboard/erp/components/ERPGanttView';
 import { cn } from '@/lib/utils';
 
 // ── Icon resolver (shared with ERPFormClient) ──────────────────────────────────
