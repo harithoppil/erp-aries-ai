@@ -148,11 +148,12 @@ export async function runReport(
       rows.sort((a, b) => {
         const av = Number(a._value) ?? 0;
         const bv = Number(b._value) ?? 0;
-        return sortOrder === 'asc' ? av - bv : bv - av;
+        return config.sortOrder === 'asc' ? av - bv : bv - av;
       });
 
+      const groupField = config.groupBy as string;
       const chartData = rows.map((r) => ({
-        label: String(r[config.groupBy] ?? ''),
+        label: String(r[groupField] ?? ''),
         value: Number(r._value ?? 0),
       }));
 

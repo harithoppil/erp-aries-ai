@@ -46,6 +46,7 @@ import { ERPTabLayout } from './ERPTabLayout';
 import { ERPGridClient } from './ERPGridClient';
 import { ERPFormTimeline } from './ERPFormTimeline';
 import { ERPLinkedDocs } from './ERPLinkedDocs';
+import { ERPPrintPreview } from '../ERPPrintPreview';
 import { useEditChildTables } from './use-edit-child-tables';
 import type { DocFieldMeta, DocTypeInfo, DocTypeMeta } from '@/lib/erpnext/doctype-meta';
 
@@ -123,6 +124,7 @@ export default function ERPFormClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Child table edit state
@@ -634,8 +636,8 @@ export default function ERPFormClient({
                   </DropdownMenuItem>
                 )}
                 {isPrintable && !isNew && (
-                  <DropdownMenuItem onClick={handlePrintPdf}>
-                    <Printer className="mr-2 h-4 w-4" /> Print PDF
+                  <DropdownMenuItem onClick={() => setPrintPreviewOpen(true)}>
+                    <Printer className="mr-2 h-4 w-4" /> Print Preview
                   </DropdownMenuItem>
                 )}
                 {docstatus === 0 && (
@@ -694,6 +696,15 @@ export default function ERPFormClient({
       {!isNew && <ERPFormTimeline doctype={doctype} recordName={recordName} />}
 
       {!isNew && <ERPLinkedDocs doctype={doctype} recordName={recordName} />}
+
+      {isPrintable && !isNew && (
+        <ERPPrintPreview
+          doctype={doctype}
+          recordName={recordName}
+          open={printPreviewOpen}
+          onOpenChange={setPrintPreviewOpen}
+        />
+      )}
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>

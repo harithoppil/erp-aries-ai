@@ -128,6 +128,7 @@ function SectionBlock(props: {
   isExistingRecord?: boolean;
   docstatus?: number;
   isSubmittable?: boolean;
+  isMobile?: boolean;
 }): JSX.Element | null {
   const {
     section, record, editable, errors, onFieldChange, renderTable,
@@ -163,10 +164,10 @@ function SectionBlock(props: {
         'grid gap-x-6 gap-y-4',
         columns.length === 0 && 'grid-cols-1',
         columns.length === 1 && 'grid-cols-1',
-        columns.length === 2 && (isMobile ? 'grid-cols-1' : 'grid-cols-2'),
-        columns.length === 3 && (isMobile ? 'grid-cols-1' : 'grid-cols-3'),
-        columns.length === 4 && (isMobile ? 'grid-cols-1' : 'grid-cols-4'),
-        columns.length >= 5 && (isMobile ? 'grid-cols-1' : 'grid-cols-5'),
+        columns.length === 2 && (props.isMobile ? 'grid-cols-1' : 'grid-cols-2'),
+        columns.length === 3 && (props.isMobile ? 'grid-cols-1' : 'grid-cols-3'),
+        columns.length === 4 && (props.isMobile ? 'grid-cols-1' : 'grid-cols-4'),
+        columns.length >= 5 && (props.isMobile ? 'grid-cols-1' : 'grid-cols-5'),
       )}
     >
       {looseFields.map((c) =>
@@ -290,6 +291,7 @@ export function ERPTabLayout(props: ERPTabLayoutProps): JSX.Element {
     isExistingRecord,
     docstatus,
     isSubmittable,
+    isMobile,
   };
 
   // Frappe convention: when at least one Tab Break exists, fields BEFORE the
