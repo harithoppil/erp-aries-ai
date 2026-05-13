@@ -29,6 +29,8 @@ import {
   Sparkles,
   LayoutGrid,
   List,
+  CalendarDays,
+  Image as ImageIcon,
   type LucideIcon,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
@@ -78,6 +80,8 @@ import { useListFilters, type FilterValue } from './use-list-filters';
 import { formatListCell, listColumnLabel, statusBadge } from './list-cell';
 import ExportButton from '@/app/dashboard/erp/components/ExportButton';
 import { ERPKanbanBoard } from '../ERPKanbanBoard';
+import { ERPCalendarView } from '../ERPCalendarView';
+import { ERPImageView } from '../ERPImageView';
 import { cn } from '@/lib/utils';
 
 // ── Icon resolver (shared with ERPFormClient) ──────────────────────────────────
@@ -131,7 +135,7 @@ export default function ERPListClient({
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar' | 'image'>('table');
 
   // Derive defaults from DocTypeInfo (if available)
   const doctypeLabel = toDisplayLabel(doctype);
@@ -139,7 +143,7 @@ export default function ERPListClient({
   const defaultSortField = (initialMeta.doctype_info?.sort_field as string) || 'creation';
   const defaultSortOrder = (initialMeta.doctype_info?.sort_order as string) === 'ASC' ? 'asc' : 'desc';
   const isSingle = Boolean(initialMeta.doctype_info?.issingle);
-  const imageField = (initialMeta.doctype_info?.image_field as string) || null;
+  const imageField = (initialMeta.doctype_info?.image_field as string) || undefined;
   const DoctypeIcon = useMemo(() => resolveIcon(initialMeta.doctype_info?.icon ?? null), [initialMeta.doctype_info?.icon]);
 
   const [sortField, setSortField] = useState(defaultSortField);
@@ -468,6 +472,26 @@ export default function ERPListClient({
               >
                 <LayoutGrid className="h-3.5 w-3.5" /> Kanban
               </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={cn(
+                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                  viewMode === 'calendar' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <CalendarDays className="h-3.5 w-3.5" /> Calendar
+              </button>
+              {imageField && (
+                <button
+                  onClick={() => setViewMode('image')}
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                    viewMode === 'image' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <ImageIcon className="h-3.5 w-3.5" /> Image
+                </button>
+              )}
             </div>
             <ExportButton
               data={records as Record<string, unknown>[]}
@@ -551,6 +575,10 @@ export default function ERPListClient({
       <div className="flex-1 min-h-0 overflow-auto pr-2">
         {viewMode === 'kanban' ? (
           <ERPKanbanBoard doctype={doctype} />
+        ) : viewMode === 'calendar' ? (
+          <ERPCalendarView doctype={doctype} />
+        ) : viewMode === 'image' && imageField ? (
+          <ERPImageView doctype={doctype} imageField={imageField!} titleField={titleField ?? undefined} />
         ) : records.length === 0 && !isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8]">
             <FileText size={48} className="mb-4 opacity-40" />
@@ -629,7 +657,7 @@ interface DesktopTableProps {
   columns: ColumnDef[];
   doctype: string;
   titleField: string | null;
-  imageField: string | null;
+  imageField: string | undefined;
   sortField: string;
   sortOrder: 'asc' | 'desc';
   deleting: string | null;
@@ -772,7 +800,7 @@ interface MobileListProps {
   columns: ColumnDef[];
   doctype: string;
   titleField: string | null;
-  imageField: string | null;
+  imageField: string | undefined;
   deleting: string | null;
   onDelete: (name: string) => void;
 }
@@ -867,7 +895,7 @@ function renderNameCell(
   row: Record<string, unknown>,
   doctype: string,
   titleField: string | null,
-  imageField: string | null,
+  imageField: string | undefined,
 ): React.ReactNode {
   const name = String(row.name ?? '');
   const display = titleField && row[titleField] ? String(row[titleField]) : name;
