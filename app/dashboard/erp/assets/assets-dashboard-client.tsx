@@ -50,7 +50,7 @@ import {
   getAssetTrends,
   type AssetsDashboardData,
   type AssetTrendPoint,
-} from './actions';
+} from '@/app/dashboard/erp/assets/actions';
 
 type AssetsDashboardClientProps = {
   dashboardData: AssetsDashboardData;

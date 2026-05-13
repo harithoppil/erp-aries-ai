@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getWorkspaceSlugs } from '@/app/dashboard/erp/workspace-actions';
-import { WorkspaceClient } from './workspace-client';
+import { WorkspaceClient } from '@/app/dashboard/erp/workspace/[slug]/workspace-client';
 
 interface PageProps {
   params: Promise<{ slug: string }>;

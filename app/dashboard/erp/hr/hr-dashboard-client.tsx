@@ -45,7 +45,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { HRDashboardData } from './actions';
+import type { HRDashboardData } from '@/app/dashboard/erp/hr/actions';
 
 type HRDashboardClientProps = {
   dashboardData: HRDashboardData;

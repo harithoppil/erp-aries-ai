@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { notFound } from 'next/navigation';
 import { fetchDoctypeRecord } from '@/app/dashboard/erp/[doctype]/[name]/actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
-import { PrintDocument } from './print-document';
+import { PrintDocument } from '@/app/print/erp/[doctype]/[name]/print-document';
 
 interface PageParams {
   doctype: string;

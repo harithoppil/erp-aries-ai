@@ -38,12 +38,12 @@ import {
 } from '@dnd-kit/core';
 
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useDocTypeMeta } from './useDocTypeMeta';
+import { useDocTypeMeta } from '@/app/dashboard/erp/components/erp-meta/useDocTypeMeta';
 import { toKebabCase } from '@/lib/erpnext/utils';
 import type { DocFieldMeta } from '@/lib/erpnext/doctype-meta';
-import { GridCell } from './grid-cell';
-import { GridRowActions, GridSortableWrapper } from './grid-row-actions';
-import { GridExpandPanel } from './grid-expand-panel';
+import { GridCell } from '@/app/dashboard/erp/components/erp-meta/grid-cell';
+import { GridRowActions, GridSortableWrapper } from '@/app/dashboard/erp/components/erp-meta/grid-row-actions';
+import { GridExpandPanel } from '@/app/dashboard/erp/components/erp-meta/grid-expand-panel';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

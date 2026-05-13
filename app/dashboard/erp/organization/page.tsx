@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation';
 import {
   getOrganizationDashboardData,
   type OrganizationDashboardData,
-} from './actions';
-import OrganizationDashboardClient from './organization-dashboard-client';
+} from '@/app/dashboard/erp/organization/actions';
+import OrganizationDashboardClient from '@/app/dashboard/erp/organization/organization-dashboard-client';
 
 export default async function OrganizationDashboardPage() {
   const session = await getSession();

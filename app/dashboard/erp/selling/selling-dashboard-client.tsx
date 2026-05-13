@@ -52,7 +52,7 @@ import {
   getSalesOrderTrends,
   type SellingDashboardData,
   type SalesTrendPoint,
-} from './actions';
+} from '@/app/dashboard/erp/selling/actions';
 
 type SellingDashboardClientProps = {
   dashboardData: SellingDashboardData;

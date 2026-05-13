@@ -23,7 +23,7 @@ import {
   Circle,
   Globe,
 } from 'lucide-react';
-import type { OrganizationDashboardData } from './actions';
+import type { OrganizationDashboardData } from '@/app/dashboard/erp/organization/actions';
 
 type OrganizationDashboardClientProps = {
   data: OrganizationDashboardData;

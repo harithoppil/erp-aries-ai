@@ -38,7 +38,7 @@ import {
   BarChart3,
   CheckSquare,
 } from 'lucide-react';
-import type { ProjectsDashboardData, ProjectTrendPoint } from './actions';
+import type { ProjectsDashboardData, ProjectTrendPoint } from '@/app/dashboard/erp/projects/actions';
 
 // ── Chart Config ────────────────────────────────────────────────────────────
 

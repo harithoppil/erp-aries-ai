@@ -1,4 +1,4 @@
-import { ERPDashboard } from './erp-dashboard-client';
+import { ERPDashboard } from '@/app/dashboard/erp/erp-dashboard-client';
 
 export default async function ERPPage() {
   return (

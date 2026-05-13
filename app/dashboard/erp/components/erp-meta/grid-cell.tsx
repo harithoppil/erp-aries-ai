@@ -4,7 +4,7 @@ import { type JSX, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { DocFieldMeta } from '@/lib/erpnext/doctype-meta';
 import { LinkFieldCombobox } from '@/app/dashboard/erp/[doctype]/[name]/LinkFieldCombobox';
-import { formatListCell } from './list-cell';
+import { formatListCell } from '@/app/dashboard/erp/components/erp-meta/list-cell';
 
 interface GridCellProps {
   field: DocFieldMeta;

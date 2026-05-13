@@ -1,8 +1,8 @@
 import {
   fetchDoctypeList,
   type ListMeta,
-} from './actions';
-import GenericListClient from './GenericListClient';
+} from '@/app/dashboard/erp/[doctype]/actions';
+import GenericListClient from '@/app/dashboard/erp/[doctype]/GenericListClient';
 import ERPListClient from '@/app/dashboard/erp/components/erp-meta/ERPListClient';
 import { loadDocTypeMeta } from '@/lib/erpnext/doctype-meta';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';

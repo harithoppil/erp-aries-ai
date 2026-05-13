@@ -7,8 +7,8 @@ import {
   getQualityInspectionTrends,
   type QualityDashboardData,
   type QualityInspectionTrend,
-} from './actions';
-import QualityDashboardClient from './quality-dashboard-client';
+} from '@/app/dashboard/erp/quality/actions';
+import QualityDashboardClient from '@/app/dashboard/erp/quality/quality-dashboard-client';
 
 export default async function QualityDashboardPage() {
   const session = await getSession();

@@ -7,8 +7,8 @@ import {
   getLeadConversionTrends,
   type CRMDashboardData,
   type LeadConversionTrendPoint,
-} from './actions';
-import CRMDashboardClient from './crm-dashboard-client';
+} from '@/app/dashboard/erp/crm/actions';
+import CRMDashboardClient from '@/app/dashboard/erp/crm/crm-dashboard-client';
 
 export default async function CRMDashboardPage() {
   const session = await getSession();

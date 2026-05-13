@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { ERPFieldRenderer } from './ERPFieldRenderer';
+import { ERPFieldRenderer } from '@/app/dashboard/erp/components/erp-meta/ERPFieldRenderer';
 import type {
   DocFieldMeta,
   LayoutNode,

@@ -45,7 +45,7 @@ import {
   getLeadConversionTrends,
   type CRMDashboardData,
   type LeadConversionTrendPoint,
-} from './actions';
+} from '@/app/dashboard/erp/crm/actions';
 
 type CRMDashboardClientProps = {
   dashboardData: CRMDashboardData;

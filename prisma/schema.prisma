@@ -17960,3 +17960,52 @@ model WorkflowAction {
   @@index([user, status])
   @@map("workflow_action")
 }
+
+// ── Webhook system ──────────────────────────────────────────────────────────
+
+model WebhookEntry {
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  creation        DateTime @default(now())
+  modified        DateTime @default(now()) @updatedAt
+  owner           String?  @db.VarChar(255)
+  modified_by     String?  @db.VarChar(255)
+  docstatus       Int      @default(0)
+
+  webhook_name    String   @db.VarChar(255)
+  enabled         Boolean  @default(true)
+  reference_doctype String  @db.VarChar(140)
+  events          String   @db.VarChar(255)   // comma-separated: before_insert,after_insert,before_update,after_update,before_delete,after_delete,on_submit,on_cancel,on_update_after_submit
+  request_url     String   @db.VarChar(1024)
+  request_method  String   @default("POST") @db.VarChar(10)
+  headers         String?  @db.Text           // JSON
+  body_template   String?  @db.Text           // JSON template with {{placeholders}}
+
+  @@index([reference_doctype])
+  @@index([enabled])
+  @@map("webhook_entry")
+}
+
+model WebhookLog {
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  creation        DateTime @default(now())
+
+  webhook_id      String   @db.VarChar(255)
+  webhook_name    String   @db.VarChar(255)
+  reference_doctype String  @db.VarChar(140)
+  reference_name  String   @db.VarChar(140)
+  event           String   @db.VarChar(140)
+  request_url     String   @db.VarChar(1024)
+  request_method  String   @db.VarChar(10)
+  request_headers String?  @db.Text
+  request_body    String?  @db.Text
+  response_status Int?
+  response_body   String?  @db.Text
+  error           String?  @db.Text
+  duration_ms     Int?
+  success         Boolean  @default(false)
+
+  @@index([webhook_id])
+  @@index([reference_doctype, reference_name])
+  @@index([creation])
+  @@map("webhook_log")
+}

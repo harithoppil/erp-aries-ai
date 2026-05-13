@@ -49,7 +49,7 @@ import {
   getQualityInspectionTrends,
   type QualityDashboardData,
   type QualityInspectionTrend,
-} from './actions';
+} from '@/app/dashboard/erp/quality/actions';
 
 type QualityDashboardClientProps = {
   dashboardData: QualityDashboardData;

@@ -4,8 +4,8 @@ export const dynamic = 'force-dynamic';
 // Pattern 3: Async server component fetches data, transforms to client-safe
 // props, then renders a client component. No 'use client' here.
 
-import { fetchDoctypeRecord, fetchDoctypeSchema } from './actions';
-import GenericDetailClient from './GenericDetailClient';
+import { fetchDoctypeRecord, fetchDoctypeSchema } from '@/app/dashboard/erp/[doctype]/[name]/actions';
+import GenericDetailClient from '@/app/dashboard/erp/[doctype]/[name]/GenericDetailClient';
 import ERPFormClient from '@/app/dashboard/erp/components/erp-meta/ERPFormClient';
 import { loadDocTypeMeta } from '@/lib/erpnext/doctype-meta';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';

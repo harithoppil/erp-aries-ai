@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 import { getSession } from '@/lib/frappe-auth';
-import { getStockDashboardData, type StockDashboardData } from './actions';
-import StockDashboardClient from './stock-dashboard-client';
+import { getStockDashboardData, type StockDashboardData } from '@/app/dashboard/erp/stock/actions';
+import StockDashboardClient from '@/app/dashboard/erp/stock/stock-dashboard-client';
 
 export default async function StockDashboardPage() {
   const session = await getSession();

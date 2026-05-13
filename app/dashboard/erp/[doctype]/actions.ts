@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { toAccessor, toDisplayLabel, getDelegate } from '@/lib/erpnext/prisma-delegate';
+import { dispatchWebhookEvent } from '@/app/dashboard/erp/webhooks/actions';
 
 /** Convert raw Prisma errors into user-friendly messages. */
 function friendlyError(err: unknown, doctype: string): string {
@@ -214,6 +215,8 @@ export async function deleteDoctypeRecord(
     }
 
     await delegate.delete({ where: { name } });
+    // Fire after_delete webhook (non-blocking)
+    dispatchWebhookEvent(doctype, name, 'after_delete').catch(() => {});
     return { success: true, message: `${doctype} "${name}" deleted` };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

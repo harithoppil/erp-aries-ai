@@ -48,7 +48,7 @@ import {
   TrendingUp,
   Layers,
 } from 'lucide-react';
-import type { ManufacturingDashboardData, ProductionTrendPoint } from './actions';
+import type { ManufacturingDashboardData, ProductionTrendPoint } from '@/app/dashboard/erp/manufacturing/actions';
 
 // ── Chart Config ────────────────────────────────────────────────────────────
 

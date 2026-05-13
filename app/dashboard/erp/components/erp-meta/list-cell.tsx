@@ -7,8 +7,15 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import type { DocFieldMeta } from '@/lib/erpnext/doctype-meta';
 import { toKebabCase } from '@/lib/erpnext/utils';
+import {
+  formatDate,
+  formatDatetime,
+  formatNumber,
+  formatCurrency,
+  formatPercent,
+} from '@/lib/erpnext/locale';
 
-// ── Status badge palette ─────────────────────────────────────────────────────
+// ── Status badge palette ──────────────────────────────────────────────────────
 
 interface StatusStyle {
   variant: 'default' | 'secondary' | 'destructive' | 'outline';
@@ -85,66 +92,31 @@ export function formatListCell(
     }
 
     case 'Int': {
-      const num = Number(value);
-      return isNaN(num) ? String(value) : num.toLocaleString();
+      return formatNumber(value, 0);
     }
 
-    case 'Float':
+    case 'Float': {
+      return formatNumber(value, 2);
+    }
+
     case 'Percent': {
-      const fnum = Number(value);
-      return isNaN(fnum)
-        ? String(value)
-        : fnum.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
+      return formatPercent(value, 1);
     }
 
     case 'Currency': {
-      const cnum = Number(value);
-      if (isNaN(cnum)) return String(value);
       const rowCurrency =
         'currency' in row && typeof row.currency === 'string'
           ? row.currency
-          : 'AED';
-      try {
-        return cnum.toLocaleString('en-AE', {
-          style: 'currency',
-          currency: rowCurrency,
-        });
-      } catch {
-        return cnum.toLocaleString('en-AE', {
-          style: 'currency',
-          currency: 'AED',
-        });
-      }
+          : undefined;
+      return formatCurrency(value, rowCurrency);
     }
 
     case 'Date': {
-      const d = new Date(String(value));
-      return isNaN(d.getTime())
-        ? String(value)
-        : d.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          });
+      return formatDate(value);
     }
 
     case 'Datetime': {
-      const dt = new Date(String(value));
-      if (isNaN(dt.getTime())) return String(value);
-      const datePart = dt.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
-      const timePart = dt.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
-      return `${datePart} ${timePart}`;
+      return formatDatetime(value);
     }
 
     case 'Check': {

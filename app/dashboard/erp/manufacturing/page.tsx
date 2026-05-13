@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation';
 import {
   getManufacturingDashboardData,
   getProductionTrends,
-} from './actions';
-import ManufacturingDashboardClient from './manufacturing-dashboard-client';
+} from '@/app/dashboard/erp/manufacturing/actions';
+import ManufacturingDashboardClient from '@/app/dashboard/erp/manufacturing/manufacturing-dashboard-client';
 
 export default async function ManufacturingDashboardPage() {
   const session = await getSession();

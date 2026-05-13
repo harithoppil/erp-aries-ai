@@ -7,8 +7,8 @@ import {
   getSalesOrderTrends,
   type SellingDashboardData,
   type SalesTrendPoint,
-} from './actions';
-import SellingDashboardClient from './selling-dashboard-client';
+} from '@/app/dashboard/erp/selling/actions';
+import SellingDashboardClient from '@/app/dashboard/erp/selling/selling-dashboard-client';
 
 export default async function SellingDashboardPage() {
   const session = await getSession();

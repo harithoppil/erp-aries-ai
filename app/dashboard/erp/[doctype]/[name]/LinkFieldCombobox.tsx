@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { searchDoctypeNames, type LinkSearchResult } from './actions';
+import { searchDoctypeNames, type LinkSearchResult } from '@/app/dashboard/erp/[doctype]/[name]/actions';
 
 interface LinkFieldComboboxProps {
   /** The doctype this field links to (e.g. "Customer", "Item"). */

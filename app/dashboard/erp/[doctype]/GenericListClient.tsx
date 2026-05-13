@@ -42,8 +42,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import GenericListSkeleton from './GenericListSkeleton';
-import { fetchDoctypeList, deleteDoctypeRecord, type ListMeta } from './actions';
+import GenericListSkeleton from '@/app/dashboard/erp/[doctype]/GenericListSkeleton';
+import { fetchDoctypeList, deleteDoctypeRecord, type ListMeta } from '@/app/dashboard/erp/[doctype]/actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
 import { usePageContext } from '@/hooks/usePageContext';
 import { useActionDispatcher, defineAction } from '@/store/useActionDispatcher';

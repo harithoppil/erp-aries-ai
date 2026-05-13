@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { getDelegateByAccessor } from '@/lib/erpnext/prisma-delegate';
-import DashboardClient from './DashboardClient';
+import DashboardClient from '@/app/dashboard/erp/quality/dashboard/DashboardClient';
 
 export const dynamic = 'force-dynamic';
 

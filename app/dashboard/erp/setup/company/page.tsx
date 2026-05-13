@@ -1,7 +1,7 @@
-import { listCompanies, type ClientSafeCompany } from './actions';
+import { listCompanies, type ClientSafeCompany } from '@/app/dashboard/erp/setup/company/actions';
 
 export const dynamic = 'force-dynamic';
-import CompanyClient from './company-client';
+import CompanyClient from '@/app/dashboard/erp/setup/company/company-client';
 
 export default async function CompanyPage() {
   const result = await listCompanies();

@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation';
 import {
   getProjectsDashboardData,
   getProjectTrends,
-} from './actions';
-import ProjectsDashboardClient from './projects-dashboard-client';
+} from '@/app/dashboard/erp/projects/actions';
+import ProjectsDashboardClient from '@/app/dashboard/erp/projects/projects-dashboard-client';
 
 export default async function ProjectsDashboardPage() {
   const session = await getSession();

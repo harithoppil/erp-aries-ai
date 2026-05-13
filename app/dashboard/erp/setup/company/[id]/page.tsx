@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
-import CompanyDetailClient from './company-detail-client';
+import CompanyDetailClient from '@/app/dashboard/erp/setup/company/[id]/company-detail-client';
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

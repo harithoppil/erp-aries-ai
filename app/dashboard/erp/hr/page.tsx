@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation';
 import {
   getHRDashboardData,
   type HRDashboardData,
-} from './actions';
-import HRDashboardClient from './hr-dashboard-client';
+} from '@/app/dashboard/erp/hr/actions';
+import HRDashboardClient from '@/app/dashboard/erp/hr/hr-dashboard-client';
 
 export default async function HRDashboardPage() {
   const session = await getSession();

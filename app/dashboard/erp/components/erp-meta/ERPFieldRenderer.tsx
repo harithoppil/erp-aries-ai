@@ -16,6 +16,13 @@ import { LinkFieldCombobox } from '@/app/dashboard/erp/[doctype]/[name]/LinkFiel
 import { cn } from '@/lib/utils';
 import type { DocFieldMeta } from '@/lib/erpnext/doctype-meta';
 import { linkFiltersToWhere } from '@/lib/erpnext/depends-on';
+import {
+  formatDate,
+  formatDatetime,
+  formatNumber as localeFormatNumber,
+  formatCurrency,
+  formatPercent,
+} from '@/lib/erpnext/locale';
 import { ArrowDownToLine } from 'lucide-react';
 
 interface ERPFieldRendererProps {
@@ -26,25 +33,11 @@ interface ERPFieldRendererProps {
   error?: string;
 }
 
-function formatNumber(value: unknown, fractionDigits = 2): string {
-  if (value === null || value === undefined || value === '') return '';
-  const n = typeof value === 'number' ? value : Number(value);
-  if (Number.isNaN(n)) return String(value);
-  return n.toLocaleString(undefined, {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  });
-}
-
 function parseSelectOptions(raw: string | null): string[] {
   if (!raw) return [];
   return raw.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
-/**
- * Small indicator icon shown next to fields that auto-fetch from a linked doctype.
- * The actual fetch logic will be wired in a future stage (on Link field change).
- */
 function FetchFromIndicator({ fetchFrom }: { fetchFrom: string | null }): JSX.Element | null {
   if (!fetchFrom) return null;
   return (
@@ -54,10 +47,6 @@ function FetchFromIndicator({ fetchFrom }: { fetchFrom: string | null }): JSX.El
   );
 }
 
-/**
- * Render a single Frappe-typed field as the right shadcn/ui component.
- * Read-only mode renders a plain text display; edit mode renders an input.
- */
 export function ERPFieldRenderer({
   field,
   value,
@@ -79,29 +68,23 @@ export function ERPFieldRenderer({
           </Badge>
         );
       case 'Currency':
+        return <span className="text-sm">{value == null || value === '' ? '-' : formatCurrency(value)}</span>;
       case 'Float':
+        return <span className="text-sm">{value == null || value === '' ? '-' : localeFormatNumber(value, 2)}</span>;
       case 'Percent':
-        return <span className="text-sm">{value == null || value === '' ? '-' : formatNumber(value)}</span>;
+        return <span className="text-sm">{value == null || value === '' ? '-' : formatPercent(value, 1)}</span>;
       case 'Int':
-        return <span className="text-sm">{value == null || value === '' ? '-' : formatNumber(value, 0)}</span>;
+        return <span className="text-sm">{value == null || value === '' ? '-' : localeFormatNumber(value, 0)}</span>;
       case 'Date':
         return (
           <span className="text-sm">
-            {value
-              ? new Date(stringValue).toLocaleDateString('en-GB', {
-                  day: '2-digit', month: 'short', year: 'numeric',
-                })
-              : '-'}
+            {value ? formatDate(value) : '-'}
           </span>
         );
       case 'Datetime':
         return (
           <span className="text-sm">
-            {value
-              ? new Date(stringValue).toLocaleString('en-GB', {
-                  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                })
-              : '-'}
+            {value ? formatDatetime(value) : '-'}
           </span>
         );
       case 'Text':
@@ -143,7 +126,7 @@ export function ERPFieldRenderer({
       const opts = parseSelectOptions(field.options);
       return (
         <>
-          <Select value={stringValue} onValueChange={(v) => handleChange(v)}>
+          <Select value={stringValue} onValueChange={(v) => { if (v !== null) handleChange(v); }}>
             <SelectTrigger className={cn('w-full', errorClass)}>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
@@ -178,12 +161,10 @@ export function ERPFieldRenderer({
           </>
         );
       }
-      // Parse link_filters into a Prisma where clause for the combobox.
       const parsedFilters = useMemo(() => {
         return linkFiltersToWhere(field.link_filters);
       }, [field.link_filters]);
 
-      // Reuse the existing combobox; it expects the doctype's display label.
       return (
         <>
           <div className="flex items-center gap-1">
@@ -333,7 +314,6 @@ export function ERPFieldRenderer({
     case 'Heading':
     case 'Button':
     case 'Image':
-      // No editable input — fall through to text input as a sensible default
       return (
         <Input
           id={field.fieldname}
@@ -420,7 +400,6 @@ export function ERPFieldRenderer({
       );
 
     case 'Duration': {
-      // Display as HH:MM:SS
       const totalSec = Number(value) || 0;
       const hrs = Math.floor(totalSec / 3600);
       const mins = Math.floor((totalSec % 3600) / 60);

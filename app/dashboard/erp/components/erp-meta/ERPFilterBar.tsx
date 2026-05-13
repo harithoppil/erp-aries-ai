@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { StandardFilter } from '@/lib/erpnext/doctype-meta';
-import type { FilterValue, FilterOperator } from './use-list-filters';
+import type { FilterValue, FilterOperator } from '@/app/dashboard/erp/components/erp-meta/use-list-filters';
 import { LinkFieldCombobox } from '@/app/dashboard/erp/[doctype]/[name]/LinkFieldCombobox';
 
 // ── Types ────────────────────────────────────────────────────────────────────

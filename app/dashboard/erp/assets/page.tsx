@@ -7,8 +7,8 @@ import {
   getAssetTrends,
   type AssetsDashboardData,
   type AssetTrendPoint,
-} from './actions';
-import AssetsDashboardClient from './assets-dashboard-client';
+} from '@/app/dashboard/erp/assets/actions';
+import AssetsDashboardClient from '@/app/dashboard/erp/assets/assets-dashboard-client';
 
 export default async function AssetsDashboardPage() {
   const session = await getSession();

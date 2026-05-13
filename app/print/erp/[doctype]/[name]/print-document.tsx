@@ -2,6 +2,8 @@
 // Sales Invoice / Purchase Invoice / Sales Order / Purchase Order / Quotation /
 // Delivery Note / Purchase Receipt. Renders header + party + line items + totals.
 
+import { formatNumber, formatDate as localeFormatDate, formatCurrency } from '@/lib/erpnext/locale';
+
 interface PrintDocumentProps {
   doctype: string;
   doctypeLabel: string;
@@ -51,27 +53,6 @@ function findLineItemsKey(record: Record<string, unknown>): string | null {
   return null;
 }
 
-function formatNumber(value: unknown, decimals = 2): string {
-  if (value === null || value === undefined || value === '') return '';
-  const n = typeof value === 'number' ? value : Number(value);
-  if (Number.isNaN(n)) return String(value);
-  return n.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-function formatDate(value: unknown): string {
-  if (!value) return '';
-  if (value instanceof Date) return value.toLocaleDateString('en-GB');
-  if (typeof value === 'string') {
-    const d = new Date(value);
-    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-GB');
-    return value.slice(0, 10);
-  }
-  return String(value);
-}
-
 export function PrintDocument({ doctype, doctypeLabel, record }: PrintDocumentProps) {
   const party = getPartyInfo(record);
   const itemsKey = findLineItemsKey(record);
@@ -99,7 +80,7 @@ export function PrintDocument({ doctype, doctypeLabel, record }: PrintDocumentPr
           <p className="mt-1 text-xl font-semibold">{String(record.name ?? '')}</p>
           <p className="mt-1 text-xs text-gray-600">
             Date:{' '}
-            {formatDate(
+            {localeFormatDate(
               record.posting_date ?? record.transaction_date ?? record.creation,
             )}
           </p>
@@ -120,7 +101,7 @@ export function PrintDocument({ doctype, doctypeLabel, record }: PrintDocumentPr
               <h2 className="mb-1 text-xs uppercase tracking-widest text-gray-500">
                 Due Date
               </h2>
-              <p className="font-medium">{formatDate(record.due_date)}</p>
+              <p className="font-medium">{localeFormatDate(record.due_date)}</p>
             </>
           )}
           {record.delivery_date != null && (
@@ -128,7 +109,7 @@ export function PrintDocument({ doctype, doctypeLabel, record }: PrintDocumentPr
               <h2 className="mt-2 mb-1 text-xs uppercase tracking-widest text-gray-500">
                 Delivery Date
               </h2>
-              <p className="font-medium">{formatDate(record.delivery_date)}</p>
+              <p className="font-medium">{localeFormatDate(record.delivery_date)}</p>
             </>
           )}
         </div>

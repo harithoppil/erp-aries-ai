@@ -71,10 +71,10 @@ import {
   submitDoctypeRecord,
   cancelDoctypeRecord,
   createDoctypeRecord,
-} from './actions';
+} from '@/app/dashboard/erp/[doctype]/[name]/actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
-import type { SchemaField } from './actions';
-import { LinkFieldCombobox } from './LinkFieldCombobox';
+import type { SchemaField } from '@/app/dashboard/erp/[doctype]/[name]/actions';
+import { LinkFieldCombobox } from '@/app/dashboard/erp/[doctype]/[name]/LinkFieldCombobox';
 import { usePageContext } from '@/hooks/usePageContext';
 import { useActionDispatcher, defineAction } from '@/store/useActionDispatcher';
 import { useAppStore } from '@/store/useAppStore';

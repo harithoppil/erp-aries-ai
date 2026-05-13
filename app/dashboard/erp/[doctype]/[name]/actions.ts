@@ -21,6 +21,7 @@ import {
   getChildAccessor,
 } from '@/lib/erpnext/document-orchestrator';
 import { generateDocName, getDefaultSeriesMappings } from '@/lib/erpnext/naming-series';
+import { dispatchWebhookEvent } from '@/app/dashboard/erp/webhooks/actions';
 
 async function getAuthToken(): Promise<string | undefined> {
   return (await cookies()).get('token')?.value;
@@ -233,6 +234,9 @@ export async function updateDoctypeRecord(
       return await txRecord[accessor].findUnique({ where: { name } });
     });
 
+    // Fire after_update webhook (non-blocking)
+    dispatchWebhookEvent(doctype, name, 'after_update').catch(() => {});
+
     return { success: true, data: serializeDates(result as Record<string, unknown>) };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -276,6 +280,9 @@ export async function deleteDoctypeRecord(
       await txRecord[accessor].delete({ where: { name } });
     });
 
+    // Fire after_delete webhook (non-blocking)
+    dispatchWebhookEvent(doctype, name, 'after_delete').catch(() => {});
+
     return { success: true, data: { message: `${doctype} "${name}" deleted`, deleted_children: childCount } };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -302,6 +309,8 @@ export async function submitDoctypeRecord(
     if (!result.success) {
       return { success: false, error: result.error ?? 'Submit failed' };
     }
+    // Fire on_submit webhook (non-blocking)
+    dispatchWebhookEvent(doctype, name, 'on_submit').catch(() => {});
     return { success: true, data: serializeDates(result.data as Record<string, unknown>) };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -323,6 +332,8 @@ export async function cancelDoctypeRecord(
     if (!result.success) {
       return { success: false, error: result.error ?? 'Cancel failed' };
     }
+    // Fire on_cancel webhook (non-blocking)
+    dispatchWebhookEvent(doctype, name, 'on_cancel').catch(() => {});
     return { success: true, data: serializeDates(result.data as Record<string, unknown>) };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -605,6 +616,10 @@ export async function createDoctypeRecord(
     const result = await (prisma as unknown as Record<string, PrismaDelegate>)[accessor].create({
       data,
     });
+
+    // Fire after_insert webhook (non-blocking)
+    const recordName = String(data.name);
+    dispatchWebhookEvent(doctype, recordName, 'after_insert', data as Record<string, unknown>).catch(() => {});
 
     return { success: true, data: serializeDates(result as Record<string, unknown>) };
   } catch (err: unknown) {

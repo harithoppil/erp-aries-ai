@@ -8,7 +8,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import { ERPTabLayout } from './ERPTabLayout';
+import { ERPTabLayout } from '@/app/dashboard/erp/components/erp-meta/ERPTabLayout';
 import type { DocTypeMeta } from '@/lib/erpnext/doctype-meta';
 
 interface GridExpandPanelProps {
