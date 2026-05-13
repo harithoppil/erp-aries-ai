@@ -55,6 +55,7 @@
         "embla-carousel-react": "^8.6.0",
         "exceljs": "^4.4.0",
         "exifr": "^7.1.3",
+        "frappe-gantt": "^1.2.2",
         "google-auth-library": "^10.6.2",
         "iconv-lite": "^0.7.2",
         "input-otp": "^1.4.2",
@@ -1408,6 +1409,8 @@
     "forwarded": ["forwarded@0.2.0", "", {}, "sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow=="],
 
     "framer-motion": ["framer-motion@12.38.0", "", { "dependencies": { "motion-dom": "^12.38.0", "motion-utils": "^12.36.0", "tslib": "^2.4.0" }, "peerDependencies": { "@emotion/is-prop-valid": "*", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/is-prop-valid", "react", "react-dom"] }, "sha512-rFYkY/pigbcswl1XQSb7q424kSTQ8q6eAC+YUsSKooHQYuLdzdHjrt6uxUC+PRAO++q5IS7+TamgIw1AphxR+g=="],
+
+    "frappe-gantt": ["frappe-gantt@1.2.2", "", {}, "sha512-1+uPNRa92LBIeKiZCVhJMiGIifJk5ONaoerXI8eBREXWRZGGoTJR5ATpMpsnAQcyBA6Gnq5wIht4eL+e4eHMBA=="],
 
     "fresh": ["fresh@2.0.0", "", {}, "sha512-Rx/WycZ60HOaqLKAi6cHRKKI7zxWbJ31MhntmtwMoaTeF7XFH9hhBp8vITaMidfljRQ6eYWCKkaTK+ykVJHP2A=="],
 
