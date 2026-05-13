@@ -225,6 +225,116 @@ export async function deleteDoctypeRecord(
   }
 }
 
+// ── Bulk Operations ──────────────────────────────────────────────────────────
+
+export interface BulkResult {
+  success: boolean;
+  affected: number;
+  failed: number;
+  errors?: string[];
+}
+
+export async function bulkDeleteDoctypeRecords(
+  doctype: string,
+  names: string[],
+): Promise<BulkResult> {
+  try {
+    const delegate = getDelegate(prisma, doctype);
+    if (!delegate) return { success: false, affected: 0, failed: names.length, errors: [`Unknown DocType: ${doctype}`] };
+
+    const result = await delegate.deleteMany({
+      where: { name: { in: names } },
+    });
+    // Fire webhooks non-blocking
+    for (const name of names) {
+      dispatchWebhookEvent(doctype, name, 'after_delete').catch(() => {});
+    }
+    return { success: true, affected: result.count, failed: names.length - result.count };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, affected: 0, failed: names.length, errors: [msg] };
+  }
+}
+
+export async function bulkUpdateDoctypeRecords(
+  doctype: string,
+  names: string[],
+  fieldUpdates: Record<string, unknown>,
+): Promise<BulkResult> {
+  try {
+    const delegate = getDelegate(prisma, doctype);
+    if (!delegate) return { success: false, affected: 0, failed: names.length, errors: [`Unknown DocType: ${doctype}`] };
+
+    // Remove protected fields that should never be bulk-updated
+    const protectedFields = new Set(['name', 'creation', 'modified', 'modified_by', 'owner', 'docstatus']);
+    const cleanUpdates: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(fieldUpdates)) {
+      if (!protectedFields.has(k)) cleanUpdates[k] = v;
+    }
+    if (Object.keys(cleanUpdates).length === 0) {
+      return { success: false, affected: 0, failed: names.length, errors: ['No valid fields to update'] };
+    }
+
+    const result = await delegate.updateMany({
+      where: { name: { in: names } },
+      data: { ...cleanUpdates, modified: new Date() },
+    });
+    for (const name of names) {
+      dispatchWebhookEvent(doctype, name, 'after_update').catch(() => {});
+    }
+    return { success: true, affected: result.count, failed: names.length - result.count };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, affected: 0, failed: names.length, errors: [msg] };
+  }
+}
+
+export async function bulkSubmitDoctypeRecords(
+  doctype: string,
+  names: string[],
+): Promise<BulkResult> {
+  try {
+    const delegate = getDelegate(prisma, doctype);
+    if (!delegate) return { success: false, affected: 0, failed: names.length, errors: [`Unknown DocType: ${doctype}`] };
+
+    // Only submit records that are Draft (docstatus=0)
+    const result = await delegate.updateMany({
+      where: { name: { in: names }, docstatus: 0 },
+      data: { docstatus: 1, modified: new Date() },
+    });
+    for (const name of names) {
+      dispatchWebhookEvent(doctype, name, 'on_submit').catch(() => {});
+    }
+    return { success: true, affected: result.count, failed: names.length - result.count };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, affected: 0, failed: names.length, errors: [msg] };
+  }
+}
+
+export async function bulkCancelDoctypeRecords(
+  doctype: string,
+  names: string[],
+): Promise<BulkResult> {
+  try {
+    const delegate = getDelegate(prisma, doctype);
+    if (!delegate) return { success: false, affected: 0, failed: names.length, errors: [`Unknown DocType: ${doctype}`] };
+
+    // Only cancel records that are Submitted (docstatus=1)
+    const result = await delegate.updateMany({
+      where: { name: { in: names }, docstatus: 1 },
+      data: { docstatus: 2, modified: new Date() },
+    });
+    for (const name of names) {
+      dispatchWebhookEvent(doctype, name, 'on_cancel').catch(() => {});
+    }
+    return { success: true, affected: result.count, failed: names.length - result.count };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, affected: 0, failed: names.length, errors: [msg] };
+  }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function serializeDates(obj: Record<string, unknown>): Record<string, unknown> {

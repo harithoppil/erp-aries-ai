@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import BulkModifyDialog from '@/app/dashboard/erp/components/BulkModifyDialog';
 import { toast } from 'sonner';
 import {
   Search,
@@ -33,6 +34,9 @@ import {
   Image as ImageIcon,
   BarChart3,
   GanttChart,
+  Pencil,
+  CheckCircle2,
+  XCircle,
   type LucideIcon,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
@@ -68,6 +72,9 @@ import {
 import {
   fetchDoctypeList,
   deleteDoctypeRecord,
+  bulkDeleteDoctypeRecords,
+  bulkSubmitDoctypeRecords,
+  bulkCancelDoctypeRecords,
   type ListMeta,
 } from '@/app/dashboard/erp/[doctype]/actions';
 import { toDisplayLabel } from '@/lib/erpnext/prisma-delegate';
@@ -320,22 +327,54 @@ export default function ERPListClient({
     if (names.length === 0) return;
     if (!confirm(`Delete ${names.length} record(s)? This cannot be undone.`)) return;
 
-    let successCount = 0;
-    for (const name of names) {
-      const result = await deleteDoctypeRecord(doctype, name);
-      if (result.success) {
-        successCount++;
-      } else {
-        toast.error(`Failed to delete "${name}": ${result.error}`);
-      }
-    }
-    if (successCount > 0) {
-      toast.success(`${successCount} record(s) deleted`);
+    const result = await bulkDeleteDoctypeRecords(doctype, names);
+    if (result.success) {
+      toast.success(`${result.affected} record(s) deleted`);
+      if (result.failed > 0) toast.warning(`${result.failed} record(s) could not be deleted`);
       setRecords((prev) => prev.filter((r) => !selectedRows.has(String(r.name ?? ''))));
-      setCurrentMeta((prev) => ({ ...prev, total: prev.total - successCount }));
+      setCurrentMeta((prev) => ({ ...prev, total: prev.total - result.affected }));
       setSelectedRows(new Set());
+    } else {
+      toast.error(result.errors?.[0] || 'Bulk delete failed');
     }
   }, [doctype, selectedRows]);
+
+  const handleBulkSubmit = useCallback(async () => {
+    const names = [...selectedRows];
+    if (names.length === 0) return;
+    if (!confirm(`Submit ${names.length} record(s)?`)) return;
+
+    const result = await bulkSubmitDoctypeRecords(doctype, names);
+    if (result.success) {
+      toast.success(`${result.affected} record(s) submitted`);
+      if (result.failed > 0) toast.warning(`${result.failed} record(s) could not be submitted (not in Draft)`);
+      setSelectedRows(new Set());
+      // Refresh data to show updated docstatus
+      const fresh = await fetchDoctypeList(doctype, { page, search: debouncedSearch || undefined, searchFields: initialMeta.doctype_info?.search_fields ?? undefined, orderby: sortField, order: sortOrder, filters });
+      if (fresh.success) { setRecords(fresh.records); setCurrentMeta(fresh.meta); }
+    } else {
+      toast.error(result.errors?.[0] || 'Bulk submit failed');
+    }
+  }, [doctype, selectedRows, page, debouncedSearch, sortField, sortOrder, filters, initialMeta.doctype_info?.search_fields]);
+
+  const handleBulkCancel = useCallback(async () => {
+    const names = [...selectedRows];
+    if (names.length === 0) return;
+    if (!confirm(`Cancel ${names.length} record(s)?`)) return;
+
+    const result = await bulkCancelDoctypeRecords(doctype, names);
+    if (result.success) {
+      toast.success(`${result.affected} record(s) cancelled`);
+      if (result.failed > 0) toast.warning(`${result.failed} record(s) could not be cancelled (not Submitted)`);
+      setSelectedRows(new Set());
+      const fresh = await fetchDoctypeList(doctype, { page, search: debouncedSearch || undefined, searchFields: initialMeta.doctype_info?.search_fields ?? undefined, orderby: sortField, order: sortOrder, filters });
+      if (fresh.success) { setRecords(fresh.records); setCurrentMeta(fresh.meta); }
+    } else {
+      toast.error(result.errors?.[0] || 'Bulk cancel failed');
+    }
+  }, [doctype, selectedRows, page, debouncedSearch, sortField, sortOrder, filters, initialMeta.doctype_info?.search_fields]);
+
+  const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
 
   // ── AI: Action registration ─────────────────────────────────────────────
   const { registerActions, unregisterActions } = useActionDispatcher();
@@ -587,6 +626,30 @@ export default function ERPListClient({
             variant="outline"
             size="sm"
             className="h-7 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+            onClick={() => setModifyDialogOpen(true)}
+          >
+            <Pencil size={12} className="mr-1" /> Modify
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+            onClick={handleBulkSubmit}
+          >
+            <CheckCircle2 size={12} className="mr-1" /> Submit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+            onClick={handleBulkCancel}
+          >
+            <XCircle size={12} className="mr-1" /> Cancel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50"
             onClick={handleBulkDelete}
           >
             <Trash2 size={12} className="mr-1" /> Delete
@@ -601,6 +664,28 @@ export default function ERPListClient({
           </Button>
         </div>
       )}
+
+      <BulkModifyDialog
+        open={modifyDialogOpen}
+        onOpenChange={setModifyDialogOpen}
+        doctype={doctype}
+        selectedNames={[...selectedRows]}
+        fields={initialMeta.fields}
+        onDone={() => {
+          setSelectedRows(new Set());
+          // Refresh list
+          fetchDoctypeList(doctype, {
+            page,
+            search: debouncedSearch || undefined,
+            searchFields: initialMeta.doctype_info?.search_fields ?? undefined,
+            orderby: sortField,
+            order: sortOrder,
+            filters,
+          }).then((fresh) => {
+            if (fresh.success) { setRecords(fresh.records); setCurrentMeta(fresh.meta); }
+          });
+        }}
+      />
 
       {/* Scrollable content area */}
       <div className="flex-1 min-h-0 overflow-auto pr-2">

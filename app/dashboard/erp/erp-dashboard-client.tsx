@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type JSX } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/use-media-query';
@@ -11,11 +11,24 @@ import {
   ArrowRight, TrendingUp,
 } from 'lucide-react';
 import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+} from 'recharts';
+
+import {
   fetchDashboardData,
+  seedDefaultDashboard,
+  listDashboardCharts,
+  listNumberCards,
   type NumberCardData,
   type ChartDataPoint,
-  type DashboardResult,
+  type DashboardChartConfig,
+  type NumberCardConfig,
 } from '@/app/dashboard/erp/dashboard-actions';
+
+import ERPChartWidget from '@/app/dashboard/erp/components/ERPChartWidget';
+import ERPNumberCardWidget from '@/app/dashboard/erp/components/ERPNumberCardWidget';
+
+const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#6d28d9', '#7c3aed', '#4f46e5', '#4338ca', '#3730a3'];
 
 function CardIcon({ doctype }: { doctype: string }): JSX.Element {
   if (doctype.includes('customer') || doctype.includes('supplier') || doctype.includes('employee'))
@@ -45,28 +58,6 @@ const CARD_COLORS = [
   'bg-lime-50 text-lime-700 border-lime-200',
   'bg-violet-50 text-violet-700 border-violet-200',
 ];
-
-function MiniBarChart({ data }: { data: ChartDataPoint[] }): JSX.Element {
-  if (data.length === 0) return <div className="text-xs text-muted-foreground">No data</div>;
-  const max = Math.max(...data.map((d) => d.value), 1);
-
-  return (
-    <div className="space-y-1.5">
-      {data.map((d, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground w-20 truncate shrink-0">{d.label}</span>
-          <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary/70 rounded-full transition-all"
-              style={{ width: `${(d.value / max) * 100}%` }}
-            />
-          </div>
-          <span className="text-xs font-medium w-8 text-right">{d.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ── Skeletons ────────────────────────────────────────────────────────────────
 
@@ -120,18 +111,30 @@ function DashboardSkeleton({ isMobile }: { isMobile: boolean }): JSX.Element {
 export function ERPDashboard(): JSX.Element {
   const [cards, setCards] = useState<NumberCardData[]>([]);
   const [charts, setCharts] = useState<{ label: string; type: string; data: ChartDataPoint[]; doctype: string }[]>([]);
+  const [dbCharts, setDbCharts] = useState<DashboardChartConfig[]>([]);
+  const [dbCards, setDbCards] = useState<NumberCardConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const router = useRouter();
 
   useEffect(() => {
-    fetchDashboardData().then((result: DashboardResult) => {
+    async function load(): Promise<void> {
+      await seedDefaultDashboard();
+
+      const chartConfigs = await listDashboardCharts();
+      const cardConfigs = await listNumberCards();
+      setDbCharts(chartConfigs);
+      setDbCards(cardConfigs);
+
+      // Load hardcoded fallback data
+      const result = await fetchDashboardData();
       if (result.success) {
         setCards(result.cards);
         setCharts(result.charts);
       }
       setLoading(false);
-    });
+    }
+    load();
   }, []);
 
   if (loading) {
@@ -145,26 +148,43 @@ export function ERPDashboard(): JSX.Element {
     <div className="space-y-6">
       {/* Number cards */}
       <div className={`grid ${cardGrid} gap-3`}>
-        {cards.map((card, i) => (
-          <Card
-            key={card.doctype}
-            className={`cursor-pointer hover:shadow-md transition-shadow border ${CARD_COLORS[i % CARD_COLORS.length]}`}
-            onClick={() => router.push(`/dashboard/erp/${card.doctype}`)}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <CardIcon doctype={card.doctype} />
-                <ArrowRight className="h-3 w-3 opacity-50" />
-              </div>
-              <div className="text-2xl font-bold">{card.value}</div>
-              <div className="text-xs mt-0.5 opacity-80">{card.label}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {dbCards.length > 0 ? (
+          dbCards.map((cardConfig) => (
+            <ERPNumberCardWidget key={cardConfig.name} config={cardConfig} />
+          ))
+        ) : (
+          cards.map((card, i) => (
+            <Card
+              key={card.doctype}
+              className={`cursor-pointer hover:shadow-md transition-shadow border ${CARD_COLORS[i % CARD_COLORS.length]}`}
+              onClick={() => router.push(`/dashboard/erp/${card.doctype}`)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <CardIcon doctype={card.doctype} />
+                  <ArrowRight className="h-3 w-3 opacity-50" />
+                </div>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <div className="text-xs mt-0.5 opacity-80">{card.label}</div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Charts */}
-      {charts.length > 0 && (
+      {dbCharts.length > 0 ? (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" /> Analytics Charts
+          </h2>
+          <div className={`grid ${chartGrid} gap-4`}>
+            {dbCharts.map((chartConfig) => (
+              <ERPChartWidget key={chartConfig.name} config={chartConfig} />
+            ))}
+          </div>
+        </div>
+      ) : charts.length > 0 ? (
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4" /> Breakdown Charts
@@ -181,13 +201,25 @@ export function ERPDashboard(): JSX.Element {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <MiniBarChart data={chart.data} />
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={chart.data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {chart.data.map((_entry, index) => (
+                          <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             ))}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

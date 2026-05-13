@@ -18009,3 +18009,69 @@ model WebhookLog {
   @@index([creation])
   @@map("webhook_log")
 }
+
+model DashboardChart {
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  name            String   @unique @db.VarChar(140)
+  creation        DateTime @default(now())
+  modified        DateTime @updatedAt
+
+  chart_name      String   @db.VarChar(140)
+  chart_type      String   @default("Bar") @db.VarChar(20)
+  doctype         String   @db.VarChar(140)
+  group_field     String   @db.VarChar(140)
+  value_field     String?  @db.VarChar(140)
+  aggregation     String   @default("count") @db.VarChar(20)
+  filters_json    String?  @db.Text
+  limit           Int      @default(10)
+  color_scheme    String?  @db.VarChar(50)
+  workspace       String?  @db.VarChar(140)
+  is_standard     Boolean  @default(false)
+  enabled         Boolean  @default(true)
+
+  @@index([doctype])
+  @@index([workspace])
+  @@map("dashboard_chart")
+}
+
+model NumberCard {
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  name            String   @unique @db.VarChar(140)
+  creation        DateTime @default(now())
+  modified        DateTime @updatedAt
+
+  card_name       String   @db.VarChar(140)
+  doctype         String   @db.VarChar(140)
+  aggregation     String   @default("count") @db.VarChar(20)
+  value_field     String?  @db.VarChar(140)
+  filters_json    String?  @db.Text
+  workspace       String?  @db.VarChar(140)
+  is_standard     Boolean  @default(false)
+  enabled         Boolean  @default(true)
+
+  @@index([doctype])
+  @@index([workspace])
+  @@map("number_card")
+}
+
+model NotificationLog {
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  name            String   @unique @default(cuid()) @db.VarChar(140)
+  creation        DateTime @default(now())
+  modified        DateTime @updatedAt
+
+  subject         String   @db.VarChar(255)
+  doctype         String?  @db.VarChar(140)
+  docname         String?  @db.VarChar(140)
+  for_user        String?  @db.VarChar(140)
+  type            String   @default("Info") @db.VarChar(20)
+  email_content   String?  @db.Text
+  document_type   String?  @db.VarChar(140)
+  document_name   String?  @db.VarChar(140)
+  read            Boolean  @default(false)
+  opened          Boolean  @default(false)
+
+  @@index([for_user, read])
+  @@index([creation])
+  @@map("notification_log")
+}
